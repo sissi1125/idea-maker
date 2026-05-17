@@ -12,6 +12,7 @@
 - 增加 Playground 可用性门禁：`feat-002.1` 后，每个 stage 交付前必须验证 Playground 仍然可用。
 - 补充 Document Upload & Library：上传文档后保存原文和解析前 metadata，页面再次进入时自动加载已上传文档并可选择 document version 作为 pipeline 输入。
 - 已初始化 git repository，并提交 harness 基座：`44306a5 Initialize harness foundation`。
+- 已在 `AGENTS.md` 增加 git/lifecycle 状态同步约束：状态变化后必须同步 `progress.md` 和 `session-handoff.md`，并在最终回复前完成验证。
 
 ### 当前状态
 
@@ -28,6 +29,7 @@
 
 - 文件创建或修改后运行 `./init.sh`，验证必需 harness 文件和 JSON 结构。
 - 当前 harness 基座提交前已运行 `./init.sh`，文件检查、JSON 校验和 feature status 校验均通过。
+- 发生 git/lifecycle 状态变化后，必须检查 `progress.md` 和 `session-handoff.md` 是否与真实状态一致。
 - Playground 搭建后，每个 stage 交付前按 `docs/VERIFICATION.md` 的 Stage 交付门禁记录验证证据。
 
 ### 风险 / 备注
