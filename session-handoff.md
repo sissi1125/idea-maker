@@ -18,6 +18,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 - 已补充 Document Upload & Library：上传文档入库保存，下次进入页面自动加载并可选择历史文档版本。
 - Git repository 已初始化，当前分支为 `main`。
 - Harness 基座已提交：`44306a5 Initialize harness foundation`。
+- 最新 harness 约束提交：`1e847af Add lifecycle state sync guardrails`。
 - 尚未脚手架应用代码。
 - 当前 working tree 应保持干净；如果后续修改文档或代码，结束前需要更新本文件和 `progress.md`。
 - `AGENTS.md` 已新增 git/lifecycle 状态同步约束：发生 `git init`、commit、branch/tag 变化、应用脚手架完成、dev server 启停方式变化、feature 完成或阻塞后，必须同步 `progress.md` 和本文件。

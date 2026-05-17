@@ -12,11 +12,12 @@
 - 增加 Playground 可用性门禁：`feat-002.1` 后，每个 stage 交付前必须验证 Playground 仍然可用。
 - 补充 Document Upload & Library：上传文档后保存原文和解析前 metadata，页面再次进入时自动加载已上传文档并可选择 document version 作为 pipeline 输入。
 - 已初始化 git repository，并提交 harness 基座：`44306a5 Initialize harness foundation`。
-- 已在 `AGENTS.md` 增加 git/lifecycle 状态同步约束：状态变化后必须同步 `progress.md` 和 `session-handoff.md`，并在最终回复前完成验证。
+- 已在 `AGENTS.md` 增加 git/lifecycle 状态同步约束：状态变化后必须同步 `progress.md` 和 `session-handoff.md`，并在最终回复前完成验证。提交：`1e847af Add lifecycle state sync guardrails`。
 
 ### 当前状态
 
 - 仓库已初始化为 git repository，当前分支为 `main`。
+- 当前最新提交为 `1e847af Add lifecycle state sync guardrails`。
 - 当前 working tree 干净。
 - 暂无应用代码。
 - Harness 文件已经定义目标 Next.js、TypeScript、RAG、retrieval 和 marketing generation 边界。
