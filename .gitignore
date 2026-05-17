@@ -1,0 +1,13 @@
+.DS_Store
+.agents/
+.claude/
+.claude/.DS_Store
+.claude/skills/.DS_Store
+
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example

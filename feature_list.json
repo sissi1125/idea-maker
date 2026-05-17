@@ -1,0 +1,235 @@
+{
+  "project": "Marketing RAG Playground",
+  "phase": "阶段 1：可调试 RAG Playground 闭环",
+  "features": [
+    {
+      "id": "feat-001",
+      "name": "Harness 基座",
+      "description": "创建 agent 说明、产品文档、功能追踪、进度追踪、交接模板和验证入口。",
+      "dependencies": [],
+      "status": "done",
+      "evidence": "2026-05-18 已创建 AGENTS.md、docs、feature_list.json、progress.md、session-handoff.md 和 init.sh；已将 harness 文档主体改为中文。"
+    },
+    {
+      "id": "feat-002",
+      "name": "Playground 应用基座",
+      "description": "创建 Next.js Web 应用基座、三栏 Playground 外壳、文档上传入口和文档库，为逐阶段执行 RAG pipeline 做 UI 承载。",
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "epic",
+      "evidence": "父级 feature，用于聚合 feat-002.1 至 feat-002.6；不要直接执行本项。"
+    },
+    {
+      "id": "feat-002.1",
+      "name": "Playground Shell Scaffold",
+      "description": "脚手架 Next.js + TypeScript + Tailwind/shadcn 基础应用，首页直接进入 Playground，不做 landing page。",
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-002.2",
+      "name": "三栏工作台布局",
+      "description": "实现左侧 pipeline steps、中间 stage 配置区、右侧 output/trace 区，并支持选中 stage 切换。",
+      "dependencies": [
+        "feat-002.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-002.3",
+      "name": "Stage 配置表单渲染器",
+      "description": "基于 stage/method/params schema 动态渲染 method selector、参数输入、默认值、校验提示和 reset 行为。",
+      "dependencies": [
+        "feat-002.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-002.4",
+      "name": "Stage 执行与状态面板",
+      "description": "为每个 stage 提供 run button、running/success/error 状态、耗时、warnings、error 和 trace JSON 展示。",
+      "dependencies": [
+        "feat-002.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-002.5",
+      "name": "Document Upload & Library",
+      "description": "实现文档上传、入库保存和历史文档选择：支持 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash、version；页面进入时自动加载已上传文档，用户选择 document version 作为 pipeline inputRef。",
+      "dependencies": [
+        "feat-002.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-002.6",
+      "name": "Pipeline 上下文与产物传递",
+      "description": "在前端维护 pipeline run context，使 selected document version 和上一步产物成为下一步 inputRef，并在 UI 中展示可用输入和阻塞原因。",
+      "dependencies": [
+        "feat-002.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003",
+      "name": "RAG Pipeline 分阶段执行",
+      "description": "按 stage 逐个实现 RAG pipeline 的 API、方法参数、产物 schema、trace envelope 和对应 Playground 功能。",
+      "dependencies": [
+        "feat-002.6"
+      ],
+      "status": "epic",
+      "evidence": "父级 feature，用于聚合 feat-003.1 至 feat-003.6；不要直接执行本项。"
+    },
+    {
+      "id": "feat-003.1",
+      "name": "Document Idempotency Stage",
+      "description": "实现文档幂等性检查及对应 Playground：上传/输入文档内容，选择 hash method，展示 fileName、fileSize、hash、exists、documentId、version 和 recommendedAction。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-002.6"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003.2",
+      "name": "Preprocess Stage",
+      "description": "实现 MD/TXT/PDF 预处理及对应 Playground：选择 parser method，配置保留标题/页码/清洗参数，展示 rawText、cleanText、metadata、warnings 和 source refs。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003.3",
+      "name": "Chunk Stage",
+      "description": "实现 fixed-size、recursive、markdown-heading chunk 方法及对应 Playground：配置 chunkSize、overlap、separator、headingDepth，展示 chunk list、chunk count、token estimate 和每个 chunk metadata。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003.4",
+      "name": "Transform Stage",
+      "description": "实现 none、heading-context、summary/keywords transform 及对应 Playground：配置 title、heading path、keywordCount、summaryMaxTokens，展示 original/enhanced chunk diff 和 transform metadata。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003.5",
+      "name": "Embedding Stage",
+      "description": "实现多 provider embedding 及对应 Playground：选择 OpenAI、HF TEI、HF Transformers.js 或 debug deterministic，配置 model、dimension、batchSize，展示 embedding dimension、provider trace、cost/latency 和错误码。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-003.6",
+      "name": "Storage Stage",
+      "description": "实现 PostgreSQL + pgvector storage 及对应 Playground：配置 upsert/new-version/replace-version，展示 stored document、chunks、embeddings、index config、dimension guard 和 storage trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004",
+      "name": "Retrieval Pipeline 分阶段执行",
+      "description": "实现 query rewrite、retrieval、filter、rerank、citation stages，并为每个阶段提供 Playground 配置、执行、输出和 trace。",
+      "dependencies": [
+        "feat-003.6"
+      ],
+      "status": "epic",
+      "evidence": "父级 feature，用于聚合 feat-004.1 至 feat-004.5；不要直接执行本项。"
+    },
+    {
+      "id": "feat-004.1",
+      "name": "Query Rewrite Stage",
+      "description": "实现 none、rule-keyword-expansion、llm-marketing-rewrite 及对应 Playground：配置 provider、model、targetAudience、rewriteGoal、maxQueries，展示 rewritten queries 和 provider trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-003.6"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004.2",
+      "name": "Retrieval Stage",
+      "description": "实现 dense-vector、postgres-fulltext、hybrid-rrf retrieval 及对应 Playground：配置 topK、threshold、vectorWeight、textWeight、filters，展示 matched chunks、score、sourceRef 和 retrieval trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-004.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004.3",
+      "name": "Filter Stage",
+      "description": "实现 score-threshold、metadata-filter、mmr-diversity 及对应 Playground：配置 minScore、maxPerDocument、requiredSourceTypes、mmrLambda，展示 filtered matches 和过滤原因。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-004.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004.4",
+      "name": "Rerank Stage",
+      "description": "实现 score-only、metadata-boost、hf-tei-rerank、llm-relevance-rerank 及对应 Playground：配置 provider、model、rerankTopN、criteria，展示排序前后对比、rerank score 和 provider trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-004.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004.5",
+      "name": "Citation Stage",
+      "description": "实现 chunk-citation、page-aware-citation、snippet-citation 及对应 Playground：配置 snippetLength、includePage、maxEvidencePerClaim，展示 evidence pack、source refs 和 citation trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
+      "dependencies": [
+        "feat-004.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-005",
+      "name": "Marketing Generation",
+      "description": "生成产品画像、卖点地图和内容 idea，并携带 evidence chunk references。",
+      "dependencies": [
+        "feat-004.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-006",
+      "name": "RAG Quality Evaluation",
+      "description": "添加基础 retrieval 和 evidence 质量指标，例如 hit rate、citation coverage、confidence 和 warnings。",
+      "dependencies": [
+        "feat-004.5",
+        "feat-005"
+      ],
+      "status": "todo",
+      "evidence": ""
+    }
+  ]
+}
