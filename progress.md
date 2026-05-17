@@ -11,10 +11,12 @@
 - 按“每次执行一个 RAG pipeline stage + 对应 Playground 功能”的方式细化 `feat-002`、`feat-003` 和 retrieval 相关后续 feature。
 - 增加 Playground 可用性门禁：`feat-002.1` 后，每个 stage 交付前必须验证 Playground 仍然可用。
 - 补充 Document Upload & Library：上传文档后保存原文和解析前 metadata，页面再次进入时自动加载已上传文档并可选择 document version 作为 pipeline 输入。
+- 已初始化 git repository，并提交 harness 基座：`44306a5 Initialize harness foundation`。
 
 ### 当前状态
 
-- 仓库尚未初始化为 git repository。
+- 仓库已初始化为 git repository，当前分支为 `main`。
+- 当前 working tree 干净。
 - 暂无应用代码。
 - Harness 文件已经定义目标 Next.js、TypeScript、RAG、retrieval 和 marketing generation 边界。
 
@@ -25,6 +27,7 @@
 ### 验证
 
 - 文件创建或修改后运行 `./init.sh`，验证必需 harness 文件和 JSON 结构。
+- 当前 harness 基座提交前已运行 `./init.sh`，文件检查、JSON 校验和 feature status 校验均通过。
 - Playground 搭建后，每个 stage 交付前按 `docs/VERIFICATION.md` 的 Stage 交付门禁记录验证证据。
 
 ### 风险 / 备注

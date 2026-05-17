@@ -16,8 +16,10 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 - `feat-002` 和 `feat-003` 已细化为按 RAG stage 逐步交付的 feature 列表。
 - 已新增 Playground 可用性门禁：`feat-002.1` 后，每个 stage 交付前必须验证 Playground 仍然可用。
 - 已补充 Document Upload & Library：上传文档入库保存，下次进入页面自动加载并可选择历史文档版本。
+- Git repository 已初始化，当前分支为 `main`。
+- Harness 基座已提交：`44306a5 Initialize harness foundation`。
 - 尚未脚手架应用代码。
-- 当前目录尚未初始化为 git repository。
+- 当前 working tree 应保持干净；如果后续修改文档或代码，结束前需要更新本文件和 `progress.md`。
 
 ## 下一步
 
