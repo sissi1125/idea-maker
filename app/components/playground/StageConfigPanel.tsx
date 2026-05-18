@@ -5,16 +5,29 @@ import { PipelineStage } from "./PipelineStepList";
 import { PipelineRun } from "./PlaygroundShell";
 import { StepRun } from "@/lib/types";
 import { getStage, defaults } from "@/lib/stageRegistry";
+import { DocumentRecord } from "@/lib/docStore";
 import ParamForm from "./ParamForm";
+import DocumentUploadPanel from "./DocumentUploadPanel";
 
 interface Props {
   stage: PipelineStage;
   pipelineRun: PipelineRun;
   latestRun: StepRun | undefined;
   onRun: (stageId: string, methodId: string, params: Record<string, unknown>) => void;
+  documents: DocumentRecord[];
+  onDocumentUploaded: (doc: DocumentRecord) => void;
+  onDocumentSelected: (doc: DocumentRecord) => void;
 }
 
-export default function StageConfigPanel({ stage, pipelineRun, latestRun, onRun }: Props) {
+export default function StageConfigPanel({
+  stage,
+  pipelineRun,
+  latestRun,
+  onRun,
+  documents,
+  onDocumentUploaded,
+  onDocumentSelected,
+}: Props) {
   const stageDef = getStage(stage.id);
   const blocked = stage.id !== "document-upload" && !pipelineRun.selectedDocumentId;
 
@@ -106,7 +119,14 @@ export default function StageConfigPanel({ stage, pipelineRun, latestRun, onRun 
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
-        {blocked ? (
+        {stage.id === "document-upload" ? (
+          <DocumentUploadPanel
+            documents={documents}
+            selectedId={pipelineRun.selectedDocumentId}
+            onUploaded={onDocumentUploaded}
+            onSelect={onDocumentSelected}
+          />
+        ) : blocked ? (
           <BlockedNotice />
         ) : !stageDef ? (
           <UnimplementedNotice stage={stage} />

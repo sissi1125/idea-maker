@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-18（会话 3）
+2026-05-18（会话 4）
 
 ## 项目
 
@@ -10,22 +10,19 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ## 当前状态
 
-- `feat-002.1`、`feat-002.2`、`feat-002.3`、`feat-002.4` 已完成（`status: done`）。
-- 应用在 `app/` 目录（untracked），待 commit。
-- 三栏 Playground 工作台可正常运行：stage 切换、method selector、params 表单、run button、output/trace 面板均已实现。
-- 所有 13 个 stages 的 methods + params schema 已在 `app/lib/stageRegistry.ts` 定义。
-- TypeCheck 通过（无报错）。
-- run button 调用 `/api/pipeline/{stageId}` POST；API 路由尚未实现，返回 network_error（符合预期）。
+- `feat-002.1` ～ `feat-002.5` 全部完成（`status: done`）。
+- 文档持久化：`app/data/documents.json`（本地 JSON，dev 环境，后续替换为 PostgreSQL）。
+- 选中文档后 pipeline 解锁，stage 方法配置和 run button 可用。
+- 待 commit：feat-002.5 新增文件（docStore.ts、API routes、DocumentUploadPanel）+ harness 文件更新。
 
 ## 下一步
 
-1. Commit 当前变更（feat-002.1 ～ feat-002.4 完成）。
-2. 实现 `feat-002.5` Document Upload & Library：
-   - 支持 MD/TXT/PDF 上传或粘贴文本。
-   - 保存 fileName、fileSize、mimeType、hash、version、createdAt 等 metadata。
-   - 页面加载时自动显示已上传文档列表；用户选择 document version 后解锁后续 stages。
-3. 实现 `feat-002.6` Pipeline 上下文与产物传递。
-4. 随后实现 feat-003.x RAG ingestion stages（需要数据库：PostgreSQL + pgvector）。
+1. Commit feat-002.5。
+2. 实现 `feat-002.6` Pipeline 上下文与产物传递：
+   - 上游 stage 成功 output 作为下游 inputRef。
+   - 下游缺少 inputRef 时展示阻塞原因（而非 BlockedNotice on 文档缺失）。
+   - 上游重跑后，下游提示"上游 input 已变化，请重新运行"。
+3. 随后实现 feat-003.x RAG ingestion stages API（需要数据库：PostgreSQL + pgvector）。
 
 ## 重要边界
 

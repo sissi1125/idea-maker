@@ -67,8 +67,8 @@
       "dependencies": [
         "feat-002.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 实现完整 Document Upload & Library：POST /api/documents 支持 multipart/form-data（文件上传）和 JSON（粘贴文本）；GET /api/documents 列出所有文档；本地 data/documents.json 持久化；DocumentUploadPanel 含粘贴/上传 tab、文档库卡片（fileName/version/fileSize/mimeType/hash/createdAt）；选中文档后 Header 显示文档名、pipeline 解锁。浏览器验证：上传 product-intro.md → 刷新后自动加载 → 选中后文档幂等性检查显示 method selector（非 BlockedNotice）。"
     },
     {
       "id": "feat-002.6",

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PipelineStepList, { PIPELINE_STAGES, PipelineStage } from "./PipelineStepList";
 import StageConfigPanel from "./StageConfigPanel";
 import OutputTracePanel from "./OutputTracePanel";
 import { StepRun, StepRunMap } from "@/lib/types";
+import { DocumentRecord } from "@/lib/docStore";
 
 export type PipelineRunStatus = "idle" | "running" | "success" | "error";
 
@@ -22,6 +23,29 @@ export default function PlaygroundShell() {
     selectedDocumentVersionId: null,
   });
   const [stepRuns, setStepRuns] = useState<StepRunMap>({});
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+
+  // Load document library on mount
+  useEffect(() => {
+    fetch("/api/documents")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data.documents)) setDocuments(data.documents); })
+      .catch(() => {});
+  }, []);
+
+  const handleDocumentUploaded = useCallback((doc: DocumentRecord) => {
+    setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
+  }, []);
+
+  const handleDocumentSelected = useCallback((doc: DocumentRecord) => {
+    setPipelineRun((p) => ({
+      ...p,
+      status: "idle",
+      selectedDocumentId: doc.id,
+      selectedDocumentVersionId: `${doc.id}-v${doc.version}`,
+    }));
+    setStepRuns({});
+  }, []);
 
   const addStepRun = useCallback((run: StepRun) => {
     setStepRuns((prev) => ({
@@ -37,24 +61,14 @@ export default function PlaygroundShell() {
     }));
   }, []);
 
-  const latestRun = (stageId: string): StepRun | undefined =>
-    stepRuns[stageId]?.[0];
+  const latestRun = (stageId: string): StepRun | undefined => stepRuns[stageId]?.[0];
 
-  const anyRunning = Object.values(stepRuns)
-    .flat()
-    .some((r) => r.status === "running");
+  const anyRunning = Object.values(stepRuns).flat().some((r) => r.status === "running");
 
   const handleRun = useCallback(
     async (stageId: string, methodId: string, params: Record<string, unknown>) => {
       const runId = `${stageId}-${Date.now()}`;
-      const newRun: StepRun = {
-        id: runId,
-        stageId,
-        methodId,
-        params,
-        status: "running",
-        startedAt: Date.now(),
-      };
+      const newRun: StepRun = { id: runId, stageId, methodId, params, status: "running", startedAt: Date.now() };
 
       addStepRun(newRun);
       setPipelineRun((p) => ({ ...p, status: "running" }));
@@ -70,28 +84,22 @@ export default function PlaygroundShell() {
 
         if (!res.ok) {
           updateStepRun(stageId, runId, {
-            status: "error",
-            durationMs,
+            status: "error", durationMs,
             error: data.error ?? { code: "unknown_error", message: "未知错误" },
-            trace: data.trace,
-            warnings: data.warnings,
+            trace: data.trace, warnings: data.warnings,
           });
           setPipelineRun((p) => ({ ...p, status: "error" }));
         } else {
           updateStepRun(stageId, runId, {
-            status: "success",
-            durationMs,
-            output: data.output,
-            trace: data.trace,
-            warnings: data.warnings,
+            status: "success", durationMs,
+            output: data.output, trace: data.trace, warnings: data.warnings,
           });
           setPipelineRun((p) => ({ ...p, status: "success" }));
         }
       } catch (err) {
         const durationMs = Date.now() - newRun.startedAt;
         updateStepRun(stageId, runId, {
-          status: "error",
-          durationMs,
+          status: "error", durationMs,
           error: { code: "network_error", message: String(err) },
         });
         setPipelineRun((p) => ({ ...p, status: "error" }));
@@ -100,9 +108,11 @@ export default function PlaygroundShell() {
     [addStepRun, updateStepRun, pipelineRun]
   );
 
+  const selectedDoc = documents.find((d) => d.id === pipelineRun.selectedDocumentId);
+
   return (
     <div className="flex flex-col h-screen bg-zinc-50 overflow-hidden">
-      <Header pipelineRun={pipelineRun} anyRunning={anyRunning} />
+      <Header pipelineRun={pipelineRun} anyRunning={anyRunning} selectedDoc={selectedDoc} />
       <div className="flex flex-1 overflow-hidden">
         <PipelineStepList
           activeStage={activeStage}
@@ -115,11 +125,11 @@ export default function PlaygroundShell() {
           pipelineRun={pipelineRun}
           latestRun={latestRun(activeStage.id)}
           onRun={handleRun}
+          documents={documents}
+          onDocumentUploaded={handleDocumentUploaded}
+          onDocumentSelected={handleDocumentSelected}
         />
-        <OutputTracePanel
-          stage={activeStage}
-          runs={stepRuns[activeStage.id] ?? []}
-        />
+        <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
       </div>
     </div>
   );
@@ -128,19 +138,17 @@ export default function PlaygroundShell() {
 function Header({
   pipelineRun,
   anyRunning,
+  selectedDoc,
 }: {
   pipelineRun: PipelineRun;
   anyRunning: boolean;
+  selectedDoc: DocumentRecord | undefined;
 }) {
   const status = anyRunning ? "running" : pipelineRun.status;
 
   const statusLabel: Record<PipelineRunStatus, string> = {
-    idle: "待运行",
-    running: "运行中",
-    success: "成功",
-    error: "错误",
+    idle: "待运行", running: "运行中", success: "成功", error: "错误",
   };
-
   const statusColor: Record<PipelineRunStatus, string> = {
     idle: "bg-zinc-100 text-zinc-500",
     running: "bg-blue-100 text-blue-700",
@@ -154,21 +162,15 @@ function Header({
         Marketing RAG Playground
       </h1>
       <span className="text-zinc-200">|</span>
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[status]}`}
-      >
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            status === "running" ? "bg-blue-500 animate-pulse" : "bg-current opacity-50"
-          }`}
-        />
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[status]}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${status === "running" ? "bg-blue-500 animate-pulse" : "bg-current opacity-50"}`} />
         Pipeline {statusLabel[status]}
       </span>
-      {!pipelineRun.selectedDocumentId && (
-        <span className="ml-auto text-xs text-zinc-400">
-          尚未选择文档 — 请先上传或选择一个文档作为 pipeline 输入
-        </span>
-      )}
+      <span className="ml-auto text-xs text-zinc-400">
+        {selectedDoc
+          ? <span className="text-zinc-600">📄 {selectedDoc.fileName} <span className="text-zinc-400">v{selectedDoc.version}</span></span>
+          : "尚未选择文档 — 请先上传或选择一个文档作为 pipeline 输入"}
+      </span>
     </header>
   );
 }

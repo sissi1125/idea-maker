@@ -1,5 +1,25 @@
 # 进度记录
 
+## 2026-05-18（会话 4）
+
+### 已完成
+
+- 实现 `feat-002.5` Document Upload & Library：
+  - `lib/docStore.ts`：本地 JSON 存储（`data/documents.json`），含 SHA-256 哈希、version 追踪。
+  - `GET /api/documents`：列出所有文档（按 createdAt 降序）。
+  - `POST /api/documents`：支持 multipart/form-data（文件）和 JSON（粘贴文本）两种入口。
+  - `DocumentUploadPanel`：粘贴文本/上传文件 tab、实时上传、文档库卡片（含 hash 前缀/version/size/mimeType/createdAt）。
+  - 选中文档后：Header 显示文件名+版本；`pipelineRun.selectedDocumentId` 更新；后续 stages 解锁。
+  - 页面刷新后自动通过 `GET /api/documents` 加载已上传文档。
+- 浏览器全程验证：上传 → 保存 → 刷新 → 自动加载 → 选中 → pipeline 解锁。
+
+### 当前状态
+
+- `feat-002.1` ~ `feat-002.5` 全部完成。
+- 下一步：`feat-002.6` Pipeline 上下文与产物传递（上游 output 作为下游 inputRef，缺失时展示阻塞原因，上游重跑后提示下游需重跑）。
+
+---
+
 ## 2026-05-18（会话 3）
 
 ### 已完成

@@ -1,0 +1,16 @@
+{
+  "documents": [
+    {
+      "id": "02d9dbf4-0a8e-4a22-a369-4ecb232bc832",
+      "fileName": "product-intro.md",
+      "fileSize": 234,
+      "mimeType": "text/markdown",
+      "hash": "d0d1e8e89e6b42d55ff9730ac5bac6f7b56d8d4e3161eafd66718cbc18c3cf25",
+      "version": 1,
+      "rawContent": "# 产品介绍\n\nAI RAG Playground 是一个可调试的 RAG 系统，帮助团队构建高质量的知识检索流程。\n\n## 核心功能\n\n- 文档上传与预处理\n- 向量嵌入与存储\n- 语义检索与重排\n- 营销 Idea 生成",
+      "createdAt": "2026-05-18T01:07:42.972Z",
+      "updatedAt": "2026-05-18T01:07:42.972Z",
+      "processingStatus": "ready"
+    }
+  ]
+}
