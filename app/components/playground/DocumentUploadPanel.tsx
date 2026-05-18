@@ -25,6 +25,7 @@ function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void 
   const [fileName, setFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const submit = async () => {
@@ -49,6 +50,7 @@ function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void 
       onUploaded(data.document);
       setText("");
       setFileName("");
+      setSelectedFile(null);
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
       setError(String(e));
@@ -94,14 +96,31 @@ function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void 
           />
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-200 p-8 cursor-pointer hover:border-zinc-400 hover:bg-zinc-50 transition-colors">
-          <span className="text-2xl">📄</span>
-          <span className="text-xs text-zinc-500">点击选择或拖拽文件（MD / TXT / PDF）</span>
+        <label className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
+          selectedFile ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50"
+        }`}>
+          <span className="text-2xl">{selectedFile ? "✅" : "📄"}</span>
+          {selectedFile ? (
+            <div className="flex flex-col items-center gap-0.5 text-center">
+              <span className="text-xs font-medium text-zinc-800">{selectedFile.name}</span>
+              <span className="text-[10px] text-zinc-400">
+                {selectedFile.size < 1024
+                  ? `${selectedFile.size} B`
+                  : selectedFile.size < 1024 * 1024
+                  ? `${(selectedFile.size / 1024).toFixed(1)} KB`
+                  : `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`}
+                {" · "}点击重新选择
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-zinc-500">点击选择或拖拽文件（MD / TXT / PDF）</span>
+          )}
           <input
             ref={fileRef}
             type="file"
             accept=".md,.txt,.pdf,text/plain,text/markdown,application/pdf"
             className="sr-only"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
           />
         </label>
       )}
