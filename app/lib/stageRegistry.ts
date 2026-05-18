@@ -125,8 +125,28 @@ const registry: StageDef[] = [
         ],
       },
       {
+        id: "markitdown",
+        label: "Markitdown（万能格式转 MD）",
+        params: [
+          { key: "preserveHeadings", label: "保留标题结构", type: "boolean", default: true },
+          { key: "preserveTables", label: "保留表格", type: "boolean", default: true },
+          { key: "removeBoilerplate", label: "移除样板内容", type: "boolean", default: true },
+          { key: "maxChars", label: "最大字符数", type: "number", default: 0, min: 0, hint: "0 = 不限制" },
+        ],
+      },
+      {
+        id: "pymupdf",
+        label: "PyMuPDF（PDF 精确提取）",
+        params: [
+          { key: "pdfPageRange", label: "页码范围", type: "text", default: "", placeholder: "例: 1-10，留空全部" },
+          { key: "extractImages", label: "提取图片描述（占位）", type: "boolean", default: false },
+          { key: "preserveLayout", label: "保留排版结构", type: "boolean", default: true },
+          { key: "maxChars", label: "最大字符数", type: "number", default: 0, min: 0, hint: "0 = 不限制" },
+        ],
+      },
+      {
         id: "pdf-pages",
-        label: "PDF 按页解析",
+        label: "PDF 按页解析（基础）",
         params: [
           { key: "pdfPageRange", label: "页码范围", type: "text", default: "", placeholder: "例: 1-10，留空全部" },
           { key: "preserveHeadings", label: "保留标题", type: "boolean", default: true },

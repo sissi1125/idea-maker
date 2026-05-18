@@ -4,6 +4,28 @@ import { useState } from "react";
 import { PipelineStage } from "./PipelineStepList";
 import { StepRun } from "@/lib/types";
 
+/** 单个字符串字段超过此长度时折叠展示，防止大文件撑爆 DOM */
+const STRING_TRUNCATE = 500;
+
+/**
+ * 递归遍历 output/trace 对象，把超长字符串替换成折叠形式。
+ * 返回一个新对象，不修改原始数据，原始内容通过 "展开" 按钮查看。
+ */
+function truncateStrings(value: unknown, maxLen = STRING_TRUNCATE): unknown {
+  if (typeof value === "string") {
+    return value.length > maxLen
+      ? { __truncated: true, preview: value.slice(0, maxLen), full: value, totalChars: value.length }
+      : value;
+  }
+  if (Array.isArray(value)) return value.map((v) => truncateStrings(v, maxLen));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, truncateStrings(v, maxLen)])
+    );
+  }
+  return value;
+}
+
 interface Props {
   stage: PipelineStage;
   runs: StepRun[];
@@ -11,16 +33,12 @@ interface Props {
 
 export default function OutputTracePanel({ stage, runs }: Props) {
   const [selectedRunIdx, setSelectedRunIdx] = useState(0);
-
   const run = runs[selectedRunIdx];
 
   return (
     <aside className="w-80 shrink-0 bg-zinc-50 flex flex-col overflow-hidden border-l border-zinc-200">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-          Output / Trace
-        </h3>
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Output / Trace</h3>
         {runs.length > 1 && (
           <select
             value={selectedRunIdx}
@@ -29,8 +47,7 @@ export default function OutputTracePanel({ stage, runs }: Props) {
           >
             {runs.map((r, i) => (
               <option key={r.id} value={i}>
-                Run #{runs.length - i}{" "}
-                {r.status === "success" ? "✓" : r.status === "error" ? "✗" : "…"}
+                Run #{runs.length - i} {r.status === "success" ? "✓" : r.status === "error" ? "✗" : "…"}
               </option>
             ))}
           </select>
@@ -57,9 +74,7 @@ export default function OutputTracePanel({ stage, runs }: Props) {
 function EmptyState({ stage }: { stage: PipelineStage }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-16 px-4">
-      <div className="w-8 h-8 rounded border border-zinc-200 bg-white flex items-center justify-center text-zinc-300 text-xs font-mono">
-        {}
-      </div>
+      <div className="w-8 h-8 rounded border border-zinc-200 bg-white flex items-center justify-center text-zinc-300 text-xs font-mono">{}</div>
       <p className="text-xs text-zinc-400">
         运行 <span className="font-medium text-zinc-500">{stage.name}</span> 后，产物和 trace 会显示在这里。
       </p>
@@ -69,23 +84,15 @@ function EmptyState({ stage }: { stage: PipelineStage }) {
 
 function StatusBar({ run }: { run: StepRun }) {
   const color =
-    run.status === "running"
-      ? "bg-blue-50 text-blue-700 border-blue-200"
-      : run.status === "success"
-      ? "bg-green-50 text-green-700 border-green-200"
-      : "bg-red-50 text-red-700 border-red-200";
+    run.status === "running" ? "bg-blue-50 text-blue-700 border-blue-200"
+    : run.status === "success" ? "bg-green-50 text-green-700 border-green-200"
+    : "bg-red-50 text-red-700 border-red-200";
 
   return (
     <div className={`flex items-center gap-2 px-4 py-2 border-b text-xs font-medium ${color}`}>
-      {run.status === "running" && (
-        <span className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-      )}
-      <span className="capitalize">
-        {run.status === "running" ? "运行中…" : run.status === "success" ? "成功" : "错误"}
-      </span>
-      {run.durationMs !== undefined && (
-        <span className="ml-auto opacity-70">{run.durationMs}ms</span>
-      )}
+      {run.status === "running" && <span className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />}
+      <span>{run.status === "running" ? "运行中…" : run.status === "success" ? "成功" : "错误"}</span>
+      {run.durationMs !== undefined && <span className="ml-auto opacity-70">{run.durationMs}ms</span>}
       <span className="opacity-50 font-mono">{run.methodId}</span>
     </div>
   );
@@ -97,9 +104,7 @@ function WarningsSection({ warnings }: { warnings: string[] }) {
       <SectionHeader label="Warnings" count={warnings.length} defaultOpen />
       <div className="px-4 py-3 flex flex-col gap-1">
         {warnings.map((w, i) => (
-          <p key={i} className="text-xs text-amber-700 leading-relaxed">
-            ⚠ {w}
-          </p>
+          <p key={i} className="text-xs text-amber-700 leading-relaxed">⚠ {w}</p>
         ))}
       </div>
     </section>
@@ -120,60 +125,150 @@ function ErrorSection({ error }: { error: { code: string; message: string } }) {
 
 function OutputSection({ output }: { output: unknown }) {
   const [open, setOpen] = useState(true);
+  // 截断长字符串后再渲染，防止大文件撑爆 DOM
+  const truncated = truncateStrings(output);
   return (
     <section className="border-b border-zinc-200">
       <SectionHeader label="Output" open={open} onToggle={() => setOpen((v) => !v)} />
-      {open && (
-        <pre className="px-4 py-3 text-[10px] font-mono text-zinc-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
-          {JSON.stringify(output, null, 2)}
-        </pre>
-      )}
+      {open && <JsonView value={truncated} />}
     </section>
   );
 }
 
 function TraceSection({ trace }: { trace: unknown }) {
   const [open, setOpen] = useState(false);
+  const truncated = truncateStrings(trace);
   return (
     <section>
       <SectionHeader label="Trace" open={open} onToggle={() => setOpen((v) => !v)} />
-      {open && (
-        <pre className="px-4 py-3 text-[10px] font-mono text-zinc-500 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
-          {JSON.stringify(trace, null, 2)}
-        </pre>
-      )}
+      {open && <JsonView value={truncated} />}
     </section>
   );
 }
 
+/**
+ * 自定义 JSON 渲染器。
+ * 识别 __truncated 标记，对长字符串显示预览 + 展开按钮，
+ * 其他值直接用 JSON.stringify 渲染。
+ */
+function JsonView({ value }: { value: unknown }) {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+
+    // 被 truncateStrings 标记为截断的字符串
+    if (obj.__truncated === true) {
+      return <TruncatedString preview={obj.preview as string} full={obj.full as string} totalChars={obj.totalChars as number} />;
+    }
+
+    // 普通对象：递归渲染每个 key
+    return (
+      <div className="px-4 py-3 text-[10px] font-mono text-zinc-700 space-y-1 overflow-x-auto">
+        {"{"}
+        {Object.entries(obj).map(([k, v]) => (
+          <div key={k} className="pl-3">
+            <span className="text-purple-600">"{k}"</span>
+            <span className="text-zinc-400">: </span>
+            <JsonValue value={v} />
+          </div>
+        ))}
+        {"}"}
+      </div>
+    );
+  }
+
+  // 数组或原始值
+  return (
+    <pre className="px-4 py-3 text-[10px] font-mono text-zinc-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+/** 递归渲染单个值（用于对象字段值） */
+function JsonValue({ value }: { value: unknown }): React.ReactNode {
+  if (value === null) return <span className="text-zinc-400">null</span>;
+  if (typeof value === "boolean") return <span className="text-blue-600">{String(value)}</span>;
+  if (typeof value === "number") return <span className="text-amber-600">{value}</span>;
+  if (typeof value === "string") return <span className="text-green-700">"{value}"</span>;
+
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (obj.__truncated === true) {
+      return <TruncatedString preview={obj.preview as string} full={obj.full as string} totalChars={obj.totalChars as number} />;
+    }
+    // 嵌套对象：用折叠的 JSON.stringify
+    return (
+      <CollapsibleJson value={value} />
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return <CollapsibleJson value={value} />;
+  }
+
+  return <span>{JSON.stringify(value)}</span>;
+}
+
+/** 可折叠的 JSON 块，用于嵌套对象/数组 */
+function CollapsibleJson({ value }: { value: unknown }) {
+  const [open, setOpen] = useState(false);
+  const preview = Array.isArray(value) ? `[…${(value as unknown[]).length} items]` : "{…}";
+  return (
+    <span>
+      <button onClick={() => setOpen((v) => !v)} className="text-zinc-400 hover:text-zinc-600 underline underline-offset-2">
+        {open ? "▾" : "▸"} {preview}
+      </button>
+      {open && (
+        <pre className="mt-1 ml-2 text-[10px] font-mono text-zinc-600 whitespace-pre-wrap break-all">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      )}
+    </span>
+  );
+}
+
+/** 截断字符串展示组件：默认显示前 N 字符 + 展开按钮 */
+function TruncatedString({ preview, full, totalChars }: { preview: string; full: string; totalChars: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <span className="inline-block w-full">
+      <span className="text-green-700 whitespace-pre-wrap break-all">
+        "{expanded ? full : preview}"
+      </span>
+      {!expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="ml-1 text-[9px] text-zinc-400 hover:text-zinc-600 border border-zinc-200 rounded px-1 py-0.5"
+        >
+          …展开（共 {totalChars.toLocaleString()} 字符）
+        </button>
+      )}
+      {expanded && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="ml-1 text-[9px] text-zinc-400 hover:text-zinc-600 border border-zinc-200 rounded px-1 py-0.5"
+        >
+          折叠
+        </button>
+      )}
+    </span>
+  );
+}
+
 function SectionHeader({
-  label,
-  count,
-  open,
-  defaultOpen,
-  onToggle,
+  label, count, open, defaultOpen, onToggle,
 }: {
-  label: string;
-  count?: number;
-  open?: boolean;
-  defaultOpen?: boolean;
-  onToggle?: () => void;
+  label: string; count?: number; open?: boolean; defaultOpen?: boolean; onToggle?: () => void;
 }) {
   const [localOpen, setLocalOpen] = useState(defaultOpen ?? true);
   const isOpen = onToggle ? open : localOpen;
   const toggle = onToggle ?? (() => setLocalOpen((v) => !v));
-
   return (
-    <button
-      onClick={toggle}
-      className="w-full flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors text-left"
-    >
+    <button onClick={toggle} className="w-full flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors text-left">
       <span>{isOpen ? "▾" : "▸"}</span>
       <span>{label}</span>
       {count !== undefined && (
-        <span className="ml-1 rounded-full bg-zinc-200 px-1.5 py-0.5 text-[8px] font-normal text-zinc-600">
-          {count}
-        </span>
+        <span className="ml-1 rounded-full bg-zinc-200 px-1.5 py-0.5 text-[8px] font-normal text-zinc-600">{count}</span>
       )}
     </button>
   );

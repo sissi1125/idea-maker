@@ -110,9 +110,16 @@ export default function PlaygroundShell() {
 
   const selectedDoc = documents.find((d) => d.id === pipelineRun.selectedDocumentId);
 
+  // 找出当前正在运行的 stage 名称，用于 Header 显示
+  const runningStageId = Object.entries(stepRuns)
+    .find(([, runs]) => runs[0]?.status === "running")?.[0];
+  const runningStageName = runningStageId
+    ? PIPELINE_STAGES.find(s => s.id === runningStageId)?.name
+    : undefined;
+
   return (
     <div className="flex flex-col h-screen bg-zinc-50 overflow-hidden">
-      <Header pipelineRun={pipelineRun} anyRunning={anyRunning} selectedDoc={selectedDoc} />
+      <Header pipelineRun={pipelineRun} anyRunning={anyRunning} selectedDoc={selectedDoc} runningStageName={runningStageName} />
       <div className="flex flex-1 overflow-hidden">
         <PipelineStepList
           activeStage={activeStage}
@@ -140,10 +147,12 @@ function Header({
   pipelineRun,
   anyRunning,
   selectedDoc,
+  runningStageName,
 }: {
   pipelineRun: PipelineRun;
   anyRunning: boolean;
   selectedDoc: DocumentRecord | undefined;
+  runningStageName: string | undefined;
 }) {
   const status = anyRunning ? "running" : pipelineRun.status;
 
@@ -163,14 +172,29 @@ function Header({
         Marketing RAG Playground
       </h1>
       <span className="text-zinc-200">|</span>
+
+      {/* Pipeline 整体状态，运行时显示当前 stage 名称 */}
       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[status]}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${status === "running" ? "bg-blue-500 animate-pulse" : "bg-current opacity-50"}`} />
-        Pipeline {statusLabel[status]}
+        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${status === "running" ? "bg-blue-500 animate-pulse" : "bg-current opacity-50"}`} />
+        {status === "running" && runningStageName
+          ? <>正在运行 <span className="font-semibold">{runningStageName}</span></>
+          : <>Pipeline {statusLabel[status]}</>
+        }
       </span>
-      <span className="ml-auto text-xs text-zinc-400">
-        {selectedDoc
-          ? <span className="text-zinc-600">📄 {selectedDoc.fileName} <span className="text-zinc-400">v{selectedDoc.version}</span></span>
-          : "尚未选择文档 — 请先上传或选择一个文档作为 pipeline 输入"}
+
+      {/* 当前选中文档（始终展示，无论是否运行中） */}
+      <span className="ml-auto flex items-center gap-2 text-xs">
+        {selectedDoc ? (
+          <>
+            <span className="text-zinc-400">当前文档</span>
+            <span className="inline-flex items-center gap-1 bg-zinc-100 rounded px-2 py-0.5 text-zinc-700 font-medium max-w-xs truncate">
+              📄 {selectedDoc.fileName}
+              <span className="text-zinc-400 font-normal">v{selectedDoc.version}</span>
+            </span>
+          </>
+        ) : (
+          <span className="text-zinc-400">尚未选择文档 — 请先上传或选择一个文档作为 pipeline 输入</span>
+        )}
       </span>
     </header>
   );

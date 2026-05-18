@@ -13,10 +13,12 @@
  * - 保留 heading 结构可以在后续 chunk 时记录"这段话属于哪个章节"，
  *   这个 sourceRef 对生成引用和溯源非常关键
  *
- * 支持三种解析方法：
+ * 支持五种解析方法：
  *   - markdown-structure: 保留 Markdown heading 层级，提取 heading path
  *   - plain-text:         只做基础清洗，适合纯文本文件
- *   - pdf-pages:          按页解析（当前用文本模拟，生产环境接 pdf-parse 库）
+ *   - markitdown:         微软 Markitdown 风格，支持多格式（HTML/DOCX/PDF）统一转 Markdown
+ *   - pymupdf:            PyMuPDF 风格，PDF 精确按页提取，保留排版结构
+ *   - pdf-pages:          按页解析（基础版，生产环境接 pdf-parse 库）
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -157,6 +159,188 @@ function parseMarkdown(
   };
 }
 
+// ─── Markitdown 预处理 ────────────────────────────────────────────────────────
+
+/**
+ * Markitdown 风格预处理（参考微软 markitdown 库的设计）。
+ *
+ * Markitdown 的核心思路：把任意格式（PDF、DOCX、HTML、PPTX 等）统一转换成
+ * 干净的 Markdown，再交给 LLM 或 RAG pipeline 处理。好处是：
+ *   1. LLM 对 Markdown 的理解能力远好于裸 HTML 或 PDF 提取文本
+ *   2. 结构（标题、表格、列表）在转换后仍然可见
+ *   3. 一套 pipeline 可以处理多种输入格式
+ *
+ * 当前实现：在 markdown-structure 基础上额外处理
+ *   - HTML 标签清洗（适合 DOCX 导出的 HTML）
+ *   - 表格保留（Markdown GFM 格式）
+ *   - 更激进的样板内容过滤
+ *
+ * 生产环境：调用 Python markitdown 服务或 Pandoc，这里用 JS 近似实现作为演示。
+ */
+function parseMarkitdown(
+  raw: string,
+  params: { preserveHeadings: boolean; preserveTables: boolean; removeBoilerplate: boolean; maxChars: number }
+): PreprocessOutput {
+  const warnings: string[] = [];
+
+  // Step 1: 清除常见 HTML 标签（适合从 DOCX/HTML 导出的内容）
+  let cleaned = raw
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")          // 移除所有 HTML 标签，保留内容
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"');
+
+  // Step 2: 如果检测到原始内容是 Markdown，走标准 MD 解析流程
+  const isMarkdown = /^#{1,6}\s+.+/m.test(raw) || /\*\*.+\*\*/m.test(raw);
+  if (isMarkdown) {
+    const mdResult = parseMarkdown(cleaned, {
+      preserveHeadings: params.preserveHeadings,
+      removeBoilerplate: params.removeBoilerplate,
+      maxChars: params.maxChars,
+    });
+    mdResult.warnings.unshift("markitdown: 检测到 Markdown 格式，已使用结构化解析");
+    return mdResult;
+  }
+
+  // Step 3: 非 Markdown 内容，做更激进的清洗
+  const lines = cleaned.split("\n");
+  const cleanLines: string[] = [];
+
+  for (const line of lines) {
+    const clean = line.replace(/\s+/g, " ").trim();
+    if (!clean) continue;
+
+    // Markitdown 会过滤掉页眉页脚（短于 20 字且只含数字/标点的行）
+    if (params.removeBoilerplate && clean.length < 20 && /^[\d\s\W]+$/.test(clean)) {
+      warnings.push(`markitdown: 过滤样板行 "${clean}"`);
+      continue;
+    }
+
+    cleanLines.push(clean);
+  }
+
+  let cleanText = cleanLines.join("\n");
+  if (params.maxChars > 0 && cleanText.length > params.maxChars) {
+    cleanText = cleanText.slice(0, params.maxChars);
+    warnings.push(`文本已截断至 ${params.maxChars} 字符`);
+  }
+
+  if (!params.preserveTables) {
+    // 移除疑似表格行（含多个 | 分隔符）
+    cleanText = cleanText.split("\n").filter(l => (l.match(/\|/g) ?? []).length < 2).join("\n");
+  }
+
+  return {
+    rawText: raw,
+    cleanText,
+    charCount: cleanText.length,
+    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
+    metadata: { fileName: "", mimeType: "text/plain" },
+    sourceRefs: [],
+    warnings,
+  };
+}
+
+// ─── PyMuPDF 预处理 ───────────────────────────────────────────────────────────
+
+/**
+ * PyMuPDF 风格预处理（参考 pymupdf / fitz 库的设计）。
+ *
+ * PyMuPDF 是 Python 中最精确的 PDF 处理库，核心优势：
+ *   1. 按页提取，精确保留页码信息（对法律/学术文档的引用很重要）
+ *   2. 能识别文本块的几何位置，从而重建阅读顺序（解决 PDF 多列乱序问题）
+ *   3. 支持提取图片、表格、注释等结构化信息
+ *
+ * 当前实现：模拟 PyMuPDF 的按页分块行为，生产环境应调用 Python 微服务。
+ * 每 30 行文本视为一页（粗略估计），记录页码 sourceRef。
+ *
+ * 为什么在 RAG 中 pymupdf 比基础 pdf-parse 更好？
+ *   - 保留页码可以生成"第 X 页"的精确引用，满足法律/合规场景要求
+ *   - 几何排序纠正多列 PDF 的乱序文本，chunk 质量更高
+ */
+function parsePymupdf(
+  raw: string,
+  params: { pdfPageRange: string; preserveLayout: boolean; extractImages: boolean; maxChars: number }
+): PreprocessOutput {
+  const warnings: string[] = [];
+  const sourceRefs: SourceRef[] = [];
+
+  // 按 30 行模拟一页（生产环境由 PDF 渲染引擎精确分页）
+  const lines = raw.split("\n").filter(l => l.trim());
+  const LINES_PER_PAGE = 30;
+  const totalPages = Math.ceil(lines.length / LINES_PER_PAGE);
+
+  // 解析页码范围（格式: "1-5" 或 "3" 或留空表示全部）
+  let startPage = 1;
+  let endPage = totalPages;
+  if (params.pdfPageRange.trim()) {
+    const match = params.pdfPageRange.match(/^(\d+)(?:-(\d+))?$/);
+    if (match) {
+      startPage = parseInt(match[1]);
+      endPage = match[2] ? parseInt(match[2]) : startPage;
+    } else {
+      warnings.push(`pymupdf: 无法解析页码范围 "${params.pdfPageRange}"，将处理全部页`);
+    }
+  }
+
+  const selectedLines: string[] = [];
+  let charCursor = 0;
+
+  for (let page = 1; page <= totalPages; page++) {
+    if (page < startPage || page > endPage) continue;
+
+    const pageStart = (page - 1) * LINES_PER_PAGE;
+    const pageLines = lines.slice(pageStart, pageStart + LINES_PER_PAGE);
+    const pageText = pageLines.join("\n");
+
+    // 记录每页的 sourceRef，供 citation 阶段使用
+    const refStart = charCursor;
+    charCursor += pageText.length + 1;
+    sourceRefs.push({
+      type: "page",
+      value: `第 ${page} 页`,
+      charStart: refStart,
+      charEnd: charCursor,
+    });
+
+    selectedLines.push(...pageLines);
+  }
+
+  let cleanText = selectedLines.join("\n");
+
+  // preserveLayout=false 时压缩连续空行，减少噪音
+  if (!params.preserveLayout) {
+    cleanText = cleanText.replace(/\n{3,}/g, "\n\n");
+  }
+
+  if (params.maxChars > 0 && cleanText.length > params.maxChars) {
+    cleanText = cleanText.slice(0, params.maxChars);
+    warnings.push(`文本已截断至 ${params.maxChars} 字符`);
+  }
+
+  if (params.extractImages) {
+    warnings.push("pymupdf: 图片提取在当前模拟模式下不可用，生产环境需接入 Python pymupdf 服务");
+  }
+
+  return {
+    rawText: raw,
+    cleanText,
+    charCount: cleanText.length,
+    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
+    metadata: {
+      fileName: "",
+      mimeType: "application/pdf",
+      pageCount: totalPages,
+    },
+    sourceRefs,
+    warnings,
+  };
+}
+
 // ─── 纯文本预处理 ─────────────────────────────────────────────────────────────
 
 /**
@@ -232,7 +416,10 @@ export async function POST(req: NextRequest) {
 
     // 从 params 中读取配置，提供安全默认值
     const preserveHeadings = params?.preserveHeadings !== false;
+    const preserveTables = params?.preserveTables !== false;
+    const preserveLayout = params?.preserveLayout !== false;
     const removeBoilerplate = Boolean(params?.removeBoilerplate);
+    const extractImages = Boolean(params?.extractImages);
     const maxChars = Number(params?.maxChars ?? 0);
     const pdfPageRange = (params?.pdfPageRange as string) ?? "";
 
@@ -243,9 +430,16 @@ export async function POST(req: NextRequest) {
         result = parsePlainText(doc.rawContent, { removeBoilerplate, maxChars });
         break;
 
+      case "markitdown":
+        result = parseMarkitdown(doc.rawContent, { preserveHeadings, preserveTables, removeBoilerplate, maxChars });
+        break;
+
+      case "pymupdf":
+        result = parsePymupdf(doc.rawContent, { pdfPageRange, preserveLayout, extractImages, maxChars });
+        break;
+
       case "pdf-pages":
-        // 当前用纯文本模拟 PDF 解析，生产环境应接入 pdf-parse 或 pdf2json
-        // 按指定页码范围过滤（这里简化为按行数模拟分页）
+        // 基础 PDF 按页解析（模拟），生产环境接 pdf-parse 或 pdf2json
         result = parsePlainText(doc.rawContent, { removeBoilerplate, maxChars });
         result.metadata.pageCount = Math.ceil(doc.rawContent.split("\n").length / 30);
         if (pdfPageRange) result.warnings.push(`pdf-pages: 当前为文本模拟，页码范围 "${pdfPageRange}" 未生效`);
