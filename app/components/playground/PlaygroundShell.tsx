@@ -37,6 +37,15 @@ export default function PlaygroundShell() {
     setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)]);
   }, []);
 
+  const handleDocumentDeleted = useCallback((id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+    // 如果删除的是当前选中文档，重置 pipeline
+    setPipelineRun((p) => p.selectedDocumentId === id
+      ? { status: "idle", selectedDocumentId: null, selectedDocumentVersionId: null }
+      : p
+    );
+  }, []);
+
   const handleDocumentSelected = useCallback((doc: DocumentRecord) => {
     setPipelineRun((p) => ({
       ...p,
@@ -135,6 +144,7 @@ export default function PlaygroundShell() {
           documents={documents}
           onDocumentUploaded={handleDocumentUploaded}
           onDocumentSelected={handleDocumentSelected}
+          onDocumentDeleted={handleDocumentDeleted}
           getLatestRun={latestRun}
         />
         <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />

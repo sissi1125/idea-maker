@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listDocuments, createDocument } from "@/lib/docStore";
+import { listDocuments, createDocument, isBinaryMimeType } from "@/lib/docStore";
 
 export async function GET() {
   try {
     const docs = listDocuments();
-    return NextResponse.json({ documents: docs });
+    // rawContent 可能很大，列表接口只返回 metadata，不含原始内容
+    return NextResponse.json({
+      documents: docs.map(({ rawContent: _raw, ...meta }) => meta),
+    });
   } catch (err) {
     return NextResponse.json({ error: { code: "storage_error", message: String(err) } }, { status: 500 });
   }
@@ -17,6 +20,7 @@ export async function POST(req: NextRequest) {
     let fileName = "pasted-text.txt";
     let mimeType = "text/plain";
     let rawContent = "";
+    let isBinary = false;
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -26,7 +30,15 @@ export async function POST(req: NextRequest) {
       if (file && file instanceof File) {
         fileName = file.name;
         mimeType = file.type || "application/octet-stream";
-        rawContent = await file.text();
+
+        if (isBinaryMimeType(mimeType)) {
+          // 二进制文件（PDF/DOCX）：转 base64 存储，避免 text() 乱码
+          const arrayBuffer = await file.arrayBuffer();
+          rawContent = Buffer.from(arrayBuffer).toString("base64");
+          isBinary = true;
+        } else {
+          rawContent = await file.text();
+        }
       } else if (typeof text === "string") {
         rawContent = text;
         const nameField = form.get("fileName");
@@ -57,8 +69,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const doc = createDocument(fileName, mimeType, rawContent);
-    return NextResponse.json({ document: doc }, { status: 201 });
+    const doc = createDocument(fileName, mimeType, rawContent, isBinary);
+    // 响应中不返回 rawContent（可能很大）
+    const { rawContent: _raw, ...meta } = doc;
+    return NextResponse.json({ document: meta }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: { code: "storage_error", message: String(err) } }, { status: 500 });
   }

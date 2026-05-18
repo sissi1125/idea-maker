@@ -8,13 +8,14 @@ interface Props {
   selectedId: string | null;
   onUploaded: (doc: DocumentRecord) => void;
   onSelect: (doc: DocumentRecord) => void;
+  onDeleted: (id: string) => void;
 }
 
-export default function DocumentUploadPanel({ documents, selectedId, onUploaded, onSelect }: Props) {
+export default function DocumentUploadPanel({ documents, selectedId, onUploaded, onSelect, onDeleted }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <UploadArea onUploaded={onUploaded} />
-      <DocumentLibrary documents={documents} selectedId={selectedId} onSelect={onSelect} />
+      <DocumentLibrary documents={documents} selectedId={selectedId} onSelect={onSelect} onDeleted={onDeleted} />
     </div>
   );
 }
@@ -143,20 +144,18 @@ function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void 
 }
 
 function DocumentLibrary({
-  documents,
-  selectedId,
-  onSelect,
+  documents, selectedId, onSelect, onDeleted,
 }: {
   documents: DocumentRecord[];
   selectedId: string | null;
   onSelect: (doc: DocumentRecord) => void;
+  onDeleted: (id: string) => void;
 }) {
   return (
     <section className="flex flex-col gap-3">
       <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
         文档库 {documents.length > 0 && <span className="font-normal text-zinc-400">({documents.length})</span>}
       </h3>
-
       {documents.length === 0 ? (
         <p className="text-xs text-zinc-400">尚无文档，上传后会出现在这里。</p>
       ) : (
@@ -167,6 +166,10 @@ function DocumentLibrary({
               doc={doc}
               selected={doc.id === selectedId}
               onSelect={() => onSelect(doc)}
+              onDelete={async () => {
+                await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
+                onDeleted(doc.id);
+              }}
             />
           ))}
         </div>
@@ -176,33 +179,38 @@ function DocumentLibrary({
 }
 
 function DocRow({
-  doc,
-  selected,
-  onSelect,
+  doc, selected, onSelect, onDelete,
 }: {
   doc: DocumentRecord;
   selected: boolean;
   onSelect: () => void;
+  onDelete: () => void;
 }) {
+  const [deleting, setDeleting] = useState(false);
+
   const sizeStr = doc.fileSize < 1024
     ? `${doc.fileSize} B`
     : doc.fileSize < 1024 * 1024
     ? `${(doc.fileSize / 1024).toFixed(1)} KB`
     : `${(doc.fileSize / 1024 / 1024).toFixed(1)} MB`;
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // 不触发 onSelect
+    setDeleting(true);
+    await onDelete();
+  };
+
   return (
     <div
       onClick={onSelect}
       className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-        selected
-          ? "border-zinc-900 bg-zinc-900 text-white"
-          : "border-zinc-200 bg-white hover:border-zinc-400 text-zinc-800"
+        selected ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white hover:border-zinc-400 text-zinc-800"
       }`}
     >
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         <p className="text-xs font-medium truncate">{doc.fileName}</p>
         <p className={`text-[10px] font-mono truncate ${selected ? "text-zinc-300" : "text-zinc-400"}`}>
-          {doc.hash.slice(0, 16)}…
+          {(doc.hash ?? "").slice(0, 16)}…
         </p>
         <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] ${selected ? "text-zinc-300" : "text-zinc-500"}`}>
           <span>v{doc.version}</span>
@@ -211,11 +219,25 @@ function DocRow({
           <span>{new Date(doc.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
         </div>
       </div>
-      <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${
-        selected ? "bg-white text-zinc-900" : "bg-green-50 text-green-700"
-      }`}>
-        {selected ? "已选择" : doc.processingStatus === "ready" ? "就绪" : doc.processingStatus}
-      </span>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+          selected ? "bg-white text-zinc-900" : "bg-green-50 text-green-700"
+        }`}>
+          {selected ? "已选择" : doc.processingStatus === "ready" ? "就绪" : doc.processingStatus}
+        </span>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          title="删除文档"
+          className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+            selected
+              ? "text-zinc-400 hover:text-red-300 hover:bg-zinc-800"
+              : "text-zinc-300 hover:text-red-500 hover:bg-red-50"
+          } ${deleting ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          {deleting ? "删除中…" : "✕ 删除"}
+        </button>
+      </div>
     </div>
   );
 }

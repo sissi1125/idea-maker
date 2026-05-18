@@ -18,6 +18,7 @@ interface Props {
   documents: DocumentRecord[];
   onDocumentUploaded: (doc: DocumentRecord) => void;
   onDocumentSelected: (doc: DocumentRecord) => void;
+  onDocumentDeleted: (id: string) => void;
   /** 获取任意 stage 最新运行结果，用于检查上游状态 */
   getLatestRun: (stageId: string) => StepRun | undefined;
 }
@@ -30,6 +31,7 @@ export default function StageConfigPanel({
   documents,
   onDocumentUploaded,
   onDocumentSelected,
+  onDocumentDeleted,
   getLatestRun,
 }: Props) {
   const stageDef = getStage(stage.id);
@@ -124,6 +126,7 @@ export default function StageConfigPanel({
             selectedId={pipelineRun.selectedDocumentId}
             onUploaded={onDocumentUploaded}
             onSelect={onDocumentSelected}
+            onDeleted={onDocumentDeleted}
           />
         ) : blockReason ? (
           <BlockedNotice reason={blockReason} />

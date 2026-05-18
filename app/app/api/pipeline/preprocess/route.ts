@@ -1,68 +1,60 @@
 /**
  * RAG Pipeline Stage 2 - 文档预处理 (Preprocess)
  *
- * 作用：把上传的原始文档转换为结构化的 cleanText，并提取 metadata。
- * 这是 chunking 的前置步骤——只有清洗干净的文本才能被有效切分和检索。
+ * 作用：把原始文档转换为结构化的 cleanText 和 sourceRefs，供 chunking 使用。
  *
- * 在 pipeline 中的位置：
+ * Pipeline 位置：
  *   幂等性检查 → [预处理] → 分块 → 向量化 → 存储
  *
- * 为什么预处理很重要？
- * - 原始 Markdown 包含大量语法符号（##、**、[]()），直接嵌入会引入噪音
- * - PDF 提取的文本常含页眉页脚、乱序段落，需要清洗
- * - 保留 heading 结构可以在后续 chunk 时记录"这段话属于哪个章节"，
- *   这个 sourceRef 对生成引用和溯源非常关键
+ * 五种方法及其真实依赖：
  *
- * 支持五种解析方法：
- *   - markdown-structure: 保留 Markdown heading 层级，提取 heading path
- *   - plain-text:         只做基础清洗，适合纯文本文件
- *   - markitdown:         微软 Markitdown 风格，支持多格式（HTML/DOCX/PDF）统一转 Markdown
- *   - pymupdf:            PyMuPDF 风格，PDF 精确按页提取，保留排版结构
- *   - pdf-pages:          按页解析（基础版，生产环境接 pdf-parse 库）
+ *   markdown-structure  纯 JS，无外部依赖
+ *   plain-text          纯 JS，无外部依赖
+ *   markitdown-ts       mammoth（DOCX→HTML）+ turndown（HTML→MD）+ pdf-parse v2（PDF→text）
+ *                       按文件类型自动路由，思路对标微软 markitdown，但全部是 npm 包
+ *   pdf-pages           pdf-parse v2 直接按页提取，适合需要页码 sourceRef 的场景
+ *   pymupdf             ⚠ pymupdf 是 Python 库，Next.js 不能直接调用。
+ *                       生产环境需独立 Python 微服务（FastAPI + pymupdf）。
+ *                       此处返回 501 + 部署建议，而非假实现。
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getDocument } from "@/lib/docStore";
+import { getDocument, getDocumentBuffer } from "@/lib/docStore";
+// pdf-parse v1：纯 Node.js，无 web worker 依赖，直接 pdfParse(buffer) 返回 Promise
+// v2 在 Next.js server 端会找 pdfjs web worker 文件导致失败，故回退到 v1
+import pdfParse from "pdf-parse";
+import TurndownService from "turndown";
+import mammoth from "mammoth";
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
 
-/** 段落级别的 source 引用，记录该段文字来自文档的哪里 */
 interface SourceRef {
   type: "heading" | "paragraph" | "page";
-  value: string;      // heading 路径或页码
+  value: string;
   charStart: number;
   charEnd: number;
 }
 
-/** preprocess 的产物结构 */
 interface PreprocessOutput {
-  rawText: string;
-  cleanText: string;
+  rawText: string;        // 原始内容（文本文件为原文，二进制文件为提取的文本）
+  cleanText: string;      // 清洗后的文本，直接用于 chunking
   charCount: number;
   wordCount: number;
   metadata: {
     fileName: string;
     mimeType: string;
-    headings?: string[];       // Markdown heading 列表
-    pageCount?: number;        // PDF 页数
+    headings?: string[];
+    pageCount?: number;
   };
   sourceRefs: SourceRef[];
   warnings: string[];
 }
 
-// ─── Markdown 预处理 ──────────────────────────────────────────────────────────
+// ─── markdown-structure ───────────────────────────────────────────────────────
 
 /**
- * 解析 Markdown 文档，保留标题层级结构。
- *
- * 核心逻辑：
- * 1. 按行扫描，识别 # ~ ###### 标题行
- * 2. 维护一个"当前 heading path"栈，例如 ["产品介绍", "核心功能"]
- * 3. 清洗 Markdown 语法（加粗、链接、代码块等）
- * 4. 每个段落记录其 heading path 作为 sourceRef，供 chunking 阶段使用
- *
- * @param raw 原始 Markdown 文本
- * @param params 用户配置项
+ * 用 heading path 栈解析 Markdown，为每段文字记录所属章节。
+ * sourceRef 的 heading path（如"产品介绍 > 核心功能"）是后续 citation 溯源的基础。
  */
 function parseMarkdown(
   raw: string,
@@ -73,76 +65,52 @@ function parseMarkdown(
   const sourceRefs: SourceRef[] = [];
   const warnings: string[] = [];
   const cleanLines: string[] = [];
-
-  // heading path 栈：index 0 = h1, 1 = h2, ...（最多 6 层）
   const headingStack: string[] = new Array(6).fill("");
   let charCursor = 0;
 
   for (const line of lines) {
-    // 识别 Markdown 标题：以 1~6 个 # 开头
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      const level = headingMatch[1].length - 1; // 转为 0-based 索引
+      const level = headingMatch[1].length - 1;
       const title = headingMatch[2].trim();
-
-      // 更新 heading 栈：当前层级写入标题，更深层级清空
       headingStack[level] = title;
       for (let i = level + 1; i < 6; i++) headingStack[i] = "";
-
       headings.push(title);
-
       if (params.preserveHeadings) {
-        // 保留标题文字（去掉 # 符号），保持段落可读性
-        const headingText = title;
-        cleanLines.push(headingText);
+        cleanLines.push(title);
         const start = charCursor;
-        charCursor += headingText.length + 1;
-        sourceRefs.push({
-          type: "heading",
-          value: headingStack.filter(Boolean).join(" > "),
-          charStart: start,
-          charEnd: charCursor,
-        });
+        charCursor += title.length + 1;
+        sourceRefs.push({ type: "heading", value: headingStack.filter(Boolean).join(" > "), charStart: start, charEnd: charCursor });
       }
       continue;
     }
 
-    // 清洗 Markdown 行内语法
     let clean = line
-      .replace(/!\[.*?\]\(.*?\)/g, "")      // 移除图片
-      .replace(/\[(.+?)\]\(.*?\)/g, "$1")   // 链接保留文字
-      .replace(/`{1,3}[^`]*`{1,3}/g, "")    // 移除行内代码
-      .replace(/\*{1,2}(.+?)\*{1,2}/g, "$1") // 移除加粗/斜体符号
+      .replace(/!\[.*?\]\(.*?\)/g, "")
+      .replace(/\[(.+?)\]\(.*?\)/g, "$1")
+      .replace(/`{1,3}[^`]*`{1,3}/g, "")
+      .replace(/\*{1,2}(.+?)\*{1,2}/g, "$1")
       .replace(/_{1,2}(.+?)_{1,2}/g, "$1")
-      .replace(/~~(.+?)~~/g, "$1")           // 移除删除线
-      .replace(/^[-*+]\s+/, "")              // 移除无序列表符号
-      .replace(/^\d+\.\s+/, "")             // 移除有序列表序号
-      .replace(/^>\s+/, "")                 // 移除引用符号
+      .replace(/~~(.+?)~~/g, "$1")
+      .replace(/^[-*+]\s+/, "")
+      .replace(/^\d+\.\s+/, "")
+      .replace(/^>\s+/, "")
       .trim();
 
-    // removeBoilerplate：过滤掉可能是页眉页脚的短行（<15 字且全是数字/标点）
     if (params.removeBoilerplate && clean.length < 15 && /^[\d\s\W]+$/.test(clean)) {
       warnings.push(`已过滤疑似样板内容: "${clean}"`);
       continue;
     }
-
-    if (!clean) continue; // 跳过空行
+    if (!clean) continue;
 
     const start = charCursor;
     charCursor += clean.length + 1;
-
-    // 记录该段落当前所属的 heading path
     const currentPath = headingStack.filter(Boolean).join(" > ");
-    if (currentPath) {
-      sourceRefs.push({ type: "paragraph", value: currentPath, charStart: start, charEnd: charCursor });
-    }
-
+    if (currentPath) sourceRefs.push({ type: "paragraph", value: currentPath, charStart: start, charEnd: charCursor });
     cleanLines.push(clean);
   }
 
   let cleanText = cleanLines.join("\n");
-
-  // 截断处理：maxChars > 0 时限制输出长度，并记录警告
   if (params.maxChars > 0 && cleanText.length > params.maxChars) {
     cleanText = cleanText.slice(0, params.maxChars);
     warnings.push(`文本已截断至 ${params.maxChars} 字符`);
@@ -159,232 +127,220 @@ function parseMarkdown(
   };
 }
 
-// ─── Markitdown 预处理 ────────────────────────────────────────────────────────
+// ─── plain-text ───────────────────────────────────────────────────────────────
 
-/**
- * Markitdown 风格预处理（参考微软 markitdown 库的设计）。
- *
- * Markitdown 的核心思路：把任意格式（PDF、DOCX、HTML、PPTX 等）统一转换成
- * 干净的 Markdown，再交给 LLM 或 RAG pipeline 处理。好处是：
- *   1. LLM 对 Markdown 的理解能力远好于裸 HTML 或 PDF 提取文本
- *   2. 结构（标题、表格、列表）在转换后仍然可见
- *   3. 一套 pipeline 可以处理多种输入格式
- *
- * 当前实现：在 markdown-structure 基础上额外处理
- *   - HTML 标签清洗（适合 DOCX 导出的 HTML）
- *   - 表格保留（Markdown GFM 格式）
- *   - 更激进的样板内容过滤
- *
- * 生产环境：调用 Python markitdown 服务或 Pandoc，这里用 JS 近似实现作为演示。
- */
-function parseMarkitdown(
-  raw: string,
-  params: { preserveHeadings: boolean; preserveTables: boolean; removeBoilerplate: boolean; maxChars: number }
-): PreprocessOutput {
-  const warnings: string[] = [];
-
-  // Step 1: 清除常见 HTML 标签（适合从 DOCX/HTML 导出的内容）
-  let cleaned = raw
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, " ")          // 移除所有 HTML 标签，保留内容
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"');
-
-  // Step 2: 如果检测到原始内容是 Markdown，走标准 MD 解析流程
-  const isMarkdown = /^#{1,6}\s+.+/m.test(raw) || /\*\*.+\*\*/m.test(raw);
-  if (isMarkdown) {
-    const mdResult = parseMarkdown(cleaned, {
-      preserveHeadings: params.preserveHeadings,
-      removeBoilerplate: params.removeBoilerplate,
-      maxChars: params.maxChars,
-    });
-    mdResult.warnings.unshift("markitdown: 检测到 Markdown 格式，已使用结构化解析");
-    return mdResult;
-  }
-
-  // Step 3: 非 Markdown 内容，做更激进的清洗
-  const lines = cleaned.split("\n");
-  const cleanLines: string[] = [];
-
-  for (const line of lines) {
-    const clean = line.replace(/\s+/g, " ").trim();
-    if (!clean) continue;
-
-    // Markitdown 会过滤掉页眉页脚（短于 20 字且只含数字/标点的行）
-    if (params.removeBoilerplate && clean.length < 20 && /^[\d\s\W]+$/.test(clean)) {
-      warnings.push(`markitdown: 过滤样板行 "${clean}"`);
-      continue;
-    }
-
-    cleanLines.push(clean);
-  }
-
-  let cleanText = cleanLines.join("\n");
-  if (params.maxChars > 0 && cleanText.length > params.maxChars) {
-    cleanText = cleanText.slice(0, params.maxChars);
-    warnings.push(`文本已截断至 ${params.maxChars} 字符`);
-  }
-
-  if (!params.preserveTables) {
-    // 移除疑似表格行（含多个 | 分隔符）
-    cleanText = cleanText.split("\n").filter(l => (l.match(/\|/g) ?? []).length < 2).join("\n");
-  }
-
-  return {
-    rawText: raw,
-    cleanText,
-    charCount: cleanText.length,
-    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
-    metadata: { fileName: "", mimeType: "text/plain" },
-    sourceRefs: [],
-    warnings,
-  };
-}
-
-// ─── PyMuPDF 预处理 ───────────────────────────────────────────────────────────
-
-/**
- * PyMuPDF 风格预处理（参考 pymupdf / fitz 库的设计）。
- *
- * PyMuPDF 是 Python 中最精确的 PDF 处理库，核心优势：
- *   1. 按页提取，精确保留页码信息（对法律/学术文档的引用很重要）
- *   2. 能识别文本块的几何位置，从而重建阅读顺序（解决 PDF 多列乱序问题）
- *   3. 支持提取图片、表格、注释等结构化信息
- *
- * 当前实现：模拟 PyMuPDF 的按页分块行为，生产环境应调用 Python 微服务。
- * 每 30 行文本视为一页（粗略估计），记录页码 sourceRef。
- *
- * 为什么在 RAG 中 pymupdf 比基础 pdf-parse 更好？
- *   - 保留页码可以生成"第 X 页"的精确引用，满足法律/合规场景要求
- *   - 几何排序纠正多列 PDF 的乱序文本，chunk 质量更高
- */
-function parsePymupdf(
-  raw: string,
-  params: { pdfPageRange: string; preserveLayout: boolean; extractImages: boolean; maxChars: number }
-): PreprocessOutput {
-  const warnings: string[] = [];
-  const sourceRefs: SourceRef[] = [];
-
-  // 按 30 行模拟一页（生产环境由 PDF 渲染引擎精确分页）
-  const lines = raw.split("\n").filter(l => l.trim());
-  const LINES_PER_PAGE = 30;
-  const totalPages = Math.ceil(lines.length / LINES_PER_PAGE);
-
-  // 解析页码范围（格式: "1-5" 或 "3" 或留空表示全部）
-  let startPage = 1;
-  let endPage = totalPages;
-  if (params.pdfPageRange.trim()) {
-    const match = params.pdfPageRange.match(/^(\d+)(?:-(\d+))?$/);
-    if (match) {
-      startPage = parseInt(match[1]);
-      endPage = match[2] ? parseInt(match[2]) : startPage;
-    } else {
-      warnings.push(`pymupdf: 无法解析页码范围 "${params.pdfPageRange}"，将处理全部页`);
-    }
-  }
-
-  const selectedLines: string[] = [];
-  let charCursor = 0;
-
-  for (let page = 1; page <= totalPages; page++) {
-    if (page < startPage || page > endPage) continue;
-
-    const pageStart = (page - 1) * LINES_PER_PAGE;
-    const pageLines = lines.slice(pageStart, pageStart + LINES_PER_PAGE);
-    const pageText = pageLines.join("\n");
-
-    // 记录每页的 sourceRef，供 citation 阶段使用
-    const refStart = charCursor;
-    charCursor += pageText.length + 1;
-    sourceRefs.push({
-      type: "page",
-      value: `第 ${page} 页`,
-      charStart: refStart,
-      charEnd: charCursor,
-    });
-
-    selectedLines.push(...pageLines);
-  }
-
-  let cleanText = selectedLines.join("\n");
-
-  // preserveLayout=false 时压缩连续空行，减少噪音
-  if (!params.preserveLayout) {
-    cleanText = cleanText.replace(/\n{3,}/g, "\n\n");
-  }
-
-  if (params.maxChars > 0 && cleanText.length > params.maxChars) {
-    cleanText = cleanText.slice(0, params.maxChars);
-    warnings.push(`文本已截断至 ${params.maxChars} 字符`);
-  }
-
-  if (params.extractImages) {
-    warnings.push("pymupdf: 图片提取在当前模拟模式下不可用，生产环境需接入 Python pymupdf 服务");
-  }
-
-  return {
-    rawText: raw,
-    cleanText,
-    charCount: cleanText.length,
-    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
-    metadata: {
-      fileName: "",
-      mimeType: "application/pdf",
-      pageCount: totalPages,
-    },
-    sourceRefs,
-    warnings,
-  };
-}
-
-// ─── 纯文本预处理 ─────────────────────────────────────────────────────────────
-
-/**
- * 纯文本清洗：只做基础空白归一化。
- *
- * 为什么不直接用原始文本？
- * 原始文本可能含大量连续空行、行首空白、不可见字符，
- * 这些会导致 chunking 时产生大量无意义的空 chunk。
- */
 function parsePlainText(
   raw: string,
   params: { removeBoilerplate: boolean; maxChars: number }
 ): PreprocessOutput {
   const warnings: string[] = [];
-  const lines = raw.split("\n");
-  const cleanLines: string[] = [];
-
-  for (const line of lines) {
+  const cleanLines = raw.split("\n").filter(line => {
     const clean = line.trim();
-    if (!clean) continue;
-
-    // 过滤样板内容（同 Markdown 逻辑）
+    if (!clean) return false;
     if (params.removeBoilerplate && clean.length < 15 && /^[\d\s\W]+$/.test(clean)) {
       warnings.push(`已过滤疑似样板内容: "${clean}"`);
-      continue;
+      return false;
     }
-    cleanLines.push(clean);
-  }
+    return true;
+  }).map(l => l.trim());
 
   let cleanText = cleanLines.join("\n");
   if (params.maxChars > 0 && cleanText.length > params.maxChars) {
     cleanText = cleanText.slice(0, params.maxChars);
     warnings.push(`文本已截断至 ${params.maxChars} 字符`);
   }
+  return { rawText: raw, cleanText, charCount: cleanText.length, wordCount: cleanText.split(/\s+/).filter(Boolean).length, metadata: { fileName: "", mimeType: "text/plain" }, sourceRefs: [], warnings };
+}
 
-  return {
-    rawText: raw,
-    cleanText,
-    charCount: cleanText.length,
-    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
-    metadata: { fileName: "", mimeType: "text/plain" },
-    sourceRefs: [],
-    warnings,
-  };
+// ─── markitdown-ts ─────────────────────────────────────────────────────────────
+
+/**
+ * markitdown-ts：按文件类型自动路由，统一输出 cleanText。
+ *
+ * 路由策略：
+ *   PDF  → pdf-parse v2 提取文本 → plain-text 清洗
+ *   DOCX → mammoth 转 HTML → turndown 转 Markdown → markdown-structure 解析
+ *   HTML → turndown 转 Markdown → markdown-structure 解析
+ *   MD   → markdown-structure 解析
+ *   其他 → plain-text 清洗
+ *
+ * 为什么分三个库而不是一个？
+ *   - PDF 的文本提取需要解析二进制 PDF 格式（pdf-parse）
+ *   - DOCX 的文本提取需要解压 ZIP + 解析 XML（mammoth）
+ *   - HTML→Markdown 转换需要 DOM 语义理解（turndown）
+ *   微软 markitdown 的 Python 版本背后也是类似的分派逻辑。
+ */
+async function parseMarkitdownTs(
+  rawContent: string,
+  buffer: Buffer,
+  mimeType: string,
+  params: { preserveHeadings: boolean; preserveTables: boolean; removeBoilerplate: boolean; maxChars: number }
+): Promise<PreprocessOutput> {
+  const warnings: string[] = [];
+  const isPdf = mimeType === "application/pdf" || mimeType === "application/x-pdf";
+  const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || mimeType === "application/msword";
+  const isHtml = mimeType === "text/html" || (/<[a-z][\s\S]*>/i.test(rawContent) && !isPdf && !isDocx);
+  const isMarkdown = mimeType === "text/markdown" || /^#{1,6}\s+.+/m.test(rawContent);
+
+  // PDF：用 pdf-parse v1 提取文本（v1 纯 Node.js，无 web worker 依赖）
+  if (isPdf) {
+    warnings.push("markitdown-ts: 检测到 PDF，使用 pdf-parse 提取文本");
+    try {
+      const result = await pdfParse(buffer);
+      const extracted = result.text ?? "";
+
+      // 提取到空文本通常意味着：
+      //   1. 文档是扫描版 PDF（需要 OCR，此处不支持）
+      //   2. 文档在 docStore 格式修复前上传，binary 被 file.text() 读成乱码存储
+      //      解决方法：删除文档后重新上传
+      if (!extracted.trim()) {
+        return {
+          rawText: "",
+          cleanText: "",
+          charCount: 0,
+          wordCount: 0,
+          metadata: { fileName: "", mimeType, pageCount: result.numpages },
+          sourceRefs: [],
+          warnings: [
+            ...warnings,
+            `pdf-parse 提取到空文本（共 ${result.numpages} 页）。`,
+            "可能原因 1：扫描版 PDF，需要 OCR 才能提取文字（当前不支持）。",
+            "可能原因 2：此文档在存储格式升级前上传，PDF binary 以错误编码保存。",
+            "解决方法：请在文档库中删除该文档并重新上传，系统将以正确的 base64 格式存储 PDF。",
+          ],
+        };
+      }
+
+      const inner = parsePlainText(extracted, { removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+      inner.warnings.unshift(...warnings);
+      inner.metadata.pageCount = result.numpages;
+      inner.rawText = extracted;
+      return inner;
+    } catch (e) {
+      warnings.push(`pdf-parse 失败: ${e}，降级为原始文本`);
+      const fallback = parsePlainText(rawContent, { removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+      fallback.warnings.unshift(...warnings);
+      return fallback;
+    }
+  }
+
+  // DOCX：mammoth 转 HTML，再 turndown 转 Markdown
+  if (isDocx) {
+    warnings.push("markitdown-ts: 检测到 DOCX，使用 mammoth 转换为 HTML");
+    try {
+      const mammothResult = await mammoth.convertToHtml({ buffer });
+      const html = mammothResult.value;
+      if (mammothResult.messages.length > 0) {
+        warnings.push(...mammothResult.messages.map((m: { message: string }) => `mammoth: ${m.message}`));
+      }
+      const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
+      const markdown = td.turndown(html);
+      warnings.push("markitdown-ts: DOCX → HTML → Markdown 转换完成");
+      const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+      inner.warnings.unshift(...warnings);
+      inner.rawText = rawContent;
+      return inner;
+    } catch (e) {
+      warnings.push(`mammoth 失败: ${e}，降级为纯文本`);
+      const fallback = parsePlainText(rawContent, { removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+      fallback.warnings.unshift(...warnings);
+      return fallback;
+    }
+  }
+
+  // HTML：turndown 转 Markdown
+  if (isHtml) {
+    warnings.push("markitdown-ts: 检测到 HTML，使用 turndown 转换为 Markdown");
+    const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
+    const markdown = td.turndown(rawContent);
+    const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+    inner.warnings.unshift(...warnings);
+    inner.rawText = rawContent;
+    return inner;
+  }
+
+  // Markdown：直接解析
+  if (isMarkdown) {
+    warnings.push("markitdown-ts: 检测到 Markdown，直接解析");
+    const inner = parseMarkdown(rawContent, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+    inner.warnings.unshift(...warnings);
+    return inner;
+  }
+
+  // 其他：plain-text
+  warnings.push(`markitdown-ts: 未知格式 (${mimeType})，降级为纯文本解析`);
+  const fallback = parsePlainText(rawContent, { removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+  fallback.warnings.unshift(...warnings);
+  return fallback;
+}
+
+// ─── pdf-pages ────────────────────────────────────────────────────────────────
+
+/**
+ * 用 pdf-parse v2 按页提取 PDF，每页生成独立 sourceRef。
+ * 适合需要"来自第 N 页"精确引用的场景（法律/学术文档）。
+ */
+async function parsePdfPages(
+  buffer: Buffer,
+  mimeType: string,
+  rawContent: string,
+  params: { pdfPageRange: string; maxChars: number }
+): Promise<PreprocessOutput> {
+  const warnings: string[] = [];
+  const isPdf = mimeType === "application/pdf" || mimeType === "application/x-pdf";
+
+  if (!isPdf) {
+    warnings.push(`pdf-pages: 文件类型 ${mimeType} 不是 PDF，降级为纯文本`);
+    const fb = parsePlainText(rawContent, { removeBoilerplate: false, maxChars: params.maxChars });
+    fb.warnings.unshift(...warnings);
+    return fb;
+  }
+
+  try {
+    const result = await pdfParse(buffer);
+    const fullText = result.text ?? "";
+    const totalPages = result.numpages ?? 1;
+
+    if (!fullText.trim()) {
+      return { rawText: "", cleanText: "", charCount: 0, wordCount: 0, metadata: { fileName: "", mimeType, pageCount: totalPages }, sourceRefs: [], warnings: ["pdf-parse 提取到空文本，请删除文档后重新上传（存储格式升级前上传的 PDF 需要重传）。"] };
+    }
+
+    // 解析页码范围
+    let startPage = 1, endPage = totalPages;
+    if (params.pdfPageRange.trim()) {
+      const m = params.pdfPageRange.match(/^(\d+)(?:-(\d+))?$/);
+      if (m) { startPage = parseInt(m[1]); endPage = m[2] ? parseInt(m[2]) : startPage; }
+      else warnings.push(`无法解析页码范围 "${params.pdfPageRange}"，处理全部页`);
+    }
+
+    // pdf-parse 以 \f（form feed）分页
+    const pages = fullText.split(/\f/);
+    const sourceRefs: SourceRef[] = [];
+    let combined = "";
+    let charCursor = 0;
+
+    for (let i = startPage - 1; i < Math.min(endPage, pages.length); i++) {
+      const pageText = pages[i]?.trim() ?? "";
+      if (!pageText) continue;
+      const start = charCursor;
+      charCursor += pageText.length + 1;
+      sourceRefs.push({ type: "page", value: `第 ${i + 1} 页`, charStart: start, charEnd: charCursor });
+      combined += pageText + "\n";
+    }
+
+    let cleanText = combined.trim();
+    if (params.maxChars > 0 && cleanText.length > params.maxChars) {
+      cleanText = cleanText.slice(0, params.maxChars);
+      warnings.push(`文本已截断至 ${params.maxChars} 字符`);
+    }
+
+    return { rawText: fullText, cleanText, charCount: cleanText.length, wordCount: cleanText.split(/\s+/).filter(Boolean).length, metadata: { fileName: "", mimeType, pageCount: totalPages }, sourceRefs, warnings };
+  } catch (e) {
+    warnings.push(`pdf-parse 失败: ${e}，降级为纯文本`);
+    const fb = parsePlainText(rawContent, { removeBoilerplate: false, maxChars: params.maxChars });
+    fb.warnings.unshift(...warnings);
+    return fb;
+  }
 }
 
 // ─── API Route ────────────────────────────────────────────────────────────────
@@ -400,26 +356,18 @@ export async function POST(req: NextRequest) {
     };
 
     if (!pipelineRun?.selectedDocumentId) {
-      return NextResponse.json(
-        { error: { code: "missing_document", message: "未选择文档" } },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: { code: "missing_document", message: "未选择文档" } }, { status: 400 });
     }
 
     const doc = getDocument(pipelineRun.selectedDocumentId);
     if (!doc) {
-      return NextResponse.json(
-        { error: { code: "document_not_found", message: `文档不存在` } },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: { code: "document_not_found", message: "文档不存在" } }, { status: 404 });
     }
 
-    // 从 params 中读取配置，提供安全默认值
+    const buffer = getDocumentBuffer(doc);
     const preserveHeadings = params?.preserveHeadings !== false;
     const preserveTables = params?.preserveTables !== false;
-    const preserveLayout = params?.preserveLayout !== false;
     const removeBoilerplate = Boolean(params?.removeBoilerplate);
-    const extractImages = Boolean(params?.extractImages);
     const maxChars = Number(params?.maxChars ?? 0);
     const pdfPageRange = (params?.pdfPageRange as string) ?? "";
 
@@ -431,41 +379,43 @@ export async function POST(req: NextRequest) {
         break;
 
       case "markitdown":
-        result = parseMarkitdown(doc.rawContent, { preserveHeadings, preserveTables, removeBoilerplate, maxChars });
-        break;
-
-      case "pymupdf":
-        result = parsePymupdf(doc.rawContent, { pdfPageRange, preserveLayout, extractImages, maxChars });
+        result = await parseMarkitdownTs(doc.rawContent, buffer, doc.mimeType, { preserveHeadings, preserveTables, removeBoilerplate, maxChars });
         break;
 
       case "pdf-pages":
-        // 基础 PDF 按页解析（模拟），生产环境接 pdf-parse 或 pdf2json
-        result = parsePlainText(doc.rawContent, { removeBoilerplate, maxChars });
-        result.metadata.pageCount = Math.ceil(doc.rawContent.split("\n").length / 30);
-        if (pdfPageRange) result.warnings.push(`pdf-pages: 当前为文本模拟，页码范围 "${pdfPageRange}" 未生效`);
+        result = await parsePdfPages(buffer, doc.mimeType, doc.rawContent, { pdfPageRange, maxChars });
         break;
+
+      case "pymupdf":
+        // pymupdf 是 Python 库，无法在 Node.js 运行，返回明确错误而非假实现
+        return NextResponse.json({
+          error: {
+            code: "provider_not_available",
+            message: "pymupdf 是 Python 库，无法在 Node.js 直接运行。需部署独立 Python 微服务。",
+          },
+          trace: {
+            method: "pymupdf",
+            deploymentGuide: "在 docker-compose.yml 中加入 pymupdf-service（FastAPI + pymupdf），通过 fetch('http://pymupdf-service:8000/extract', { body: base64Buffer }) 调用。",
+          },
+        }, { status: 501 });
 
       default: // markdown-structure
         result = parseMarkdown(doc.rawContent, { preserveHeadings, removeBoilerplate, maxChars });
         break;
     }
 
-    // 用文档 metadata 补全 result
     result.metadata.fileName = doc.fileName;
     result.metadata.mimeType = doc.mimeType;
-
     const durationMs = Date.now() - startedAt;
 
     return NextResponse.json({
       output: result,
       trace: {
         method: methodId,
-        preserveHeadings,
-        removeBoilerplate,
-        maxChars,
+        isBinary: doc.isBinary,
         rawCharCount: doc.rawContent.length,
         cleanCharCount: result.cleanText.length,
-        compressionRatio: (result.cleanText.length / doc.rawContent.length).toFixed(2),
+        compressionRatio: (result.cleanText.length / Math.max(1, doc.rawContent.length)).toFixed(2),
         headingCount: result.metadata.headings?.length ?? 0,
         sourceRefCount: result.sourceRefs.length,
         durationMs,
@@ -473,9 +423,6 @@ export async function POST(req: NextRequest) {
       warnings: result.warnings,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { code: "internal_error", message: String(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { code: "internal_error", message: String(err) } }, { status: 500 });
   }
 }
