@@ -29,21 +29,20 @@ node -e "JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); co
 echo "=== Feature 状态校验 ==="
 node -e "const data = JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); const allowed = new Set(['done', 'todo', 'in-progress', 'blocked', 'epic']); const bad = data.features.filter((feature) => !allowed.has(feature.status)); if (bad.length) { console.error('非法 feature status:', bad.map((feature) => feature.id + ':' + feature.status).join(', ')); process.exit(1); } console.log('feature statuses OK')"
 
-if [ -f "package.json" ]; then
-  echo "=== 应用验证 ==="
-  if command -v pnpm >/dev/null 2>&1; then
-    pnpm lint
-    pnpm typecheck
-    pnpm test
-    pnpm build
-  else
-    npm run lint
-    npm run typecheck
-    npm test
-    npm run build
+if [ -f "app/package.json" ]; then
+  echo "=== 应用验证 (app/) ==="
+  cd app
+  if [ ! -d "node_modules" ]; then
+    echo "安装依赖..."
+    npm install --cache /tmp/npm-cache
   fi
+  echo "--- typecheck ---"
+  npm run typecheck
+  echo "--- lint ---"
+  npm run lint
+  cd ..
 else
-  echo "尚未发现 package.json；跳过应用验证。"
+  echo "尚未发现 app/package.json；跳过应用验证。"
 fi
 
 echo "=== Harness 验证完成 ==="

@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-18
+2026-05-18（会话 3）
 
 ## 项目
 
@@ -10,28 +10,22 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ## 当前状态
 
-- Harness 基座已经创建。
-- 产品阶段规划和当前阶段边界已经文档化。
-- Harness 文档主体已改为中文。
-- `feat-002` 和 `feat-003` 已细化为按 RAG stage 逐步交付的 feature 列表。
-- 已新增 Playground 可用性门禁：`feat-002.1` 后，每个 stage 交付前必须验证 Playground 仍然可用。
-- 已补充 Document Upload & Library：上传文档入库保存，下次进入页面自动加载并可选择历史文档版本。
-- Git repository 已初始化，当前分支为 `main`。
-- Harness 基座已提交：`44306a5 Initialize harness foundation`。
-- Git/lifecycle 状态同步约束已提交；后续以 `git log --oneline` 查看准确提交历史。
-- 尚未脚手架应用代码。
-- 当前 working tree 应保持干净；如果后续修改文档或代码，结束前需要更新本文件和 `progress.md`。
-- `AGENTS.md` 已新增 git/lifecycle 状态同步约束：发生 `git init`、commit、branch/tag 变化、应用脚手架完成、dev server 启停方式变化、feature 完成或阻塞后，必须同步 `progress.md` 和本文件。
+- `feat-002.1`、`feat-002.2`、`feat-002.3`、`feat-002.4` 已完成（`status: done`）。
+- 应用在 `app/` 目录（untracked），待 commit。
+- 三栏 Playground 工作台可正常运行：stage 切换、method selector、params 表单、run button、output/trace 面板均已实现。
+- 所有 13 个 stages 的 methods + params schema 已在 `app/lib/stageRegistry.ts` 定义。
+- TypeCheck 通过（无报错）。
+- run button 调用 `/api/pipeline/{stageId}` POST；API 路由尚未实现，返回 network_error（符合预期）。
 
 ## 下一步
 
-实现 `feat-002.1`：脚手架 Next.js TypeScript app，并构建第一个可用的 Playground 页面：
-
-- 左侧：pipeline steps。
-- 中间：选中 step 的 method 和 params。
-- 右侧：output preview 和 trace。
-
-随后按 `docs/RAG_PIPELINE_PLAYGROUND.md` 逐个实现：先 Playground 基础能力和 Document Upload & Library，再 idempotency、preprocess、chunk、transform、embedding、storage。
+1. Commit 当前变更（feat-002.1 ～ feat-002.4 完成）。
+2. 实现 `feat-002.5` Document Upload & Library：
+   - 支持 MD/TXT/PDF 上传或粘贴文本。
+   - 保存 fileName、fileSize、mimeType、hash、version、createdAt 等 metadata。
+   - 页面加载时自动显示已上传文档列表；用户选择 document version 后解锁后续 stages。
+3. 实现 `feat-002.6` Pipeline 上下文与产物传递。
+4. 随后实现 feat-003.x RAG ingestion stages（需要数据库：PostgreSQL + pgvector）。
 
 ## 重要边界
 

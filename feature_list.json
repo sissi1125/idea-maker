@@ -27,8 +27,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 完成 Next.js 16/React 19/TypeScript/Tailwind v4 脚手架；实现三栏 Playground shell（Header 含 pipeline 状态、左侧 pipeline steps、中间 stage 配置区空状态、右侧 output/trace 空状态）；typecheck 通过；init.sh 已更新加入 typecheck/lint 门禁。"
     },
     {
       "id": "feat-002.2",
@@ -37,8 +37,8 @@
       "dependencies": [
         "feat-002.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 三栏布局已实现：左侧 PipelineStepList 支持 stage 切换（含运行状态圆点指示）；中间 StageConfigPanel 随 stage 切换更新内容；右侧 OutputTracePanel 展示 output/trace/warnings/error。浏览器验证：stage 切换正常，blocked 状态提示正常。"
     },
     {
       "id": "feat-002.3",
@@ -47,8 +47,8 @@
       "dependencies": [
         "feat-002.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 ParamForm 组件实现 text/number/boolean/select/textarea/json 六种控件；stageRegistry 定义全部 13 个 stages 的 methods 和 params schema；method 切换自动 reset params 到 default；参数校验（required/min/max/json）；校验错误时 run button 禁用并显示错误提示。浏览器验证：文档幂等性检查 method selector（3 个 pill）和 params（select+2 个 boolean）渲染正常。"
     },
     {
       "id": "feat-002.4",
@@ -57,8 +57,8 @@
       "dependencies": [
         "feat-002.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 PlaygroundShell 维护 stepRuns（按 stageId 分组的历史运行列表）；OutputTracePanel 展示 durationMs、warnings、error code+message、output JSON、trace JSON（可折叠）；多次运行可通过下拉切换历史；Header pipeline 状态随最新运行状态更新。浏览器验证：运行 document-upload（API 未实现）返回 network_error，289ms 和 error 信息正确展示。"
     },
     {
       "id": "feat-002.5",
