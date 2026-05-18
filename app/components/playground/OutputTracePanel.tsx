@@ -166,7 +166,7 @@ function JsonView({ value }: { value: unknown }) {
         {"{"}
         {Object.entries(obj).map(([k, v]) => (
           <div key={k} className="pl-3">
-            <span className="text-purple-600">"{k}"</span>
+            <span className="text-purple-600">&quot;{k}&quot;</span>
             <span className="text-zinc-400">: </span>
             <JsonValue value={v} />
           </div>
@@ -189,7 +189,7 @@ function JsonValue({ value }: { value: unknown }): React.ReactNode {
   if (value === null) return <span className="text-zinc-400">null</span>;
   if (typeof value === "boolean") return <span className="text-blue-600">{String(value)}</span>;
   if (typeof value === "number") return <span className="text-amber-600">{value}</span>;
-  if (typeof value === "string") return <span className="text-green-700">"{value}"</span>;
+  if (typeof value === "string") return <span className="text-green-700">&quot;{value}&quot;</span>;
 
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
@@ -233,7 +233,7 @@ function TruncatedString({ preview, full, totalChars }: { preview: string; full:
   return (
     <span className="inline-block w-full">
       <span className="text-green-700 whitespace-pre-wrap break-all">
-        "{expanded ? full : preview}"
+        &quot;{expanded ? full : preview}&quot;
       </span>
       {!expanded && (
         <button

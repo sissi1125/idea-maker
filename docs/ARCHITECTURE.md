@@ -4,16 +4,20 @@
 
 当前阶段实现为一个单体 Next.js TypeScript 应用，使用 Route Handlers 提供 REST APIs。RAG 主存储采用 PostgreSQL + pgvector；应用层保留 provider adapter 和 vector store adapter 边界，方便后续扩展模型 provider、rerank provider 和评估能力。
 
-推荐技术栈：
+技术栈（已实现）：
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- shadcn/ui 或等价的本地组件基座
-- `app/api` 下的 Route Handlers
+- Next.js 16 App Router
+- TypeScript + Tailwind v4
+- 自写组件基座（未引入 shadcn/ui，避免 Tailwind v4 兼容问题）
+- `app/app/api` 下的 Route Handlers（路径前缀 `/api/pipeline/*`）
+- 本地 JSON 存储（`app/data/documents.json`）—— **当前 dev 阶段**，后续替换为 PostgreSQL
+- pdf-parse v1 + mammoth + turndown（文档解析）
+- Python FastAPI 微服务（`services/pymupdf/`）—— 提供 pymupdf PDF 精确提取
+
+待引入（后续阶段）：
 - PostgreSQL + pgvector
-- Drizzle ORM 或等价 schema 管理方案
-- Provider 抽象：OpenAI、Hugging Face TEI、Hugging Face Transformers.js、debug deterministic embedding
+- Drizzle ORM
+- OpenAI / HF TEI / Transformers.js embedding provider
 
 ## UI 布局
 
@@ -98,7 +102,12 @@ flowchart LR
 
 ## 存储模型
 
-当前阶段以 PostgreSQL + pgvector 为主存储。需要保留清晰 adapter 边界，避免 API、UI 和具体数据库查询强耦合。
+**当前 dev 阶段**：使用本地 JSON 文件（`app/data/documents.json`）持久化。
+所有读写通过 `app/lib/docStore.ts` 封装（Repository Pattern），迁移到 PostgreSQL 只需替换内部实现。
+
+二进制文件（PDF/DOCX）在 JSON 中以 base64 存储（`isBinary: true`）；迁移到 PostgreSQL 后改用 `BYTEA` 类型，`getDocumentBuffer()` 接口不变。
+
+**生产阶段目标**：PostgreSQL + pgvector 为主存储，Drizzle ORM 管理 schema。需要保留清晰 adapter 边界，避免 API、UI 和具体数据库查询强耦合。
 
 核心实体：
 

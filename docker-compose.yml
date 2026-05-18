@@ -1,0 +1,43 @@
+version: "3.9"
+
+# Marketing RAG Playground — 本地开发编排
+#
+# 服务说明：
+#   app           Next.js Playground（主应用）
+#   pymupdf       Python FastAPI 微服务，提供 pymupdf PDF 精确提取能力
+#
+# 启动：
+#   docker compose up --build
+#
+# 仅启动 pymupdf 服务（Next.js 本地 npm run dev）：
+#   docker compose up pymupdf
+
+services:
+  # ── pymupdf Python 微服务 ────────────────────────────────────────────────────
+  pymupdf:
+    build:
+      context: ./services/pymupdf
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"     # 宿主机 8001 → 容器 8000，避免和 Next.js 3000 冲突
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Next.js 主应用（可选，dev 时直接 npm run dev 更方便） ───────────────────
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev   # 见下方说明，当前未创建，仅供生产参考
+    ports:
+      - "3000:3000"
+    environment:
+      - PYMUPDF_SERVICE_URL=http://pymupdf:8000   # 容器内互通用服务名
+    depends_on:
+      pymupdf:
+        condition: service_healthy
+    profiles:
+      - full   # 默认不启动，用 docker compose --profile full up 启动完整栈

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PipelineStage, PIPELINE_STAGES } from "./PipelineStepList";
 import { PipelineRun } from "./PlaygroundShell";
 import { StepRun } from "@/lib/types";
@@ -43,18 +43,13 @@ export default function StageConfigPanel({
   const upstreamStale = checkUpstreamStale(stage.id, latestRun, getLatestRun);
 
   const firstMethod = stageDef?.methods[0];
+  // 初始值直接从 stageDef 计算；stage 切换时 PlaygroundShell 传入 key={stage.id}
+  // 让 React 重新挂载组件，自动重置所有 state，无需 useEffect
   const [selectedMethodId, setSelectedMethodId] = useState(firstMethod?.id ?? "");
-  const [params, setParams] = useState<Record<string, unknown>>({});
+  const [params, setParams] = useState<Record<string, unknown>>(
+    firstMethod ? defaults(firstMethod) : {}
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // stage 切换时重置 method 和参数
-  useEffect(() => {
-    const def = getStage(stage.id);
-    const m = def?.methods[0];
-    setSelectedMethodId(m?.id ?? "");
-    setParams(m ? defaults(m) : {});
-    setErrors({});
-  }, [stage.id]);
 
   const handleMethodChange = (methodId: string) => {
     const def = getStage(stage.id);

@@ -137,6 +137,7 @@ export default function PlaygroundShell() {
           stepRuns={stepRuns}
         />
         <StageConfigPanel
+          key={activeStage.id}
           stage={activeStage}
           pipelineRun={pipelineRun}
           latestRun={latestRun(activeStage.id)}

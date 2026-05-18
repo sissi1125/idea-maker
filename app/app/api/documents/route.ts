@@ -6,7 +6,8 @@ export async function GET() {
     const docs = listDocuments();
     // rawContent 可能很大，列表接口只返回 metadata，不含原始内容
     return NextResponse.json({
-      documents: docs.map(({ rawContent: _raw, ...meta }) => meta),
+      documents: docs.map(({ // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      rawContent: _unused, ...meta }) => meta),
     });
   } catch (err) {
     return NextResponse.json({ error: { code: "storage_error", message: String(err) } }, { status: 500 });
@@ -71,7 +72,8 @@ export async function POST(req: NextRequest) {
 
     const doc = createDocument(fileName, mimeType, rawContent, isBinary);
     // 响应中不返回 rawContent（可能很大）
-    const { rawContent: _raw, ...meta } = doc;
+    const { // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      rawContent: _unused, ...meta } = doc;
     return NextResponse.json({ document: meta }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: { code: "storage_error", message: String(err) } }, { status: 500 });

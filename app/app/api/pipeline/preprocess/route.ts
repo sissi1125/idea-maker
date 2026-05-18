@@ -85,7 +85,7 @@ function parseMarkdown(
       continue;
     }
 
-    let clean = line
+    const clean = line
       .replace(/!\[.*?\]\(.*?\)/g, "")
       .replace(/\[(.+?)\]\(.*?\)/g, "$1")
       .replace(/`{1,3}[^`]*`{1,3}/g, "")
@@ -343,6 +343,98 @@ async function parsePdfPages(
   }
 }
 
+// ─── pymupdf 微服务调用 ────────────────────────────────────────────────────────
+
+/**
+ * 调用独立 Python 微服务（services/pymupdf/main.py）。
+ *
+ * 服务地址优先读环境变量 PYMUPDF_SERVICE_URL，方便 docker-compose 和生产环境配置：
+ *   - 本地开发（直接 npm run dev）：docker compose up pymupdf → localhost:8001
+ *   - docker-compose 全栈模式：服务名 "pymupdf" 自动 DNS 解析 → http://pymupdf:8000
+ *
+ * 如果服务未启动，返回明确的 provider_unavailable 错误，不会 crash。
+ */
+async function callPymupdfService(
+  rawContent: string,
+  isBinary: boolean,
+  mimeType: string,
+  params: { pageRange: string; preserveLayout: boolean; extractImages: boolean; maxChars: number }
+): Promise<PreprocessOutput> {
+  const serviceUrl = process.env.PYMUPDF_SERVICE_URL ?? "http://localhost:8001";
+  const warnings: string[] = [];
+
+  // 只有真实 PDF 才发给 pymupdf；其他格式直接降级到纯文本
+  const isPdf = mimeType === "application/pdf" || mimeType === "application/x-pdf";
+  if (!isPdf) {
+    warnings.push(`pymupdf: 文件类型 ${mimeType} 不是 PDF，降级为纯文本`);
+    const fb = parsePlainText(rawContent, { removeBoilerplate: false, maxChars: params.maxChars });
+    fb.warnings.unshift(...warnings);
+    return fb;
+  }
+
+  // 确保传给 pymupdf 的是 base64（二进制文件已是 base64，文本文件需转换）
+  const pdfBase64 = isBinary ? rawContent : Buffer.from(rawContent, "utf-8").toString("base64");
+
+  let res: Response;
+  try {
+    res = await fetch(`${serviceUrl}/extract`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pdf_base64: pdfBase64,
+        page_range: params.pageRange,
+        preserve_layout: params.preserveLayout,
+        extract_images: params.extractImages,
+      }),
+      signal: AbortSignal.timeout(30000), // 大 PDF 给 30 秒超时
+    });
+  } catch (err) {
+    // 服务未启动或网络不通：返回明确错误，不 crash
+    const msg = String(err).includes("ECONNREFUSED")
+      ? `pymupdf 服务未启动。请运行 "docker compose up pymupdf" 后重试。`
+      : `pymupdf 服务连接失败: ${err}`;
+    return {
+      rawText: "", cleanText: "", charCount: 0, wordCount: 0,
+      metadata: { fileName: "", mimeType },
+      sourceRefs: [],
+      warnings: [msg],
+    };
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return {
+      rawText: "", cleanText: "", charCount: 0, wordCount: 0,
+      metadata: { fileName: "", mimeType },
+      sourceRefs: [],
+      warnings: [`pymupdf 服务返回错误 ${res.status}: ${JSON.stringify(err)}`],
+    };
+  }
+
+  const data = await res.json();
+
+  let cleanText: string = data.clean_text ?? "";
+  if (params.maxChars > 0 && cleanText.length > params.maxChars) {
+    cleanText = cleanText.slice(0, params.maxChars);
+    warnings.push(`文本已截断至 ${params.maxChars} 字符`);
+  }
+
+  return {
+    rawText: data.raw_text ?? cleanText,
+    cleanText,
+    charCount: cleanText.length,
+    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
+    metadata: { fileName: "", mimeType, pageCount: data.page_count },
+    sourceRefs: (data.source_refs ?? []).map((r: { type: string; value: string; char_start: number; char_end: number }) => ({
+      type: r.type,
+      value: r.value,
+      charStart: r.char_start,
+      charEnd: r.char_end,
+    })),
+    warnings: [...(data.warnings ?? []), ...warnings],
+  };
+}
+
 // ─── API Route ────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -387,17 +479,15 @@ export async function POST(req: NextRequest) {
         break;
 
       case "pymupdf":
-        // pymupdf 是 Python 库，无法在 Node.js 运行，返回明确错误而非假实现
-        return NextResponse.json({
-          error: {
-            code: "provider_not_available",
-            message: "pymupdf 是 Python 库，无法在 Node.js 直接运行。需部署独立 Python 微服务。",
-          },
-          trace: {
-            method: "pymupdf",
-            deploymentGuide: "在 docker-compose.yml 中加入 pymupdf-service（FastAPI + pymupdf），通过 fetch('http://pymupdf-service:8000/extract', { body: base64Buffer }) 调用。",
-          },
-        }, { status: 501 });
+        // 调用独立 Python 微服务（services/pymupdf/main.py）
+        // 本地开发：docker compose up pymupdf，服务监听 localhost:8001
+        result = await callPymupdfService(doc.rawContent, doc.isBinary, doc.mimeType, {
+          pageRange: pdfPageRange,
+          preserveLayout: params?.preserveLayout !== false,
+          extractImages: Boolean(params?.extractImages),
+          maxChars,
+        });
+        break;
 
       default: // markdown-structure
         result = parseMarkdown(doc.rawContent, { preserveHeadings, removeBoilerplate, maxChars });

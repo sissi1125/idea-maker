@@ -1,567 +1,228 @@
 # API 契约
 
-所有 endpoints 应返回统一 envelope：
+## 约定
+
+所有 pipeline endpoint 返回统一结构：
 
 ```json
 {
-  "ok": true,
-  "data": {},
-  "trace": {
-    "requestId": "",
-    "step": "",
-    "durationMs": 0,
-    "warnings": []
-  },
-  "error": null
+  "output": { },       // stage 产物，字段因 stage 而异
+  "trace":  { },       // 执行 trace：method、参数、耗时、统计信息
+  "warnings": []       // 非致命警告，运行成功但有注意事项时填写
 }
 ```
 
-错误 envelope：
+错误响应：
 
 ```json
 {
-  "ok": false,
-  "data": null,
-  "trace": {
-    "requestId": "",
-    "step": "",
-    "durationMs": 0,
-    "warnings": []
-  },
   "error": {
-    "code": "",
-    "message": "",
-    "details": {}
+    "code": "missing_document | document_not_found | internal_error | provider_not_available | ...",
+    "message": "可读错误说明"
   }
 }
 ```
 
-## Document Endpoints
+> **注意**：当前阶段 API 路径前缀为 `/api/pipeline/*`（而非早期文档中的 `/api/rag/*`）。
+> 路由设计决策：`pipeline` 比 `rag` 更准确——Retrieval 和 Generation 也在同一套 pipeline 框架下。
 
-### POST /api/documents/upload
+---
 
-用途：上传或创建产品文档，并保存原始内容、metadata、hash 和版本信息。支持 `multipart/form-data` 文件上传，也支持 JSON 文本导入。
+## 文档 Endpoints
 
-JSON Request：
+### POST /api/documents
 
+上传文档。支持 `multipart/form-data`（文件上传）和 `application/json`（粘贴文本）。
+
+**二进制文件（PDF/DOCX）**：以 `arrayBuffer()` 读取后转 base64 存储（`isBinary: true`）。
+**文本文件（MD/TXT）**：以 UTF-8 字符串存储（`isBinary: false`）。
+
+multipart 请求字段：
+- `file`: File（二进制或文本）
+- 或 `text`: string + `fileName`: string（可选）
+
+JSON 请求：
 ```json
-{
-  "fileName": "product.md",
-  "mimeType": "text/markdown",
-  "content": "# Product",
-  "sourceType": "markdown",
-  "idempotencyPolicy": "new-version"
-}
+{ "text": "...", "fileName": "product.md", "mimeType": "text/markdown" }
 ```
 
-Response data：
-
+响应（201）— 不含 rawContent（可能很大）：
 ```json
 {
-  "documentId": "doc_001",
-  "documentVersionId": "docver_001",
-  "fileName": "product.md",
-  "fileSize": 128,
-  "mimeType": "text/markdown",
-  "hash": "sha256...",
-  "version": 1,
-  "duplicated": false,
-  "recommendedAction": "process",
-  "createdAt": "2026-05-18T00:00:00.000Z"
+  "document": {
+    "id": "uuid",
+    "fileName": "product.md",
+    "fileSize": 1234,
+    "mimeType": "text/markdown",
+    "hash": "sha256hex",
+    "version": 1,
+    "isBinary": false,
+    "createdAt": "ISO8601",
+    "updatedAt": "ISO8601",
+    "processingStatus": "ready"
+  }
 }
 ```
 
 ### GET /api/documents
 
-用途：Playground 首次进入或刷新时加载已上传文档列表。
+列出所有文档（按 createdAt 降序）。响应不含 rawContent。
 
-Response data：
+```json
+{ "documents": [ { /* 同上，无 rawContent */ } ] }
+```
+
+### DELETE /api/documents/:id
+
+删除指定文档。
+
+```json
+{ "deleted": "uuid" }
+```
+
+### POST /api/documents/:id/select
+
+验证文档存在，返回文档 metadata（供前端更新 pipelineRun 上下文）。
+
+```json
+{ "document": { /* 同 POST /api/documents 响应 */ } }
+```
+
+---
+
+## Pipeline Endpoints
+
+所有 pipeline endpoint 的 Request body：
 
 ```json
 {
-  "documents": [
-    {
-      "documentId": "doc_001",
-      "latestVersionId": "docver_001",
-      "fileName": "product.md",
-      "latestVersion": 1,
-      "fileSize": 128,
-      "mimeType": "text/markdown",
-      "hash": "sha256...",
-      "processingStatus": "uploaded",
-      "createdAt": "2026-05-18T00:00:00.000Z",
-      "lastSelectedAt": null
-    }
-  ]
+  "methodId": "method-name",
+  "params":   { },
+  "pipelineRun": {
+    "selectedDocumentId": "uuid",
+    "selectedDocumentVersionId": "uuid-v1"
+  }
 }
 ```
 
-### GET /api/documents/:documentId
+### POST /api/pipeline/idempotency
 
-用途：加载某个文档的 metadata、版本列表和最近 pipeline runs。
+方法：`sha256-content` | `normalized-sha256` | `file-signature`
 
-Response data：
+参数：
+- `versionPolicy`: `skip-existing` | `new-version` | `replace-existing`
+- `normalizeWhitespace`: boolean
+- `includeFileName`: boolean
 
+输出：
 ```json
 {
-  "document": {
-    "documentId": "doc_001",
+  "output": {
     "fileName": "product.md",
-    "versions": [
-      {
-        "documentVersionId": "docver_001",
-        "version": 1,
-        "hash": "sha256...",
-        "fileSize": 128,
-        "mimeType": "text/markdown",
-        "processingStatus": "uploaded",
-        "createdAt": "2026-05-18T00:00:00.000Z"
-      }
-    ]
-  }
-}
-```
-
-### POST /api/documents/:documentId/select
-
-用途：记录用户当前选择的 document version，作为后续 pipeline input。
-
-Request：
-
-```json
-{
-  "documentVersionId": "docver_001"
-}
-```
-
-Response data：
-
-```json
-{
-  "selectedDocumentId": "doc_001",
-  "selectedDocumentVersionId": "docver_001",
-  "inputRef": "document-version:docver_001"
-}
-```
-
-## RAG Endpoints
-
-### POST /api/rag/idempotency/check
-
-Request：
-
-```json
-{
-  "documentId": "doc_001",
-  "documentVersionId": "docver_001",
-  "fileName": "product.md",
-  "inputRef": "document-version:docver_001",
-  "mode": "skip-existing"
-}
-```
-
-Response data：
-
-```json
-{
-  "documentVersionId": "docver_001",
-  "fileName": "product.md",
-  "fileSize": 128,
-  "hash": "sha256...",
-  "exists": false,
-  "documentId": "doc_001",
-  "version": 1,
-  "recommendedAction": "process"
-}
-```
-
-### POST /api/rag/preprocess
-
-Request：
-
-```json
-{
-  "documentId": "doc_001",
-  "documentVersionId": "docver_001",
-  "fileName": "product.md",
-  "inputRef": "document-version:docver_001",
-  "method": "markdown-structure"
-}
-```
-
-Response data：
-
-```json
-{
-  "documentId": "doc_001",
-  "rawText": "# Product",
-  "cleanText": "Product",
-  "metadata": {
-    "sourceType": "markdown"
-  }
-}
-```
-
-### POST /api/rag/chunk
-
-Request：
-
-```json
-{
-  "documentId": "doc_001",
-  "text": "Product text",
-  "method": "fixed-size",
-  "params": {
-    "chunkSize": 800,
-    "overlap": 120,
-    "separator": "\n\n"
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "documentId": "doc_001",
-  "chunkCount": 1,
-  "tokenEstimate": 24,
-  "chunks": [
-    {
-      "id": "chunk_001",
-      "text": "Product text",
-      "metadata": {
-        "index": 0,
-        "sourceRef": "product.md#chunk-001"
-      }
-    }
-  ]
-}
-```
-
-### POST /api/rag/transform
-
-Request：
-
-```json
-{
-  "chunks": [],
-  "method": "summary-keywords",
-  "params": {
-    "keywordCount": 5
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "chunks": [
-    {
-      "id": "chunk_001",
-      "originalText": "",
-      "enhancedText": "",
-      "metadata": {
-        "keywords": []
-      }
-    }
-  ]
-}
-```
-
-### POST /api/rag/embed
-
-Request：
-
-```json
-{
-  "chunks": [],
-  "method": "debug-deterministic",
-  "provider": "debug-deterministic",
-  "model": "debug-embedding-v1",
-  "dimension": 16,
-  "batchSize": 32
-}
-```
-
-Response data：
-
-```json
-{
-  "provider": "debug-deterministic",
-  "model": "debug-embedding-v1",
-  "modelSource": "local-debug",
-  "dimension": 16,
-  "costEstimate": 0,
-  "latencyMs": 12,
-  "embeddings": [
-    {
-      "chunkId": "chunk_001",
-      "vectorPreview": []
-    }
-  ]
-}
-```
-
-### POST /api/rag/store
-
-Request：
-
-```json
-{
-  "document": {},
-  "chunks": [],
-  "embeddings": [],
-  "method": "pgvector-upsert-version",
-  "storage": "postgres-pgvector"
-}
-```
-
-Response data：
-
-```json
-{
-  "storage": "postgres-pgvector",
-  "documentId": "doc_001",
-  "storedChunkCount": 1,
-  "storedEmbeddingCount": 1,
-  "embeddingIndex": {
-    "provider": "debug-deterministic",
-    "model": "debug-embedding-v1",
-    "dimension": 16
-  }
-}
-```
-
-### POST /api/rag/query-rewrite
-
-Request：
-
-```json
-{
-  "query": "Who is this product for?",
-  "method": "rule-keyword-expansion",
-  "params": {
-    "maxQueries": 3,
-    "rewriteGoal": "selling-points",
-    "targetAudience": "indie developers"
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "query": "Who is this product for?",
-  "rewrittenQueries": [
-    "Who is this product for?",
-    "target users and product pain points",
-    "indie developer use cases"
-  ],
-  "providerTrace": null
-}
-```
-
-### POST /api/rag/retrieval
-
-Request：
-
-```json
-{
-  "queries": ["Who is this product for?"],
-  "method": "hybrid-rrf",
-  "topK": 5,
-  "threshold": 0.72,
-  "params": {
-    "vectorWeight": 0.7,
-    "textWeight": 0.3,
-    "filters": {}
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "queries": ["Who is this product for?"],
-  "matches": [
-    {
-      "chunkId": "chunk_001",
-      "score": 0.86,
-      "text": "",
-      "sourceRef": "product.md#chunk-001"
-    }
-  ]
-}
-```
-
-### POST /api/rag/filter
-
-Request：
-
-```json
-{
-  "matches": [],
-  "method": "score-threshold",
-  "params": {
-    "minScore": 0.72,
-    "maxPerDocument": 8
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "matches": [],
-  "removedMatches": [],
-  "filterReasons": []
-}
-```
-
-### POST /api/rag/rerank
-
-Request：
-
-```json
-{
-  "query": "Who is this product for?",
-  "matches": [],
-  "method": "metadata-boost",
-  "params": {
-    "rerankTopN": 10,
-    "criteria": "marketing relevance"
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "matches": [],
-  "beforeOrder": [],
-  "afterOrder": [],
-  "providerTrace": null
-}
-```
-
-### POST /api/rag/citation
-
-Request：
-
-```json
-{
-  "matches": [],
-  "method": "snippet-citation",
-  "params": {
-    "snippetLength": 240,
-    "includePage": true,
-    "maxEvidencePerClaim": 3
-  }
-}
-```
-
-Response data：
-
-```json
-{
-  "evidencePack": [],
-  "citations": [
-    {
-      "chunkId": "chunk_001",
-      "sourceRef": "product.md#chunk-001"
-    }
-  ]
-}
-```
-
-## Marketing Endpoints
-
-### POST /api/marketing/profile
-
-Request：
-
-```json
-{
-  "evidenceChunkIds": ["chunk_001"],
-  "retrievalRunId": "ret_001"
-}
-```
-
-Response data：
-
-```json
-{
-  "productProfile": {
-    "productName": "",
-    "targetUsers": [],
-    "coreProblems": [],
-    "coreFeatures": [],
-    "positioning": "",
-    "evidenceChunkIds": []
-  }
-}
-```
-
-### POST /api/marketing/selling-points
-
-Request：
-
-```json
-{
-  "productProfile": {},
-  "evidenceChunkIds": ["chunk_001"]
-}
-```
-
-Response data：
-
-```json
-{
-  "sellingPointMap": {
-    "functional": [],
-    "emotional": [],
-    "scenario": [],
-    "differentiation": []
+    "fileSize": 1234,
+    "mimeType": "text/markdown",
+    "hash": "sha256hex",
+    "exists": false,
+    "documentId": "uuid",
+    "version": 1,
+    "recommendedAction": "proceed — 新文档，可继续 ingestion pipeline",
+    "duplicateOf": { "id": "uuid", "fileName": "...", "version": 1 }
   },
-  "evidence": []
+  "trace": {
+    "method": "sha256-content",
+    "hashDescription": "...",
+    "normalizeWhitespace": false,
+    "includeFileName": false,
+    "versionPolicy": "new-version",
+    "durationMs": 12,
+    "checkedAgainst": 3,
+    "duplicatesFound": 0
+  },
+  "warnings": []
 }
 ```
 
-### POST /api/marketing/ideas
+### POST /api/pipeline/preprocess
 
-Request：
+方法：`markdown-structure` | `plain-text` | `markitdown` | `pdf-pages` | `pymupdf`
 
+| 方法 | 实现 | 说明 |
+|------|------|------|
+| `markdown-structure` | 纯 JS | heading path 栈 + MD 语法清洗 |
+| `plain-text` | 纯 JS | 空白归一化 |
+| `markitdown` | mammoth + turndown + pdf-parse v1 | 按 mimeType 自动路由 |
+| `pdf-pages` | pdf-parse v1 | 按页提取，生成页码 sourceRef |
+| `pymupdf` | Python 微服务（`services/pymupdf`） | 精确几何提取，需运行 docker compose |
+
+输出：
 ```json
 {
-  "sellingPointMap": {},
-  "platform": "x",
-  "targetUser": "indie developer",
-  "contentType": "tutorial",
-  "marketingGoal": "activation"
+  "output": {
+    "rawText": "...",
+    "cleanText": "...",
+    "charCount": 1000,
+    "wordCount": 200,
+    "metadata": {
+      "fileName": "product.md",
+      "mimeType": "text/markdown",
+      "headings": ["产品介绍", "核心功能"],
+      "pageCount": null
+    },
+    "sourceRefs": [
+      { "type": "heading|paragraph|page", "value": "产品介绍 > 核心功能", "charStart": 0, "charEnd": 100 }
+    ],
+    "warnings": []
+  },
+  "trace": {
+    "method": "markdown-structure",
+    "isBinary": false,
+    "rawCharCount": 1200,
+    "cleanCharCount": 1000,
+    "compressionRatio": "0.83",
+    "headingCount": 2,
+    "sourceRefCount": 5,
+    "durationMs": 8
+  }
 }
 ```
 
-Response data：
+pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
+---
+
+## 外部服务
+
+### pymupdf 微服务
+
+- **位置**：`services/pymupdf/`（Python FastAPI）
+- **启动**：`docker compose up pymupdf`
+- **端口**：宿主机 8001 → 容器 8000
+
+`POST /extract`：
 ```json
 {
-  "ideas": [
-    {
-      "title": "",
-      "angle": "",
-      "sellingPointId": "",
-      "targetUser": "",
-      "platform": "",
-      "hook": "",
-      "outline": [],
-      "evidenceChunkIds": []
-    }
-  ]
+  "pdf_base64": "base64string",
+  "page_range": "1-10",
+  "preserve_layout": true,
+  "extract_images": false
 }
 ```
+
+`GET /health`：健康检查。
+
+---
+
+## 待实现 Endpoints
+
+以下 endpoints 已在 `feature_list.json` 中规划，尚未实现：
+
+- `POST /api/pipeline/chunk`（feat-003.3）
+- `POST /api/pipeline/transform`（feat-003.4）
+- `POST /api/pipeline/embedding`（feat-003.5）
+- `POST /api/pipeline/storage`（feat-003.6）
+- `POST /api/pipeline/query-rewrite`（feat-004.1）
+- `POST /api/pipeline/retrieval`（feat-004.2）
+- `POST /api/pipeline/filter`（feat-004.3）
+- `POST /api/pipeline/rerank`（feat-004.4）
+- `POST /api/pipeline/citation`（feat-004.5）
+- `POST /api/pipeline/generation`（feat-005）
