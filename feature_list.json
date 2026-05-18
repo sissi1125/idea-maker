@@ -77,8 +77,8 @@
       "dependencies": [
         "feat-002.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 实现 lib/pipelineDeps.ts 定义全部 stage 依赖图；StageConfigPanel 使用 getBlockReason() 检查：(1)未选文档时提示选择文档，(2)上游未成功运行时提示需先运行上游；checkUpstreamStale() 检测上游重跑后提示当前结果可能过时；PlaygroundShell 传入 getLatestRun 回调。浏览器验证：预处理 stage 在幂等性未运行时显示「需要先成功运行文档幂等性检查」，运行幂等性后解锁，预处理可正常运行。"
     },
     {
       "id": "feat-003",
@@ -97,8 +97,8 @@
       "dependencies": [
         "feat-002.6"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 实现 POST /api/pipeline/idempotency；支持 sha256-content、normalized-sha256、file-signature 三种方法；返回 hash、exists、recommendedAction、trace；浏览器验证：选中 product-intro.md 后运行，成功返回 proceed 建议，durationMs 正常展示。代码含原理注释。"
     },
     {
       "id": "feat-003.2",
@@ -107,8 +107,8 @@
       "dependencies": [
         "feat-003.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-18 实现 POST /api/pipeline/preprocess；支持 markdown-structure（逐行扫描标题栈，清洗 MD 语法，记录 sourceRef heading path）、plain-text（空白归一化）、pdf-pages（文本模拟）三种方法；output 含 rawText/cleanText/charCount/wordCount/metadata/sourceRefs/warnings；trace 含 compressionRatio。浏览器验证：product-intro.md 运行 markdown-structure，成功返回 headings:[产品介绍,核心功能]，sourceRefs 含 heading path，620ms。"
     },
     {
       "id": "feat-003.3",

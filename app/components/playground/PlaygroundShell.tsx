@@ -61,7 +61,7 @@ export default function PlaygroundShell() {
     }));
   }, []);
 
-  const latestRun = (stageId: string): StepRun | undefined => stepRuns[stageId]?.[0];
+  const latestRun = useCallback((stageId: string): StepRun | undefined => stepRuns[stageId]?.[0], [stepRuns]);
 
   const anyRunning = Object.values(stepRuns).flat().some((r) => r.status === "running");
 
@@ -128,6 +128,7 @@ export default function PlaygroundShell() {
           documents={documents}
           onDocumentUploaded={handleDocumentUploaded}
           onDocumentSelected={handleDocumentSelected}
+          getLatestRun={latestRun}
         />
         <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
       </div>
