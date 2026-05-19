@@ -1,5 +1,25 @@
 # 进度记录
 
+## 2026-05-19（会话 6）
+
+### 已完成
+
+- 修复 UI：blocked stage 不再显示全屏 BlockedNotice，方法/参数始终可见；运行按钮 disabled + 右侧显示 `⚠ 原因` 提示。
+- 实现 `feat-003.4` Transform Stage：
+  - `app/api/pipeline/transform/route.ts`：三种方法。
+    - `none`：透传，enhancedText = text，transformedCount = 0。
+    - `heading-context`：前缀注入 `documentTitle\nsourceRef\n\n原文`，transformedCount 计入有效注入数。
+    - `summary-keywords`：TF 词频关键词（停用词过滤）+ 规则句子摘要，`appendToChunk` 控制是否拼到 enhancedText 末尾。
+  - `lib/stageRegistry.ts`：heading-context 补 `documentTitle` 参数；summary-keywords 补 `appendToChunk` 参数。
+  - output 含 `enhancedText / injectedPrefix / keywords / summary / enhancedTokenEstimate`。
+- curl 验证：三种方法均通过；typecheck 通过。
+
+### 当前状态
+
+- `feat-003.3`、`feat-003.4` 完成，下一步：`feat-003.5` Embedding Stage。
+
+---
+
 ## 2026-05-19（会话 5）
 
 ### 已完成

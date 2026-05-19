@@ -199,8 +199,9 @@ const registry: StageDef[] = [
         id: "heading-context",
         label: "注入标题上下文",
         params: [
+          { key: "documentTitle", label: "文档标题（可选）", type: "text", default: "", placeholder: "例: 产品介绍文档", hint: "留空则不注入文档级标题" },
           { key: "includeTitle", label: "包含文档标题", type: "boolean", default: true },
-          { key: "includeHeadingPath", label: "包含标题路径", type: "boolean", default: true },
+          { key: "includeHeadingPath", label: "包含 sourceRef 路径", type: "boolean", default: true },
         ],
       },
       {
@@ -209,6 +210,7 @@ const registry: StageDef[] = [
         params: [
           { key: "keywordCount", label: "关键词数量", type: "number", default: 5, min: 1, max: 20 },
           { key: "summaryMaxTokens", label: "摘要最大 Token", type: "number", default: 100, min: 20, max: 500 },
+          { key: "appendToChunk", label: "拼接到 chunk 末尾", type: "boolean", default: true, hint: "关闭则只在 output 记录，不修改 enhancedText" },
         ],
       },
     ],

@@ -127,8 +127,8 @@
       "dependencies": [
         "feat-003.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/transform；三种方法：none（透传）、heading-context（前缀注入 documentTitle + sourceRef 路径，transformedCount=2 验证）、summary-keywords（TF 词频关键词提取 + 规则摘要，appendToChunk 可控）；stageRegistry 补充 documentTitle/appendToChunk 参数；curl 验证：none 透传正确，heading-context 注入 '产品白皮书\n产品介绍 > 核心功能\n\n...' 格式，summary-keywords 正确提取关键词；typecheck 通过。"
     },
     {
       "id": "feat-003.5",
