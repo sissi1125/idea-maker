@@ -309,6 +309,10 @@ export default function PlaygroundShell() {
           initialMethodId={stageParamsMap[activeStage.id]?.methodId}
           initialParams={stageParamsMap[activeStage.id]?.params}
           onParamsChange={handleParamsChange}
+          snapshot={activeStageSnapshot}
+          snapshotUpstreamLoaded={snapshotUpstreamMap[activeStage.id] !== undefined}
+          onLoadSnapshotUpstream={handleLoadSnapshotUpstream}
+          onClearSnapshotUpstream={handleClearSnapshotUpstream}
         />
         <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
       </div>

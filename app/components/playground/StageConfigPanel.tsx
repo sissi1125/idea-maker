@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { PipelineStage } from "@/lib/pipelineStages";
 import { PIPELINE_STAGES, INGESTION_STAGE_IDS } from "@/lib/pipelineStages";
 import { PipelineRun, StepRun } from "@/lib/types";
+import type { StageSnapshot } from "@/lib/types";
 import { getStage, defaults } from "@/lib/stageRegistry";
 import { DocumentRecord } from "@/lib/docStore";
 import { getUpstream, resolveEffectiveUpstream, isStageActive } from "@/lib/pipelineDeps";
@@ -26,6 +27,10 @@ interface Props {
   initialParams?: Record<string, unknown>;
   /** 每次 method 或 param 变更时回传给父组件，用于跨 stage 切换持久化 */
   onParamsChange?: (stageId: string, methodId: string, params: Record<string, unknown>) => void;
+  snapshot?: StageSnapshot | null;
+  snapshotUpstreamLoaded?: boolean;
+  onLoadSnapshotUpstream?: (stageId: string, upstream: unknown) => void;
+  onClearSnapshotUpstream?: (stageId: string) => void;
 }
 
 export default function StageConfigPanel({
@@ -41,6 +46,10 @@ export default function StageConfigPanel({
   initialMethodId,
   initialParams,
   onParamsChange,
+  snapshot,
+  snapshotUpstreamLoaded,
+  onLoadSnapshotUpstream,
+  onClearSnapshotUpstream,
 }: Props) {
   const stageDef = getStage(stage.id);
   const isImplemented = !stageDef || stageDef.implemented !== false;
@@ -198,6 +207,37 @@ export default function StageConfigPanel({
               ) : null;
             })()}
 
+            {/* 快照栏 */}
+            {snapshot && (
+              <div className="px-5 py-2 border-t border-zinc-100 bg-zinc-50">
+                <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                  <span className="text-violet-500">📌 上次快照</span>
+                  <span>{new Date(snapshot.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="font-mono bg-zinc-100 px-1 rounded">{snapshot.methodId}</span>
+                  <span className="ml-auto flex gap-1">
+                    {snapshotUpstreamLoaded ? (
+                      <>
+                        <span className="text-green-600 font-medium">✓ 已加载快照输入</span>
+                        <button
+                          onClick={() => onClearSnapshotUpstream?.(stage.id)}
+                          className="text-zinc-400 hover:text-zinc-600 border border-zinc-200 rounded px-1"
+                        >
+                          清除
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => onLoadSnapshotUpstream?.(stage.id, snapshot.upstreamOutput)}
+                        className="text-violet-600 hover:text-violet-800 border border-violet-200 rounded px-1.5 py-0.5 bg-violet-50"
+                      >
+                        使用此快照作为上游输入
+                      </button>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Run button + 状态 */}
             <div className="flex items-center gap-3 pt-1">
               <button
@@ -214,7 +254,7 @@ export default function StageConfigPanel({
                     <span className="h-3 w-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
                     运行中…
                   </>
-                ) : "▶ 运行"}
+                ) : snapshotUpstreamLoaded ? "▶ 运行（快照输入）" : "▶ 运行"}
               </button>
 
               {/* 优先级：步骤已关闭 > 阻塞 > 未实现 > 参数错误 > 成功/错误 */}
