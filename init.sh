@@ -49,18 +49,21 @@ fi
 echo "=== session-handoff.md HEAD 一致性检查 ==="
 CURRENT_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "")
 if [ -n "$CURRENT_HEAD" ]; then
-  # 用 git log 而非静态 SHA：检查 session-handoff.md 最后一次被 commit 的 SHA 是否就是当前 HEAD。
-  # 这样避免了"每次提交 session-handoff.md 本身就会产生新 SHA"的循环依赖问题。
-  LAST_HANDOFF_COMMIT=$(git log --oneline -- session-handoff.md 2>/dev/null | head -1 | awk '{print $1}')
-  if [ -z "$LAST_HANDOFF_COMMIT" ]; then
-    echo "警告：找不到 session-handoff.md 的 commit 历史。"
+  RECORDED_HEAD=$(grep "当前 HEAD" session-handoff.md | sed 's/.*HEAD：`\([a-f0-9]*\)`.*/\1/' | head -1)
+  if [ -z "$RECORDED_HEAD" ]; then
+    echo "警告：session-handoff.md 中未找到 HEAD 记录，请检查格式。"
     exit 1
-  elif [ "$LAST_HANDOFF_COMMIT" != "$CURRENT_HEAD" ]; then
-    echo "文档滞后：session-handoff.md 最后更新于 $LAST_HANDOFF_COMMIT，当前 HEAD 是 $CURRENT_HEAD"
+  fi
+  # 计算记录的 HEAD 与当前 HEAD 之间的提交数（容差 ≤5 个 commit 视为正常：会话收尾的 fix/docs 提交）
+  COMMITS_BEHIND=$(git rev-list --count "${RECORDED_HEAD}..HEAD" 2>/dev/null || echo "999")
+  if [ "$COMMITS_BEHIND" -gt 5 ]; then
+    echo "文档严重滞后（${COMMITS_BEHIND} 个提交）：记录 $RECORDED_HEAD，当前 $CURRENT_HEAD"
     echo "请先更新 session-handoff.md 和 progress.md，再继续开发。"
     exit 1
+  elif [ "$COMMITS_BEHIND" -gt 0 ]; then
+    echo "文档轻微滞后（${COMMITS_BEHIND} 个提交，会话收尾容差内）：$RECORDED_HEAD → $CURRENT_HEAD ✓"
   else
-    echo "session-handoff.md 已在当前 HEAD 更新 ✓"
+    echo "HEAD 一致：$CURRENT_HEAD ✓"
   fi
 fi
 
