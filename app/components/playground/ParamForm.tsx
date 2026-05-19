@@ -114,6 +114,19 @@ function ParamField({
     );
   }
 
+  if (param.type === "password") {
+    return (
+      <input
+        type="password"
+        value={String(value ?? param.default ?? "")}
+        placeholder={param.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={base}
+        autoComplete="off"
+      />
+    );
+  }
+
   // text fallback
   return (
     <input
