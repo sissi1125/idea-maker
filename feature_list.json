@@ -137,8 +137,8 @@
       "dependencies": [
         "feat-003.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/embedding；四种 provider：debug-deterministic（FNV-1a 哈希确定性向量，无需外部服务）、openai-3-small（OpenAI SDK，需 OPENAI_API_KEY，支持 dimensions 降维参数）、hf-tei-embedding（HTTP fetch 调 TEI 服务，需 HF_TEI_ENDPOINT）、hf-transformers-js（@huggingface/transformers 本地推理，mean_pooling + normalize）；批处理支持 batchSize；output 含 EmbeddedChunk（embedding/embeddingDimension）+ provider/model/totalTokensEstimated/batchCount/costEstimate；动态 import openai/transformers 避免非必要 provider 加载大型 SDK；curl 验证：debug-deterministic dim=4 返回正确向量，确定性验证通过（两次运行向量完全一致），missing_upstream 返回 400；typecheck 通过。"
     },
     {
       "id": "feat-003.6",
