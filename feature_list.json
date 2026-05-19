@@ -227,8 +227,18 @@
       "dependencies": [
         "feat-004.5"
       ],
-      "status": "todo",
+      "status": "in-progress",
       "evidence": ""
+    },
+    {
+      "id": "feat-007",
+      "name": "Stage 快照持久化与 Pipeline 全链路追踪",
+      "description": "每个 stage 成功运行后自动保存快照到 PostgreSQL（stage_snapshots 表），用户可注入历史快照作为上游输入无需重跑。新增 PipelineTraceDrawer 底部抽屉面板（当前运行 Tab + 历史记录 Tab），可内联展开 output/trace。手动保存完整 pipeline run 历史到 pipeline_run_history 表。",
+      "dependencies": [
+        "feat-004.5"
+      ],
+      "status": "done",
+      "evidence": "2026-05-20 实现：stage_snapshots + pipeline_run_history 两张 PostgreSQL 表；4 个 API 路由（/api/snapshots、/api/pipeline-runs）；PlaygroundShell 快照注入逻辑；StageConfigPanel 快照栏；PipelineTraceDrawer 底部抽屉（当前运行 Tab + 历史记录 Tab）。typecheck + lint 全部通过。"
     },
     {
       "id": "feat-006",

@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-19（会话 9，harness 一致性修复）
+2026-05-20（会话 10）
 
 ## 项目
 
@@ -28,6 +28,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 | feat-004.3 | Filter Stage（score-threshold / metadata-filter / mmr-diversity） | done |
 | feat-004.4 | Rerank Stage（score-only / metadata-boost / hf-tei-rerank / llm-relevance-rerank） | done |
 | feat-004.5 | Citation Stage（chunk-citation / page-aware-citation / snippet-citation） | done |
+| feat-007 | Stage 快照持久化与 Pipeline 全链路追踪（stage_snapshots + pipeline_run_history；4 API 路由；PipelineTraceDrawer 底部抽屉） | done |
 
 ### 待做 features
 
@@ -38,7 +39,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`524c0e5`（Merge branch 'claude/gallant-dubinsky-b9bb6d'）
+- **主分支**：`main`，当前 HEAD：`c5b1dca`（feat: implement PipelineTraceDrawer with current/history tabs）
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
@@ -70,6 +71,12 @@ POST /api/pipeline/rerank                — 重排序（4 methods）
 POST /api/pipeline/citation              — 引用打包（3 methods）
 POST /api/pipeline/fallback              — Fallback 兜底（可选步骤）
 POST /api/pipeline/prompt-build          — Prompt 构建（可选步骤）
+
+POST /api/snapshots                      — 保存/更新 stage 快照
+GET  /api/snapshots/:stageId             — 获取最新 stage 快照
+POST /api/pipeline-runs                  — 保存完整 pipeline run 历史
+GET  /api/pipeline-runs                  — 获取 pipeline run 列表
+GET  /api/pipeline-runs/:id              — 获取单条 pipeline run 详情
 ```
 
 ### 已知 bugs（已修复）

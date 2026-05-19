@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PipelineStage } from "./PipelineStepList";
 import { StepRun } from "@/lib/types";
-import { truncateStrings, vectorReplacer, JsonView } from "./JsonView";
+import { truncateStrings, JsonView } from "./JsonView";
 
 interface Props {
   stage: PipelineStage;

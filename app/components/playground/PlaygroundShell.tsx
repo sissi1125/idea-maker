@@ -45,11 +45,15 @@ export default function PlaygroundShell() {
 
   // activeStage 变化时拉取快照
   useEffect(() => {
-    if (!activeStage) { setActiveStageSnapshot(null); return; }
-    fetch(`/api/snapshots/${activeStage.id}`)
-      .then((r) => r.json())
-      .then((data: { snapshot: StageSnapshot | null }) => setActiveStageSnapshot(data.snapshot ?? null))
-      .catch(() => setActiveStageSnapshot(null));
+    const stageId = activeStage?.id;
+    // 用 Promise 链统一 setState，避免在 effect 体内同步调用 setState
+    const p = stageId
+      ? fetch(`/api/snapshots/${stageId}`)
+          .then((r) => r.json())
+          .then((data: { snapshot: StageSnapshot | null }) => data.snapshot ?? null)
+          .catch(() => null as StageSnapshot | null)
+      : Promise.resolve(null as StageSnapshot | null);
+    p.then((snap) => setActiveStageSnapshot(snap));
   }, [activeStage?.id]);
 
   // 抽屉打开时拉取历史

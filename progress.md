@@ -1,5 +1,26 @@
 # 进度记录
 
+## 2026-05-20（会话 10）
+
+### 已完成
+
+- 实现 `feat-007` Stage 快照持久化与 Pipeline 全链路追踪：
+  - 新建 `app/components/playground/JsonView.tsx`：从 OutputTracePanel 提取 JsonView/truncateStrings/VectorSummary 为共享组件。
+  - 新增 `StageSnapshot`、`PipelineRunRecord`、`PipelineRunStageEntry` 类型到 `lib/types.ts`。
+  - 新建 `lib/snapshotDb.ts`：PostgreSQL DDL（stage_snapshots + pipeline_run_history）+ 全套 CRUD 工具函数。
+  - 新建 4 个 API 路由：`/api/snapshots`（POST）、`/api/snapshots/[stageId]`（GET）、`/api/pipeline-runs`（POST+GET）、`/api/pipeline-runs/[id]`（GET）。
+  - 扩展 `PlaygroundShell.tsx`：快照上游注入 state、save pipeline run、trace drawer toggle、Header 新增"🔗全链路"和"💾保存Run"按钮。
+  - 扩展 `StageConfigPanel.tsx`：快照栏（显示上次快照、使用此快照作为上游输入、运行按钮文案变化）。
+  - 新建 `PipelineTraceDrawer.tsx`：底部抽屉，Tab1=当前 pipeline 全 stage 状态（按 group 分组，内联展开 output/trace），Tab2=历史 pipeline run 列表。
+  - typecheck + lint + init.sh 全部通过。
+
+### 当前状态
+
+- `feat-007` 完成。feat-005（Marketing Generation）待实现。
+- 下一步：`feat-005`（产品画像、卖点地图、内容 idea 生成）。
+
+---
+
 ## 2026-05-19（会话 9，harness 一致性修复）
 
 ### 已完成

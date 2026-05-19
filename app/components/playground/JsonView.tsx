@@ -53,6 +53,7 @@ export function vectorReplacer(_key: string, val: unknown): unknown {
     !Array.isArray(val) &&
     (val as Record<string, unknown>).__vector === true
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { full: _full, ...summary } = val as Record<string, unknown>;
     return { ...summary, full: `[…${summary.dimension} 维，点击上方 VectorSummary 展开]` };
   }
