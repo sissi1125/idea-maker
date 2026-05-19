@@ -6,7 +6,7 @@ import { PIPELINE_STAGES, INGESTION_STAGE_IDS } from "@/lib/pipelineStages";
 import { PipelineRun, StepRun } from "@/lib/types";
 import { getStage, defaults } from "@/lib/stageRegistry";
 import { DocumentRecord } from "@/lib/docStore";
-import { getUpstream, resolveEffectiveUpstream } from "@/lib/pipelineDeps";
+import { getUpstream, resolveEffectiveUpstream, isStageActive } from "@/lib/pipelineDeps";
 import ParamForm from "./ParamForm";
 import DocumentUploadPanel from "./DocumentUploadPanel";
 
@@ -117,8 +117,10 @@ export default function StageConfigPanel({
 
   const isRunning = latestRun?.status === "running";
   const hasErrors = Object.keys(errors).length > 0;
-  // Run 按钮禁用：运行中 / 参数错误 / 被阻塞 / API 未实现
-  const runDisabled = isRunning || hasErrors || !!blockReason || !isImplemented;
+  // 当前 stage 是否处于启用状态（required 始终 true；optional/conditional 受 enabledSteps 控制）
+  const stageActive = isStageActive(stage, pipelineRun.enabledSteps, pipelineRun.runtimeContext);
+  // Run 按钮禁用：运行中 / 参数错误 / 被阻塞 / API 未实现 / 步骤已关闭
+  const runDisabled = isRunning || hasErrors || !!blockReason || !isImplemented || !stageActive;
 
   return (
     <main className="flex-1 flex flex-col overflow-hidden border-r border-zinc-200 bg-white min-w-0">
@@ -215,18 +217,21 @@ export default function StageConfigPanel({
                 ) : "▶ 运行"}
               </button>
 
-              {/* 优先级：阻塞 > 未实现 > 参数错误 > 成功/错误 */}
-              {blockReason && <span className="text-xs text-amber-600">⚠ {blockReason}</span>}
-              {!blockReason && !isImplemented && (
+              {/* 优先级：步骤已关闭 > 阻塞 > 未实现 > 参数错误 > 成功/错误 */}
+              {!stageActive && (
+                <span className="text-xs text-zinc-400">步骤已关闭 — 在左侧开关开启后可运行</span>
+              )}
+              {stageActive && blockReason && <span className="text-xs text-amber-600">⚠ {blockReason}</span>}
+              {stageActive && !blockReason && !isImplemented && (
                 <span className="text-xs text-amber-600">API 路由尚未实现，参数仅供预览</span>
               )}
-              {!blockReason && isImplemented && hasErrors && (
+              {stageActive && !blockReason && isImplemented && hasErrors && (
                 <span className="text-xs text-red-500">请修正参数错误后再运行</span>
               )}
-              {!blockReason && isImplemented && !hasErrors && latestRun?.status === "success" && (
+              {stageActive && !blockReason && isImplemented && !hasErrors && latestRun?.status === "success" && (
                 <span className="text-xs text-green-600">✓ 成功 {latestRun.durationMs}ms</span>
               )}
-              {!blockReason && isImplemented && !hasErrors && latestRun?.status === "error" && (
+              {stageActive && !blockReason && isImplemented && !hasErrors && latestRun?.status === "error" && (
                 <span className="text-xs text-red-500">✗ {latestRun.error?.code}</span>
               )}
             </div>
