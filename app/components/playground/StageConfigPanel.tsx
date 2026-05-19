@@ -123,8 +123,6 @@ export default function StageConfigPanel({
             onSelect={onDocumentSelected}
             onDeleted={onDocumentDeleted}
           />
-        ) : blockReason ? (
-          <BlockedNotice reason={blockReason} />
         ) : !stageDef ? (
           <UnimplementedNotice stage={stage} />
         ) : (
@@ -173,9 +171,9 @@ export default function StageConfigPanel({
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={handleRun}
-                disabled={isRunning || hasErrors}
+                disabled={isRunning || hasErrors || !!blockReason}
                 className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  isRunning || hasErrors
+                  isRunning || hasErrors || blockReason
                     ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
                     : "bg-zinc-900 text-white hover:bg-zinc-700 active:bg-zinc-800"
                 }`}
@@ -184,11 +182,12 @@ export default function StageConfigPanel({
                   <><span className="h-3 w-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />运行中…</>
                 ) : "▶ 运行"}
               </button>
-              {hasErrors && <span className="text-xs text-red-500">请修正参数错误后再运行</span>}
-              {latestRun?.status === "success" && (
+              {blockReason && <span className="text-xs text-amber-600">⚠ {blockReason}</span>}
+              {!blockReason && hasErrors && <span className="text-xs text-red-500">请修正参数错误后再运行</span>}
+              {!blockReason && latestRun?.status === "success" && (
                 <span className="text-xs text-green-600">✓ 成功 {latestRun.durationMs}ms</span>
               )}
-              {latestRun?.status === "error" && (
+              {!blockReason && latestRun?.status === "error" && (
                 <span className="text-xs text-red-500">✗ {latestRun.error?.code}</span>
               )}
             </div>
@@ -251,15 +250,6 @@ function checkUpstreamStale(
 }
 
 // ─── 子组件 ──────────────────────────────────────────────────────────────────
-
-function BlockedNotice({ reason }: { reason: string }) {
-  return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <p className="text-xs font-semibold text-amber-800 mb-1">⚠ 无法运行</p>
-      <p className="text-xs text-amber-700 leading-relaxed">{reason}</p>
-    </div>
-  );
-}
 
 function StaleWarning({ upstreamId }: { upstreamId: string }) {
   const name = PIPELINE_STAGES.find((s) => s.id === upstreamId)?.name ?? upstreamId;
