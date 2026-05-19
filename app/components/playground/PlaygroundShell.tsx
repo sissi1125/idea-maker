@@ -6,6 +6,7 @@ import { PIPELINE_STAGES } from "@/lib/pipelineStages";
 import type { PipelineStage } from "@/lib/pipelineStages";
 import StageConfigPanel from "./StageConfigPanel";
 import OutputTracePanel from "./OutputTracePanel";
+import GenerationOutputPanel from "./GenerationOutputPanel";
 import { StepRun, StepRunMap, PipelineRun, PipelineRunStatus, createPipelineRun } from "@/lib/types";
 import type { StageSnapshot, PipelineRunRecord, PipelineRunStageEntry } from "@/lib/types";
 import { DocumentRecord } from "@/lib/docStore";
@@ -318,7 +319,11 @@ export default function PlaygroundShell() {
           onLoadSnapshotUpstream={handleLoadSnapshotUpstream}
           onClearSnapshotUpstream={handleClearSnapshotUpstream}
         />
-        <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
+        {activeStage.id === "generation" ? (
+          <GenerationOutputPanel runs={stepRuns["generation"] ?? []} />
+        ) : (
+          <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
+        )}
       </div>
       <PipelineTraceDrawer
         open={traceDrawerOpen}
