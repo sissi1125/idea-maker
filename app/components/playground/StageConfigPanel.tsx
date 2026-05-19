@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { PipelineStage, PIPELINE_STAGES } from "./PipelineStepList";
-import { PipelineRun } from "./PlaygroundShell";
-import { StepRun } from "@/lib/types";
+import type { PipelineStage } from "@/lib/pipelineStages";
+import { PIPELINE_STAGES, INGESTION_STAGE_IDS } from "@/lib/pipelineStages";
+import { PipelineRun, StepRun } from "@/lib/types";
 import { getStage, defaults } from "@/lib/stageRegistry";
 import { DocumentRecord } from "@/lib/docStore";
-import { getUpstream } from "@/lib/pipelineDeps";
+import { getUpstream, resolveEffectiveUpstream } from "@/lib/pipelineDeps";
 import ParamForm from "./ParamForm";
 import DocumentUploadPanel from "./DocumentUploadPanel";
 
@@ -19,7 +19,6 @@ interface Props {
   onDocumentUploaded: (doc: DocumentRecord) => void;
   onDocumentSelected: (doc: DocumentRecord) => void;
   onDocumentDeleted: (id: string) => void;
-  /** 获取任意 stage 最新运行结果，用于检查上游状态 */
   getLatestRun: (stageId: string) => StepRun | undefined;
 }
 
@@ -35,16 +34,12 @@ export default function StageConfigPanel({
   getLatestRun,
 }: Props) {
   const stageDef = getStage(stage.id);
+  const isImplemented = !stageDef || stageDef.implemented !== false;
 
-  // 计算当前 stage 的阻塞状态和原因
-  const blockReason = getBlockReason(stage.id, pipelineRun, getLatestRun);
-
-  // 检测上游是否在当前 stage 上次运行之后又重跑了（说明当前结果可能已过时）
+  const blockReason = getBlockReason(stage, pipelineRun, getLatestRun);
   const upstreamStale = checkUpstreamStale(stage.id, latestRun, getLatestRun);
 
   const firstMethod = stageDef?.methods[0];
-  // 初始值直接从 stageDef 计算；stage 切换时 PlaygroundShell 传入 key={stage.id}
-  // 让 React 重新挂载组件，自动重置所有 state，无需 useEffect
   const [selectedMethodId, setSelectedMethodId] = useState(firstMethod?.id ?? "");
   const [params, setParams] = useState<Record<string, unknown>>(
     firstMethod ? defaults(firstMethod) : {}
@@ -52,8 +47,7 @@ export default function StageConfigPanel({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleMethodChange = (methodId: string) => {
-    const def = getStage(stage.id);
-    const m = def?.methods.find((x) => x.id === methodId);
+    const m = stageDef?.methods.find((x) => x.id === methodId);
     setSelectedMethodId(methodId);
     setParams(m ? defaults(m) : {});
     setErrors({});
@@ -65,13 +59,15 @@ export default function StageConfigPanel({
   };
 
   const validate = (): boolean => {
-    const def = getStage(stage.id);
-    const method = def?.methods.find((m) => m.id === selectedMethodId);
+    const method = stageDef?.methods.find((m) => m.id === selectedMethodId);
     if (!method) return true;
     const errs: Record<string, string> = {};
     for (const param of method.params) {
       const val = params[param.key];
-      if (param.required && (val === undefined || val === "" || val === null)) errs[param.key] = "必填";
+      if (param.required && (val === undefined || val === "" || val === null)) {
+        errs[param.key] = "必填";
+        continue;
+      }
       if (param.type === "number") {
         const n = Number(val);
         if (isNaN(n)) { errs[param.key] = "请输入数字"; continue; }
@@ -89,8 +85,7 @@ export default function StageConfigPanel({
 
   const handleRun = () => {
     if (!validate()) return;
-    const def = getStage(stage.id);
-    const method = def?.methods.find((m) => m.id === selectedMethodId);
+    const method = stageDef?.methods.find((m) => m.id === selectedMethodId);
     const coerced: Record<string, unknown> = { ...params };
     if (method) {
       for (const p of method.params) {
@@ -104,14 +99,24 @@ export default function StageConfigPanel({
 
   const isRunning = latestRun?.status === "running";
   const hasErrors = Object.keys(errors).length > 0;
+  // Run 按钮禁用：运行中 / 参数错误 / 被阻塞 / API 未实现
+  const runDisabled = isRunning || hasErrors || !!blockReason || !isImplemented;
 
   return (
     <main className="flex-1 flex flex-col overflow-hidden border-r border-zinc-200 bg-white min-w-0">
+      {/* 标题栏 */}
       <div className="px-5 py-3 border-b border-zinc-100 flex items-center gap-2 shrink-0">
         <span className="text-[10px] font-mono text-zinc-400 bg-zinc-50 px-1.5 py-0.5 rounded">
           {stage.featureId}
         </span>
         <h2 className="text-sm font-semibold text-zinc-800">{stage.name}</h2>
+        {/* 步骤分类标签 */}
+        <CategoryBadge category={stage.category} />
+        {!isImplemented && (
+          <span className="ml-auto text-[10px] bg-amber-50 text-amber-600 border border-amber-200 rounded px-1.5 py-0.5">
+            参数预览 · API 尚未实现
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
@@ -124,11 +129,12 @@ export default function StageConfigPanel({
             onDeleted={onDocumentDeleted}
           />
         ) : !stageDef ? (
-          <UnimplementedNotice stage={stage} />
+          <UnregisteredNotice stage={stage} />
         ) : (
           <>
-            {/* 上游已重跑警告 */}
-            {upstreamStale && <StaleWarning upstreamId={getUpstream(stage.id)!} />}
+            {upstreamStale && (
+              <StaleWarning upstreamId={getUpstream(stage.id)!} />
+            )}
 
             {/* Method selector */}
             {stageDef.methods.length > 1 && (
@@ -162,32 +168,47 @@ export default function StageConfigPanel({
                       {method.label}
                     </label>
                   )}
-                  <ParamForm params={method.params} values={params} onChange={handleParamChange} errors={errors} />
+                  <ParamForm
+                    params={method.params}
+                    values={params}
+                    onChange={handleParamChange}
+                    errors={errors}
+                  />
                 </div>
               ) : null;
             })()}
 
-            {/* Run button */}
+            {/* Run button + 状态 */}
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={handleRun}
-                disabled={isRunning || hasErrors || !!blockReason}
+                disabled={runDisabled}
                 className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  isRunning || hasErrors || blockReason
+                  runDisabled
                     ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
                     : "bg-zinc-900 text-white hover:bg-zinc-700 active:bg-zinc-800"
                 }`}
               >
                 {isRunning ? (
-                  <><span className="h-3 w-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />运行中…</>
+                  <>
+                    <span className="h-3 w-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
+                    运行中…
+                  </>
                 ) : "▶ 运行"}
               </button>
+
+              {/* 优先级：阻塞 > 未实现 > 参数错误 > 成功/错误 */}
               {blockReason && <span className="text-xs text-amber-600">⚠ {blockReason}</span>}
-              {!blockReason && hasErrors && <span className="text-xs text-red-500">请修正参数错误后再运行</span>}
-              {!blockReason && latestRun?.status === "success" && (
+              {!blockReason && !isImplemented && (
+                <span className="text-xs text-amber-600">API 路由尚未实现，参数仅供预览</span>
+              )}
+              {!blockReason && isImplemented && hasErrors && (
+                <span className="text-xs text-red-500">请修正参数错误后再运行</span>
+              )}
+              {!blockReason && isImplemented && !hasErrors && latestRun?.status === "success" && (
                 <span className="text-xs text-green-600">✓ 成功 {latestRun.durationMs}ms</span>
               )}
-              {!blockReason && latestRun?.status === "error" && (
+              {!blockReason && isImplemented && !hasErrors && latestRun?.status === "error" && (
                 <span className="text-xs text-red-500">✗ {latestRun.error?.code}</span>
               )}
             </div>
@@ -202,31 +223,41 @@ export default function StageConfigPanel({
 
 /**
  * 计算 stage 的阻塞原因。
- * 按优先级依次检查：
- *  1. 未选择文档（所有 ingestion stage 的前提条件）
- *  2. 上游 stage 尚未成功运行
+ *
+ * Ingestion 链：需要先选择文档
+ * Query 链：不需要文档，但需要上游有效运行结果
+ *
+ * 使用 resolveEffectiveUpstream 跳过被禁用的可选步骤，
+ * 因此当可选步骤被禁用时，下游不会被错误阻塞。
  */
 function getBlockReason(
-  stageId: string,
+  stage: PipelineStage,
   pipelineRun: PipelineRun,
   getLatestRun: (id: string) => StepRun | undefined
 ): string | null {
-  // document-upload 本身不阻塞
-  if (stageId === "document-upload") return null;
+  if (stage.id === "document-upload") return null;
 
-  // ingestion 链的所有 stage 都需要先选择文档
-  if (!pipelineRun.selectedDocumentId) {
-    return "未选择文档 — 请先在文档上传 & 文档库选择一个文档版本";
+  // Ingestion 链：所有步骤都需要先选择文档
+  if (INGESTION_STAGE_IDS.has(stage.id)) {
+    if (!pipelineRun.selectedDocumentId) {
+      return "未选择文档 — 请先在文档上传 & 文档库选择一个文档版本";
+    }
   }
 
-  // 检查直接上游是否已成功运行
-  const upstreamId = getUpstream(stageId);
-  if (upstreamId && upstreamId !== "document-upload") {
-    const upstreamRun = getLatestRun(upstreamId);
-    if (!upstreamRun || upstreamRun.status !== "success") {
-      const upstreamName = PIPELINE_STAGES.find((s) => s.id === upstreamId)?.name ?? upstreamId;
-      return `需要先成功运行「${upstreamName}」才能继续`;
-    }
+  // 查找有效上游（跳过被禁用的步骤）
+  const upstreamId = resolveEffectiveUpstream(
+    stage.id,
+    pipelineRun.enabledSteps,
+    pipelineRun.runtimeContext
+  );
+
+  // 无上游（入口步骤）或上游是 document-upload（由文档选择状态控制）
+  if (!upstreamId || upstreamId === "document-upload") return null;
+
+  const upstreamRun = getLatestRun(upstreamId);
+  if (!upstreamRun || upstreamRun.status !== "success") {
+    const upstreamName = PIPELINE_STAGES.find((s) => s.id === upstreamId)?.name ?? upstreamId;
+    return `需要先成功运行「${upstreamName}」才能继续`;
   }
 
   return null;
@@ -234,7 +265,8 @@ function getBlockReason(
 
 /**
  * 检测上游是否在当前 stage 上次运行之后又重新跑了。
- * 如果是，说明当前 stage 的结果可能基于过时的输入，应该提示用户重新运行。
+ * 使用 getUpstream（直接链）而非 resolveEffectiveUpstream，
+ * 避免因可选步骤状态变化导致误判。
  */
 function checkUpstreamStale(
   stageId: string,
@@ -245,11 +277,23 @@ function checkUpstreamStale(
   const upstreamId = getUpstream(stageId);
   if (!upstreamId || upstreamId === "document-upload") return false;
   const upstreamRun = getLatestRun(upstreamId);
-  // 上游比当前 stage 运行得更晚 → 当前结果已过时
   return !!upstreamRun && upstreamRun.startedAt > currentRun.startedAt;
 }
 
 // ─── 子组件 ──────────────────────────────────────────────────────────────────
+
+function CategoryBadge({ category }: { category: PipelineStage["category"] }) {
+  const map: Record<PipelineStage["category"], { label: string; cls: string }> = {
+    required:     { label: "必选", cls: "bg-zinc-100 text-zinc-500" },
+    optional:     { label: "可选", cls: "bg-blue-50 text-blue-500" },
+    optimization: { label: "优化", cls: "bg-amber-50 text-amber-600" },
+    conditional:  { label: "条件", cls: "bg-purple-50 text-purple-500" },
+  };
+  const { label, cls } = map[category];
+  return (
+    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${cls}`}>{label}</span>
+  );
+}
 
 function StaleWarning({ upstreamId }: { upstreamId: string }) {
   const name = PIPELINE_STAGES.find((s) => s.id === upstreamId)?.name ?? upstreamId;
@@ -262,14 +306,14 @@ function StaleWarning({ upstreamId }: { upstreamId: string }) {
   );
 }
 
-function UnimplementedNotice({ stage }: { stage: PipelineStage }) {
+function UnregisteredNotice({ stage }: { stage: PipelineStage }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
       <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400">○</div>
       <p className="text-sm font-medium text-zinc-600">{stage.name}</p>
-      <p className="text-xs text-zinc-400 max-w-xs">该 stage 的实现尚未交付。</p>
+      <p className="text-xs text-zinc-400 max-w-xs">该 stage 暂无 stageRegistry 配置。</p>
       <span className="mt-2 inline-block rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-mono text-zinc-500">
-        {stage.featureId} · 待实现
+        {stage.featureId} · 配置缺失
       </span>
     </div>
   );

@@ -7,6 +7,15 @@
 - feat-003.5 改进：为 `openai-3-small` 加 `apiKey` 表单字段（password 类型），为 `hf-tei-embedding` 加 `endpoint` 表单字段；`ParamType` 扩展 `"password"`；`ParamForm` 加 password 分支；表单值优先于环境变量。
 - 实现 `feat-003.6` Storage Stage（详见会话 6 条目，本会话合并到 main）。
 - 完成 `feat-003.7` 架构设计：`docs/ORCHESTRATION.md`（步骤分类、依赖解析、UI 设计、7 个变更文件、4 个待决策问题）；`feature_list.json` 注册 feat-003.7，更新 feat-004 依赖。
+- 实现 `feat-003.7` Pipeline Step Orchestration Infrastructure：
+  - 新建 `lib/pipelineStages.ts`：19 个步骤，含 category/module/conditionKey/defaultEnabled。
+  - `lib/types.ts`：迁移 PipelineRun（原在 PlaygroundShell.tsx），加 enabledSteps/runtimeContext/createPipelineRun。
+  - `lib/pipelineDeps.ts`：补全 STAGE_DEPS（18 条含新步骤），加 resolveEffectiveUpstream/isStageActive。
+  - `lib/stageRegistry.ts`：加 `implemented?` 字段 + 6 个新步骤 stub（均含参数 schema）。
+  - `PipelineStepList.tsx`：重构为 pipelineStages.ts 驱动，hover 显示 toggle 开关，★优化标记，图例。
+  - `PlaygroundShell.tsx`：接入 resolveEffectiveUpstream，handleToggleStep 清空下游结果，createPipelineRun。
+  - `StageConfigPanel.tsx`：修复 getBlockReason（区分 ingestion/query 链），CategoryBadge，implemented 检查。
+  - 修 `storage/route.ts` 遗留 lint warning（dimension 参数未使用）。
 - Harness 一致性审查 + 更新：
   - `session-handoff.md` 重写（Session 4 → Session 7，完整当前状态）
   - `AGENTS.md` 修正面试题规则（写入 `.interview/` 文件夹）+ 补充必需资产（ORCHESTRATION.md / .interview/）
