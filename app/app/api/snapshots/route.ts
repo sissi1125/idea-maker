@@ -23,7 +23,27 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
-import { initSnapshotTables, upsertStageSnapshot, resolveConnectionString, unwrapError } from "@/lib/snapshotDb";
+import { initSnapshotTables, upsertStageSnapshot, listAllSnapshots, resolveConnectionString, unwrapError } from "@/lib/snapshotDb";
+
+/** GET /api/snapshots — 返回所有 stage 的最新快照（用于页面加载时恢复 pipeline 状态） */
+export async function GET(req: NextRequest) {
+  const cs = resolveConnectionString(
+    req.nextUrl.searchParams.get("connectionString") ?? undefined
+  );
+  if (!cs) return NextResponse.json({ snapshots: [] });
+
+  const client = new Client({ connectionString: cs });
+  try {
+    await client.connect();
+    await initSnapshotTables(client);
+    const snapshots = await listAllSnapshots(client);
+    await client.end();
+    return NextResponse.json({ snapshots });
+  } catch (err) {
+    await client.end().catch(() => {});
+    return NextResponse.json({ snapshots: [], error: unwrapError(err) });
+  }
+}
 
 export async function POST(req: NextRequest) {
   let body: {

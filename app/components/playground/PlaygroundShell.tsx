@@ -44,6 +44,36 @@ export default function PlaygroundShell() {
       .catch(() => {});
   }, []);
 
+  // 页面加载时从快照恢复 pipeline 状态（DB 可用时）
+  useEffect(() => {
+    fetch("/api/snapshots")
+      .then((r) => r.json())
+      .then((data: { snapshots?: StageSnapshot[] }) => {
+        const snapshots = data.snapshots ?? [];
+        if (snapshots.length === 0) return;
+        // 将每条快照转成 StepRun 并填入 stepRuns（仅在 stepRuns 为空时恢复，避免覆盖本次会话的结果）
+        setStepRuns((prev) => {
+          if (Object.keys(prev).length > 0) return prev;
+          const restored: StepRunMap = {};
+          for (const snap of snapshots) {
+            const run: StepRun = {
+              id: `${snap.stageId}-snapshot`,
+              stageId: snap.stageId,
+              methodId: snap.methodId,
+              params: snap.params,
+              status: "success",
+              startedAt: new Date(snap.createdAt).getTime(),
+              durationMs: snap.durationMs,
+              output: snap.output,
+            };
+            restored[snap.stageId] = [run];
+          }
+          return restored;
+        });
+      })
+      .catch(() => {});
+  }, []);
+
   // activeStage 变化时拉取快照
   useEffect(() => {
     const stageId = activeStage?.id;

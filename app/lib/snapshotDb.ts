@@ -88,6 +88,23 @@ export async function getLatestStageSnapshot(
   };
 }
 
+export async function listAllSnapshots(client: Client): Promise<StageSnapshot[]> {
+  const res = await client.query<{
+    id: string; stage_id: string; method_id: string;
+    params: Record<string, unknown>; upstream_output: unknown;
+    output: unknown; duration_ms: number; created_at: Date;
+  }>(
+    `SELECT id, stage_id, method_id, params, upstream_output, output, duration_ms, created_at
+     FROM stage_snapshots ORDER BY created_at DESC`
+  );
+  return res.rows.map((r) => ({
+    id: r.id, stageId: r.stage_id, methodId: r.method_id,
+    params: r.params, upstreamOutput: r.upstream_output,
+    output: r.output, durationMs: r.duration_ms,
+    createdAt: r.created_at.toISOString(),
+  }));
+}
+
 // ─── Pipeline Run History CRUD ────────────────────────────────────────────────
 
 export async function insertPipelineRun(
