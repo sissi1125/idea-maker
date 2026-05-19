@@ -1,5 +1,22 @@
 # 进度记录
 
+## 2026-05-20（会话 12）
+
+### 已完成
+
+- 自动恢复 pipeline 状态（页面加载时从快照还原）：
+  - `lib/snapshotDb.ts`：新增 `listAllSnapshots` 函数，返回所有 stage 的最新快照。
+  - `app/api/snapshots/route.ts`：新增 `GET /api/snapshots`，返回所有快照列表（供页面加载恢复用）。
+  - `PlaygroundShell.tsx`：mount 时 fetch `/api/snapshots`，如果当前会话没有任何 stepRuns，则将快照数据写入 stepRuns（status: "success"），恢复上次 pipeline 状态。
+  - typecheck + lint 全部通过（commit `5a16074`）。
+
+### 当前状态
+
+- 自动恢复功能完成。
+- 下一步：`feat-006` RAG Quality Evaluation（待开始）。
+
+---
+
 ## 2026-05-20（会话 11）
 
 ### 已完成
