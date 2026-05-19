@@ -1,5 +1,25 @@
 # 进度记录
 
+## 2026-05-19（会话 7）
+
+### 已完成
+
+- feat-003.5 改进：为 `openai-3-small` 加 `apiKey` 表单字段（password 类型），为 `hf-tei-embedding` 加 `endpoint` 表单字段；`ParamType` 扩展 `"password"`；`ParamForm` 加 password 分支；表单值优先于环境变量。
+- 实现 `feat-003.6` Storage Stage（详见会话 6 条目，本会话合并到 main）。
+- 完成 `feat-003.7` 架构设计：`docs/ORCHESTRATION.md`（步骤分类、依赖解析、UI 设计、7 个变更文件、4 个待决策问题）；`feature_list.json` 注册 feat-003.7，更新 feat-004 依赖。
+- Harness 一致性审查 + 更新：
+  - `session-handoff.md` 重写（Session 4 → Session 7，完整当前状态）
+  - `AGENTS.md` 修正面试题规则（写入 `.interview/` 文件夹）+ 补充必需资产（ORCHESTRATION.md / .interview/）
+  - `ARCHITECTURE.md` 删除错误的"待引入 pgvector/embedding"、更新存储模型描述、更新两条 pipeline 图
+  - `init.sh` required_files 加入 `docs/ORCHESTRATION.md`
+
+### 当前状态
+
+- `feat-003.1`～`feat-003.6` 全部完成；`feat-003.7` 设计文档完成，等 owner 确认 4 个设计问题后执行实现。
+- 下一步（等确认后）：实现 feat-003.7，然后依次做 feat-004.x。
+
+---
+
 ## 2026-05-19（会话 6）
 
 ### 已完成
