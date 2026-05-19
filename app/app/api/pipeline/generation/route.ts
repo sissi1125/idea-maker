@@ -120,10 +120,11 @@ async function handleProductPersona(
   params: Record<string, unknown>
 ): Promise<ProductPersonaOutput> {
   const warnings: string[] = [];
+  const targetAudience = String(params.targetAudience || "").trim();
   const completion = await llmConfig.client.chat.completions.create({
     model: resolvedModel,
     messages: [
-      { role: "system", content: PRODUCT_PERSONA_SYSTEM + "\n\n背景：" + systemPrompt },
+      { role: "system", content: PRODUCT_PERSONA_SYSTEM + (targetAudience ? `\n\n目标受众提示：${targetAudience}` : "") + "\n\n背景：" + systemPrompt },
       { role: "user", content: userPrompt },
     ],
     response_format: { type: "json_object" },
@@ -134,12 +135,11 @@ async function handleProductPersona(
   let parsed: Partial<ProductPersonaOutput>;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    warnings.push("LLM 输出无法解析为 JSON，请检查模型是否支持 JSON mode");
+  } catch (parseErr) {
+    warnings.push(`LLM 输出无法解析为 JSON（${String(parseErr).slice(0, 80)}），请检查模型是否支持 JSON mode`);
     parsed = {};
   }
 
-  const targetAudience = String(params.targetAudience || "").trim();
   return {
     targetSegment: parsed.targetSegment ?? (targetAudience || "未能生成"),
     painPoints: Array.isArray(parsed.painPoints) ? parsed.painPoints : [],
@@ -173,13 +173,14 @@ async function handleSellingPoints(
   resolvedModel: string,
   systemPrompt: string,
   userPrompt: string,
-  _params: Record<string, unknown>
+  params: Record<string, unknown>
 ): Promise<SellingPointsOutput> {
   const warnings: string[] = [];
+  const targetAudience = String(params.targetAudience || "").trim();
   const completion = await llmConfig.client.chat.completions.create({
     model: resolvedModel,
     messages: [
-      { role: "system", content: SELLING_POINTS_SYSTEM + "\n\n背景：" + systemPrompt },
+      { role: "system", content: SELLING_POINTS_SYSTEM + (targetAudience ? `\n\n目标受众提示：${targetAudience}` : "") + "\n\n背景：" + systemPrompt },
       { role: "user", content: userPrompt },
     ],
     response_format: { type: "json_object" },
@@ -190,8 +191,8 @@ async function handleSellingPoints(
   let parsed: Partial<SellingPointsOutput>;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    warnings.push("LLM 输出无法解析为 JSON，请检查模型是否支持 JSON mode");
+  } catch (parseErr) {
+    warnings.push(`LLM 输出无法解析为 JSON（${String(parseErr).slice(0, 80)}），请检查模型是否支持 JSON mode`);
     parsed = {};
   }
 
@@ -240,11 +241,12 @@ async function handleContentIdeas(
   const warnings: string[] = [];
   const ideaCount = Number(params.ideaCount ?? 5);
   const systemWithCount = CONTENT_IDEAS_SYSTEM.replace("{ideaCount}", String(ideaCount));
+  const targetAudience = String(params.targetAudience || "").trim();
 
   const completion = await llmConfig.client.chat.completions.create({
     model: resolvedModel,
     messages: [
-      { role: "system", content: systemWithCount + "\n\n背景：" + systemPrompt },
+      { role: "system", content: systemWithCount + (targetAudience ? `\n\n目标受众提示：${targetAudience}` : "") + "\n\n背景：" + systemPrompt },
       { role: "user", content: userPrompt },
     ],
     response_format: { type: "json_object" },
@@ -255,8 +257,8 @@ async function handleContentIdeas(
   let parsed: Partial<ContentIdeasOutput>;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    warnings.push("LLM 输出无法解析为 JSON，请检查模型是否支持 JSON mode");
+  } catch (parseErr) {
+    warnings.push(`LLM 输出无法解析为 JSON（${String(parseErr).slice(0, 80)}），请检查模型是否支持 JSON mode`);
     parsed = {};
   }
 
