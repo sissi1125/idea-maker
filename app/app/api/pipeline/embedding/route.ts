@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
   }
 
   const dimension = Number(params.dimension ?? 4);
-  const batchSize = Number(params.batchSize ?? 100);
+  const batchSize = Number(params.batchSize ?? 10);
   const model = String(params.model ?? "");
   const paramApiKey = typeof params.apiKey === "string" ? params.apiKey : undefined;
   const paramEndpoint = typeof params.endpoint === "string" ? params.endpoint : undefined;
