@@ -49,16 +49,18 @@ fi
 echo "=== session-handoff.md HEAD 一致性检查 ==="
 CURRENT_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "")
 if [ -n "$CURRENT_HEAD" ]; then
-  RECORDED_HEAD=$(grep "当前 HEAD" session-handoff.md | sed 's/.*HEAD：`\([a-f0-9]*\)`.*/\1/' | head -1)
-  if [ -z "$RECORDED_HEAD" ]; then
-    echo "警告：session-handoff.md 中未找到 HEAD 记录，请检查格式。"
+  # 用 git log 而非静态 SHA：检查 session-handoff.md 最后一次被 commit 的 SHA 是否就是当前 HEAD。
+  # 这样避免了"每次提交 session-handoff.md 本身就会产生新 SHA"的循环依赖问题。
+  LAST_HANDOFF_COMMIT=$(git log --oneline -- session-handoff.md 2>/dev/null | head -1 | awk '{print $1}')
+  if [ -z "$LAST_HANDOFF_COMMIT" ]; then
+    echo "警告：找不到 session-handoff.md 的 commit 历史。"
     exit 1
-  elif [ "$RECORDED_HEAD" != "$CURRENT_HEAD" ]; then
-    echo "文档滞后：session-handoff.md 记录的 HEAD 是 $RECORDED_HEAD，当前 HEAD 是 $CURRENT_HEAD"
+  elif [ "$LAST_HANDOFF_COMMIT" != "$CURRENT_HEAD" ]; then
+    echo "文档滞后：session-handoff.md 最后更新于 $LAST_HANDOFF_COMMIT，当前 HEAD 是 $CURRENT_HEAD"
     echo "请先更新 session-handoff.md 和 progress.md，再继续开发。"
     exit 1
   else
-    echo "HEAD 一致：$CURRENT_HEAD ✓"
+    echo "session-handoff.md 已在当前 HEAD 更新 ✓"
   fi
 fi
 
