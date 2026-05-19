@@ -39,7 +39,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`5d881f8`（docs: update harness state for feat-007 stage snapshots + pipeline trace drawer）
+- **主分支**：`main`，当前 HEAD：`a563247`（docs: fix session-handoff HEAD to match current commit）
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
