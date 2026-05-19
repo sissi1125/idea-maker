@@ -1,4 +1,4 @@
-export type ParamType = "text" | "number" | "boolean" | "select" | "textarea" | "json";
+export type ParamType = "text" | "number" | "boolean" | "select" | "textarea" | "json" | "password";
 
 export interface ParamOption { value: string; label: string }
 
@@ -225,6 +225,13 @@ const registry: StageDef[] = [
           { key: "model", label: "模型", type: "text", default: "text-embedding-3-small" },
           { key: "dimension", label: "向量维度", type: "number", default: 1536, min: 256, max: 3072 },
           { key: "batchSize", label: "批大小", type: "number", default: 100, min: 1, max: 2048 },
+          {
+            key: "apiKey",
+            label: "API Key（可选）",
+            type: "password",
+            default: "",
+            placeholder: "留空则读取 OPENAI_API_KEY 环境变量",
+          },
         ],
       },
       {
@@ -234,6 +241,13 @@ const registry: StageDef[] = [
           { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-small-en-v1.5", placeholder: "HF model ID" },
           { key: "dimension", label: "向量维度", type: "number", default: 384, min: 64, max: 4096 },
           { key: "batchSize", label: "批大小", type: "number", default: 32, min: 1, max: 512 },
+          {
+            key: "endpoint",
+            label: "TEI Endpoint（可选）",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 HF_TEI_ENDPOINT 环境变量，例：http://localhost:8080",
+          },
         ],
       },
       {

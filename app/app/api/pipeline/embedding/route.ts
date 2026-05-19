@@ -104,12 +104,14 @@ async function embedOpenAI(
   chunks: TransformedChunk[],
   model: string,
   dimension: number,
-  batchSize: number
+  batchSize: number,
+  /** 表单临时填写的 key，优先于环境变量 */
+  paramApiKey?: string
 ): Promise<{ vectors: number[][]; batchCount: number; costEstimate: string }> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "缺少 OPENAI_API_KEY 环境变量，请在 .env.local 中设置后重启 dev server"
+      "缺少 OpenAI API Key：请在表单 \"API Key\" 字段中填写，或设置 OPENAI_API_KEY 环境变量后重启 dev server"
     );
   }
 
@@ -152,12 +154,14 @@ async function embedOpenAI(
  */
 async function embedHFTEI(
   chunks: TransformedChunk[],
-  batchSize: number
+  batchSize: number,
+  /** 表单临时填写的 endpoint，优先于环境变量 */
+  paramEndpoint?: string
 ): Promise<{ vectors: number[][]; batchCount: number }> {
-  const endpoint = process.env.HF_TEI_ENDPOINT;
+  const endpoint = (paramEndpoint?.trim() || process.env.HF_TEI_ENDPOINT)?.replace(/\/$/, "");
   if (!endpoint) {
     throw new Error(
-      "缺少 HF_TEI_ENDPOINT 环境变量，例如 http://localhost:8080。请先启动 TEI 服务"
+      "缺少 TEI Endpoint：请在表单 \"TEI Endpoint\" 字段中填写，或设置 HF_TEI_ENDPOINT 环境变量后重启 dev server"
     );
   }
 
@@ -270,6 +274,8 @@ export async function POST(req: NextRequest) {
   const dimension = Number(params.dimension ?? 4);
   const batchSize = Number(params.batchSize ?? 100);
   const model = String(params.model ?? "");
+  const paramApiKey = typeof params.apiKey === "string" ? params.apiKey : undefined;
+  const paramEndpoint = typeof params.endpoint === "string" ? params.endpoint : undefined;
   const warnings: string[] = [];
 
   try {
@@ -290,7 +296,7 @@ export async function POST(req: NextRequest) {
 
       case "openai-3-small": {
         resolvedModel = model || "text-embedding-3-small";
-        const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize);
+        const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey);
         vectors = result.vectors;
         batchCount = result.batchCount;
         costEstimate = result.costEstimate;
@@ -299,7 +305,7 @@ export async function POST(req: NextRequest) {
 
       case "hf-tei-embedding": {
         resolvedModel = model || "BAAI/bge-small-en-v1.5";
-        const result = await embedHFTEI(chunks, batchSize);
+        const result = await embedHFTEI(chunks, batchSize, paramEndpoint);
         vectors = result.vectors;
         batchCount = result.batchCount;
         break;
