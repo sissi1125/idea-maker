@@ -103,7 +103,7 @@ export function JsonView({ value }: { value: unknown }) {
 }
 
 /** 递归渲染单个值（用于对象字段值） */
-export function JsonValue({ value }: { value: unknown }): React.ReactNode {
+function JsonValue({ value }: { value: unknown }): React.ReactNode {
   if (value === null) return <span className="text-zinc-400">null</span>;
   if (typeof value === "boolean") return <span className="text-blue-600">{String(value)}</span>;
   if (typeof value === "number") return <span className="text-amber-600">{value}</span>;
