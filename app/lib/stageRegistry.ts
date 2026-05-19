@@ -333,24 +333,33 @@ const registry: StageDef[] = [
   {
     id: "query-rewrite",
     methods: [
-      { id: "none", label: "不改写", params: [] },
+      {
+        id: "none",
+        label: "不改写",
+        params: [
+          { key: "query", label: "用户查询", type: "textarea", default: "", required: true, placeholder: "输入你想检索的问题，例如：产品核心功能有哪些？" },
+        ],
+      },
       {
         id: "rule-keyword-expansion",
         label: "规则关键词扩展",
         params: [
+          { key: "query", label: "用户查询", type: "textarea", default: "", required: true, placeholder: "输入你想检索的问题，例如：产品核心功能有哪些？" },
           { key: "maxQueries", label: "最大 Query 数", type: "number", default: 3, min: 1, max: 10 },
+          { key: "targetAudience", label: "目标受众（可选）", type: "text", default: "", placeholder: "例: SaaS 产品运营" },
         ],
       },
       {
         id: "llm-marketing-rewrite",
         label: "LLM 营销改写",
         params: [
-          { key: "provider", label: "Provider", type: "text", default: "openai", placeholder: "openai / anthropic" },
+          { key: "query", label: "用户查询", type: "textarea", default: "", required: true, placeholder: "输入你想检索的问题，例如：产品核心功能有哪些？" },
           { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
           { key: "temperature", label: "Temperature", type: "number", default: 0.7, min: 0, max: 2 },
           { key: "maxQueries", label: "最大 Query 数", type: "number", default: 3, min: 1, max: 10 },
-          { key: "rewriteGoal", label: "改写目标", type: "textarea", default: "", placeholder: "例: 突出产品差异化优势" },
+          { key: "rewriteGoal", label: "改写目标", type: "textarea", default: "", placeholder: "例: 突出产品差异化优势，生成适合检索产品介绍的多种表达" },
           { key: "targetAudience", label: "目标受众", type: "text", default: "", placeholder: "例: B2B SaaS 决策者" },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
         ],
       },
     ],
@@ -362,14 +371,21 @@ const registry: StageDef[] = [
         id: "dense-vector",
         label: "Dense Vector",
         params: [
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
+          { key: "embeddingProvider", label: "Embedding Provider", type: "select", default: "openai", options: [{ value: "openai", label: "OpenAI" }, { value: "hf-tei", label: "HF TEI" }, { value: "debug-deterministic", label: "Debug 确定性" }] },
+          { key: "embeddingModel", label: "Embedding 模型", type: "text", default: "text-embedding-3-small" },
+          { key: "embeddingDimension", label: "向量维度", type: "number", default: 1536, min: 1, max: 4096 },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
+          { key: "teiEndpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "http://localhost:8080" },
           { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
-          { key: "threshold", label: "相似度阈值", type: "number", default: 0.7, min: 0, max: 1 },
+          { key: "threshold", label: "相似度阈值", type: "number", default: 0.5, min: 0, max: 1 },
         ],
       },
       {
         id: "postgres-fulltext",
         label: "PostgreSQL 全文检索",
         params: [
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
           { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
         ],
       },
@@ -377,6 +393,12 @@ const registry: StageDef[] = [
         id: "hybrid-rrf",
         label: "混合检索 (RRF)",
         params: [
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
+          { key: "embeddingProvider", label: "Embedding Provider", type: "select", default: "openai", options: [{ value: "openai", label: "OpenAI" }, { value: "hf-tei", label: "HF TEI" }, { value: "debug-deterministic", label: "Debug 确定性" }] },
+          { key: "embeddingModel", label: "Embedding 模型", type: "text", default: "text-embedding-3-small" },
+          { key: "embeddingDimension", label: "向量维度", type: "number", default: 1536, min: 1, max: 4096 },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
+          { key: "teiEndpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "http://localhost:8080" },
           { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
           { key: "vectorWeight", label: "向量权重", type: "number", default: 0.6, min: 0, max: 1 },
           { key: "textWeight", label: "文本权重", type: "number", default: 0.4, min: 0, max: 1 },
@@ -431,16 +453,17 @@ const registry: StageDef[] = [
         params: [
           { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-reranker-base" },
           { key: "rerankTopN", label: "重排取 Top N", type: "number", default: 5, min: 1, max: 50 },
+          { key: "endpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "留空则读取 HF_TEI_ENDPOINT 环境变量" },
         ],
       },
       {
         id: "llm-relevance-rerank",
         label: "LLM 相关性重排",
         params: [
-          { key: "provider", label: "Provider", type: "text", default: "openai" },
           { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
           { key: "rerankTopN", label: "重排取 Top N", type: "number", default: 5, min: 1, max: 50 },
           { key: "criteria", label: "评判标准", type: "textarea", default: "", placeholder: "例: 优先返回包含价格信息的 chunk" },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
         ],
       },
     ],

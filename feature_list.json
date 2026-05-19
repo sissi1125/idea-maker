@@ -177,8 +177,8 @@
       "dependencies": [
         "feat-003.7"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/query-rewrite；三种方法：none、rule-keyword-expansion（停用词过滤+模板扩展）、llm-marketing-rewrite（OpenAI JSON mode，apiKey 表单字段）；typecheck+lint 通过，curl 验证通过。"
     },
     {
       "id": "feat-004.2",
@@ -187,8 +187,8 @@
       "dependencies": [
         "feat-004.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/retrieval；三种方法：dense-vector（embed+pgvector 余弦搜索，多 query 最高分合并）、postgres-fulltext（tsvector plainto_tsquery）、hybrid-rrf（RRF k=60 合并两路结果）；stageRegistry 补 connectionString/embedding 配置参数；AggregateError unwrap；typecheck+lint 通过。"
     },
     {
       "id": "feat-004.3",
@@ -197,8 +197,8 @@
       "dependencies": [
         "feat-004.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/filter；三种方法：score-threshold（分数下限+每文档上限）、metadata-filter（sourceRef 白名单）、mmr-diversity（Jaccard 词集 MMR，lambda 参数）；output 含 filteredMatches/removedMatches/removedReasons；typecheck+lint 通过。"
     },
     {
       "id": "feat-004.4",
@@ -207,8 +207,8 @@
       "dependencies": [
         "feat-004.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/rerank；四种方法：score-only（基线）、metadata-boost（关键词命中加权）、hf-tei-rerank（TEI /rerank）、llm-relevance-rerank（OpenAI JSON mode 打分，Promise.all 并行）；output 含 rankChanges；typecheck+lint 通过。"
     },
     {
       "id": "feat-004.5",
@@ -217,8 +217,8 @@
       "dependencies": [
         "feat-004.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/citation；三种方法：chunk-citation（全文）、page-aware-citation（提取 page:N/第N页）、snippet-citation（关键词锚点窗口截取）；output 含 evidencePack（evidenceId={documentId}_v{version}_c{chunkIndex}）+ contextText；typecheck+lint 通过。"
     },
     {
       "id": "feat-005",
