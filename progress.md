@@ -1,5 +1,23 @@
 # 进度记录
 
+## 2026-05-20（会话 11）
+
+### 已完成
+
+- 实现 `feat-005` Marketing Generation：
+  - `generation/route.ts` 新增三种结构化方法（JSON mode）：`product-persona`（产品画像：targetSegment/painPoints/coreNeeds）、`selling-points`（卖点地图：sellingPoints[]/differentiators[]）、`content-ideas`（内容 idea：ideas[]{title/angle/format/evidenceIds}）；targetAudience 参数注入所有三个方法的 system prompt；JSON 解析失败优雅降级；保留 `marketing-ideas` 向后兼容。
+  - `stageRegistry.ts` 补充三种方法的 params（model/apiKey/baseUrl/targetAudience；content-ideas 额外加 ideaCount）。
+  - 新建 `GenerationOutputPanel.tsx`：按 methodId 路由到三种卡片式渲染（PersonaSection / SellingPointsSection / ContentIdeasSection）；marketing-ideas 回退纯文本；EvidenceFooter + 折叠 MarkdownSummary。
+  - `PlaygroundShell.tsx`：当 activeStage.id === "generation" 时切换至专属面板。
+  - typecheck + lint + init.sh 全部通过。
+
+### 当前状态
+
+- `feat-005` 完成。
+- 下一步：`feat-006` RAG Quality Evaluation。
+
+---
+
 ## 2026-05-20（会话 10）
 
 ### 已完成

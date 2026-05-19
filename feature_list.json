@@ -227,8 +227,8 @@
       "dependencies": [
         "feat-004.5"
       ],
-      "status": "in-progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-20 实现：generation/route.ts 新增 product-persona（产品画像）/ selling-points（卖点地图）/ content-ideas（内容 idea）三个 JSON-mode 方法，保留 marketing-ideas 向后兼容；stageRegistry.ts 补充三种方法 params 定义；新建 GenerationOutputPanel.tsx（卡片式专属展示面板，按 methodId 路由不同内容）；PlaygroundShell.tsx 条件渲染。typecheck + lint + init.sh 全部通过。"
     },
     {
       "id": "feat-007",

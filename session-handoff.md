@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-20（会话 10）
+2026-05-20（会话 11）
 
 ## 项目
 
@@ -28,18 +28,18 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 | feat-004.3 | Filter Stage（score-threshold / metadata-filter / mmr-diversity） | done |
 | feat-004.4 | Rerank Stage（score-only / metadata-boost / hf-tei-rerank / llm-relevance-rerank） | done |
 | feat-004.5 | Citation Stage（chunk-citation / page-aware-citation / snippet-citation） | done |
+| feat-005 | Marketing Generation（product-persona / selling-points / content-ideas；专属展示面板） | done |
 | feat-007 | Stage 快照持久化与 Pipeline 全链路追踪（stage_snapshots + pipeline_run_history；4 API 路由；PipelineTraceDrawer 底部抽屉） | done |
 
 ### 待做 features
 
 | Feature | 描述 | 状态 |
 |---------|------|------|
-| feat-005 | Marketing Generation（产品画像、卖点地图、内容 idea + evidence refs） | todo |
 | feat-006 | RAG Quality Evaluation（hit rate、citation coverage、confidence） | todo |
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`e713ab7`（docs: final session-handoff HEAD sync）
+- **主分支**：`main`，当前 HEAD：`d803013`（feat: add GenerationOutputPanel with card layout for three generation methods）
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
@@ -95,13 +95,8 @@ GET  /api/pipeline-runs/:id              — 获取单条 pipeline run 详情
 
 ## 下一步
 
-1. **feat-005 Marketing Generation**：
-   - 利用 citation stage 的 evidencePack 生成产品画像、卖点地图、内容 idea
-   - 每条生成结果必须携带 evidence chunk references
-   - 接入 prompt-build stage 输出作为 LLM 上下文
-
-2. **feat-006 RAG Quality Evaluation**：
-   - 依赖 feat-005 完成
+1. **feat-006 RAG Quality Evaluation**：
+   - 依赖 feat-005（已完成）
    - 指标：hit rate、citation coverage、confidence score、warnings
 
 ## 重要边界
