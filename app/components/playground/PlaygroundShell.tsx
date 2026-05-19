@@ -7,8 +7,10 @@ import type { PipelineStage } from "@/lib/pipelineStages";
 import StageConfigPanel from "./StageConfigPanel";
 import OutputTracePanel from "./OutputTracePanel";
 import { StepRun, StepRunMap, PipelineRun, PipelineRunStatus, createPipelineRun } from "@/lib/types";
+import type { StageSnapshot, PipelineRunRecord, PipelineRunStageEntry } from "@/lib/types";
 import { DocumentRecord } from "@/lib/docStore";
 import { resolveEffectiveUpstream } from "@/lib/pipelineDeps";
+import PipelineTraceDrawer from "./PipelineTraceDrawer";
 
 export default function PlaygroundShell() {
   const [activeStage, setActiveStage] = useState<PipelineStage>(PIPELINE_STAGES[0]);
@@ -24,6 +26,15 @@ export default function PlaygroundShell() {
     Record<string, { methodId: string; params: Record<string, unknown> }>
   >({});
 
+  // 用户手动加载的快照上游（stageId → upstreamOutput）
+  const [snapshotUpstreamMap, setSnapshotUpstreamMap] = useState<Record<string, unknown>>({});
+  // 当前 activeStage 的快照（从 DB 拉取）
+  const [activeStageSnapshot, setActiveStageSnapshot] = useState<StageSnapshot | null>(null);
+  // 全链路抽屉开关
+  const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
+  // 历史 pipeline run 列表（抽屉 Tab2 用）
+  const [pipelineRunHistory, setPipelineRunHistory] = useState<PipelineRunRecord[]>([]);
+
   // 页面加载时拉取已上传文档
   useEffect(() => {
     fetch("/api/documents")
@@ -31,6 +42,24 @@ export default function PlaygroundShell() {
       .then((data) => { if (Array.isArray(data.documents)) setDocuments(data.documents); })
       .catch(() => {});
   }, []);
+
+  // activeStage 变化时拉取快照
+  useEffect(() => {
+    if (!activeStage) { setActiveStageSnapshot(null); return; }
+    fetch(`/api/snapshots/${activeStage.id}`)
+      .then((r) => r.json())
+      .then((data: { snapshot: StageSnapshot | null }) => setActiveStageSnapshot(data.snapshot ?? null))
+      .catch(() => setActiveStageSnapshot(null));
+  }, [activeStage?.id]);
+
+  // 抽屉打开时拉取历史
+  useEffect(() => {
+    if (!traceDrawerOpen) return;
+    fetch("/api/pipeline-runs")
+      .then((r) => r.json())
+      .then((d: { runs: PipelineRunRecord[] }) => setPipelineRunHistory(d.runs ?? []))
+      .catch(() => {});
+  }, [traceDrawerOpen]);
 
   // ─── 文档操作 ─────────────────────────────────────────────────────────────
 
@@ -124,15 +153,19 @@ export default function PlaygroundShell() {
       setPipelineRun((p) => ({ ...p, status: "running" }));
 
       try {
-        // 使用 resolveEffectiveUpstream 跳过被禁用的可选步骤
-        const upstreamStageId = resolveEffectiveUpstream(
-          stageId,
-          pipelineRun.enabledSteps,
-          pipelineRun.runtimeContext
-        );
-        const upstreamOutput = upstreamStageId
-          ? latestRun(upstreamStageId)?.output ?? null
-          : null;
+        // 若用户已加载快照上游，优先使用它；否则走原有依赖图逻辑
+        const injectedUpstream = snapshotUpstreamMap[stageId];
+        let upstreamOutput: unknown | null;
+        if (injectedUpstream !== undefined) {
+          upstreamOutput = injectedUpstream;
+        } else {
+          const upstreamStageId = resolveEffectiveUpstream(
+            stageId,
+            pipelineRun.enabledSteps,
+            pipelineRun.runtimeContext
+          );
+          upstreamOutput = upstreamStageId ? latestRun(upstreamStageId)?.output ?? null : null;
+        }
 
         const res = await fetch(`/api/pipeline/${stageId}`, {
           method: "POST",
@@ -155,6 +188,25 @@ export default function PlaygroundShell() {
             output: data.output, trace: data.trace, warnings: data.warnings,
           });
           setPipelineRun((p) => ({ ...p, status: "success" }));
+
+          // 异步保存快照（失败不阻断主流程）
+          fetch("/api/snapshots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              stageId, methodId, params, upstreamOutput,
+              output: data.output, durationMs,
+            }),
+          }).catch(() => {});
+          // 更新当前 stage 快照（无需等待 DB）
+          setActiveStageSnapshot({
+            id: `${stageId}-${Date.now()}`,
+            stageId, methodId, params,
+            upstreamOutput: upstreamOutput ?? null,
+            output: data.output,
+            durationMs,
+            createdAt: new Date().toISOString(),
+          });
         }
       } catch (err) {
         const durationMs = Date.now() - newRun.startedAt;
@@ -165,8 +217,55 @@ export default function PlaygroundShell() {
         setPipelineRun((p) => ({ ...p, status: "error" }));
       }
     },
-    [addStepRun, updateStepRun, pipelineRun, latestRun]
+    [addStepRun, updateStepRun, pipelineRun, latestRun, snapshotUpstreamMap]
   );
+
+  const handleLoadSnapshotUpstream = useCallback((stageId: string, upstream: unknown) => {
+    setSnapshotUpstreamMap((prev) => ({ ...prev, [stageId]: upstream }));
+  }, []);
+
+  const handleClearSnapshotUpstream = useCallback((stageId: string) => {
+    setSnapshotUpstreamMap((prev) => {
+      const next = { ...prev };
+      delete next[stageId];
+      return next;
+    });
+  }, []);
+
+  const handleSavePipelineRun = useCallback(async () => {
+    const stages: Record<string, PipelineRunStageEntry> = {};
+    for (const [sid, runs] of Object.entries(stepRuns)) {
+      const latest = runs[0];
+      if (latest) {
+        stages[sid] = {
+          methodId: latest.methodId,
+          params: latest.params,
+          output: latest.output,
+          trace: latest.trace,
+          durationMs: latest.durationMs ?? 0,
+          status: latest.status,
+          warnings: latest.warnings,
+        };
+      }
+    }
+    const name = window.prompt("为本次 Pipeline Run 命名（留空自动命名）：") ?? "";
+    const res = await fetch("/api/pipeline-runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim() || undefined,
+        documentId: pipelineRun.selectedDocumentId ?? undefined,
+        stages,
+      }),
+    });
+    const responseData = await res.json();
+    if (responseData.ok) {
+      fetch("/api/pipeline-runs")
+        .then((r) => r.json())
+        .then((d: { runs: PipelineRunRecord[] }) => setPipelineRunHistory(d.runs ?? []))
+        .catch(() => {});
+    }
+  }, [stepRuns, pipelineRun.selectedDocumentId]);
 
   // ─── 渲染 ─────────────────────────────────────────────────────────────────
 
@@ -184,6 +283,9 @@ export default function PlaygroundShell() {
         anyRunning={anyRunning}
         selectedDoc={selectedDoc}
         runningStageName={runningStageName}
+        onSavePipelineRun={handleSavePipelineRun}
+        onToggleDrawer={() => setTraceDrawerOpen((v) => !v)}
+        hasSuccessfulRuns={Object.values(stepRuns).some((runs) => runs.some((r) => r.status === "success"))}
       />
       <div className="flex flex-1 overflow-hidden">
         <PipelineStepList
@@ -210,6 +312,14 @@ export default function PlaygroundShell() {
         />
         <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
       </div>
+      <PipelineTraceDrawer
+        open={traceDrawerOpen}
+        onClose={() => setTraceDrawerOpen(false)}
+        stepRuns={stepRuns}
+        stages={PIPELINE_STAGES}
+        enabledSteps={pipelineRun.enabledSteps}
+        pipelineRunHistory={pipelineRunHistory}
+      />
     </div>
   );
 }
@@ -221,11 +331,17 @@ function Header({
   anyRunning,
   selectedDoc,
   runningStageName,
+  onSavePipelineRun,
+  onToggleDrawer,
+  hasSuccessfulRuns,
 }: {
   pipelineRun: PipelineRun;
   anyRunning: boolean;
   selectedDoc: DocumentRecord | undefined;
   runningStageName: string | undefined;
+  onSavePipelineRun: () => void;
+  onToggleDrawer: () => void;
+  hasSuccessfulRuns: boolean;
 }) {
   const status: PipelineRunStatus = anyRunning ? "running" : pipelineRun.status;
 
@@ -253,6 +369,20 @@ function Header({
           : <>Pipeline {statusLabel[status]}</>
         }
       </span>
+
+      <button
+        onClick={onToggleDrawer}
+        className="text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:bg-zinc-50"
+      >
+        🔗 全链路
+      </button>
+      <button
+        onClick={onSavePipelineRun}
+        disabled={!hasSuccessfulRuns}
+        className="text-[10px] px-2 py-1 rounded border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        💾 保存 Run
+      </button>
 
       <span className="ml-auto flex items-center gap-2 text-xs">
         {selectedDoc ? (
