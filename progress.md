@@ -1,5 +1,35 @@
 # 进度记录
 
+## 2026-05-19（会话 5）
+
+### 已完成
+
+- 实现 `feat-003.3` Chunk Stage：
+  - `app/api/pipeline/chunk/route.ts`：三种方法全部实现。
+    - `fixed-size`：固定字符滑动窗口，支持 overlap；overlap ≥ chunkSize 时自动截断并 warning。
+    - `recursive`：递归语义切分，按分隔符优先级（段落→换行→空格→字符）找语义边界，对标 LangChain RecursiveCharacterTextSplitter；支持可自定义 separators 和 minChunkSize。
+    - `markdown-heading`：按 Markdown 标题（#/##...）边界切分，保持章节完整；章节超过 maxChunkSize 时降级为 fixed-size。
+  - 每个 chunk 含：`index / text / charStart / charEnd / charCount / tokenEstimate（chars/4 近似）/ sourceRef（继承预处理的 heading path）`。
+  - output 统计：`chunkCount / totalChars / avgChunkSize / maxChunkSize / minChunkSize`。
+  - `PlaygroundShell.tsx`：`handleRun` 扩展，通过 `STAGE_DEPS` 自动查找上游 stageId 并将其最新 output 作为 `upstreamOutput` 发给 API；所有下游 stage（chunk/transform/embedding 等）无需修改即可复用。
+- `npm install` 补全 pdf-parse/turndown/mammoth 类型缺失依赖；typecheck 通过。
+
+### 验证
+
+- curl 直接测试（localhost:3001）：
+  - `recursive`：输入 127 字符文本 → 1 chunk（chunkSize=200），sourceRef=产品介绍 ✓
+  - `fixed-size`：chunkSize=50/overlap=10 → 2 chunks，avgSize=40 ✓
+  - `markdown-heading`：headingDepth=2 → 3 chunks 按章节边界切分，sourceRef 正确 ✓
+  - `upstreamOutput=null` → 400 missing_upstream 错误 ✓
+- typecheck：`npx tsc --noEmit` 通过（无报错） ✓
+
+### 当前状态
+
+- `feat-003.3` 完成，下一步：`feat-003.4` Transform Stage。
+- dev server：localhost:3001（端口 3000 已被另一 worktree 占用）。
+
+---
+
 ## 2026-05-18（会话 4）
 
 ### 已完成

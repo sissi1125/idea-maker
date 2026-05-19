@@ -6,6 +6,7 @@ import StageConfigPanel from "./StageConfigPanel";
 import OutputTracePanel from "./OutputTracePanel";
 import { StepRun, StepRunMap } from "@/lib/types";
 import { DocumentRecord } from "@/lib/docStore";
+import { STAGE_DEPS } from "@/lib/pipelineDeps";
 
 export type PipelineRunStatus = "idle" | "running" | "success" | "error";
 
@@ -83,10 +84,14 @@ export default function PlaygroundShell() {
       setPipelineRun((p) => ({ ...p, status: "running" }));
 
       try {
+        // 找出上游 stage 的最新产物，传给需要 upstreamOutput 的 API（如 chunk）
+        const upstreamStageId = STAGE_DEPS[stageId];
+        const upstreamOutput = upstreamStageId ? latestRun(upstreamStageId)?.output ?? null : null;
+
         const res = await fetch(`/api/pipeline/${stageId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ methodId, params, pipelineRun }),
+          body: JSON.stringify({ methodId, params, pipelineRun, upstreamOutput }),
         });
         const data = await res.json();
         const durationMs = Date.now() - newRun.startedAt;

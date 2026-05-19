@@ -117,8 +117,8 @@
       "dependencies": [
         "feat-003.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/chunk；三种方法：recursive（递归语义切分，对标 LangChain RecursiveCharacterTextSplitter）、fixed-size（固定字符滑动窗口）、markdown-heading（按 MD 标题边界切分，章节超长降级为 fixed-size）；output 含 chunks（index/text/charStart/charEnd/charCount/tokenEstimate/sourceRef）、chunkCount、avgChunkSize/maxChunkSize/minChunkSize；PlaygroundShell 扩展 handleRun 自动附带上游 upstreamOutput；API curl 验证：recursive 返回正确 chunkCount 和 sourceRef，fixed-size 返回 2 chunks/avg=40，markdown-heading 按标题边界产出 3 chunks，missing upstreamOutput 返回 missing_upstream 错误；typecheck 通过。"
     },
     {
       "id": "feat-003.4",
