@@ -14,9 +14,20 @@
   - output 含 `enhancedText / injectedPrefix / keywords / summary / enhancedTokenEstimate`。
 - curl 验证：三种方法均通过；typecheck 通过。
 
+- 实现 `feat-003.5` Embedding Stage：
+  - `app/api/pipeline/embedding/route.ts`：四种 provider。
+    - `debug-deterministic`：FNV-1a 哈希确定性单位向量，无需外部服务，用于流程验证。
+    - `openai-3-small`：调 OpenAI /v1/embeddings，需 OPENAI_API_KEY，支持 dimensions 降维。
+    - `hf-tei-embedding`：HTTP fetch 调自托管 TEI 服务，需 HF_TEI_ENDPOINT。
+    - `hf-transformers-js-embedding`：@huggingface/transformers 本地推理，mean_pooling + normalize。
+  - 批处理支持 batchSize；动态 import openai/transformers 避免未用 provider 加载大包。
+  - output 含 EmbeddedChunk（embedding/embeddingDimension）+ costEstimate（OpenAI 费用估算）。
+- curl 验证：debug-deterministic dim=4 正确，确定性验证通过；missing_upstream 返回 400；typecheck 通过。
+- 补 `.interview/feat-003.5_embedding-stage.md`（5 道面试题）。
+
 ### 当前状态
 
-- `feat-003.3`、`feat-003.4` 完成，下一步：`feat-003.5` Embedding Stage。
+- `feat-003.3`、`feat-003.4`、`feat-003.5` 完成，下一步：`feat-003.6` Storage Stage。
 
 ---
 
