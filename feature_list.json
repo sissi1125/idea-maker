@@ -151,21 +151,31 @@
       "evidence": "2026-05-19 实现 POST /api/pipeline/storage；三种方法：pgvector-upsert-version（ON CONFLICT DO UPDATE，conflictPolicy=upsert/error）、pgvector-new-version（version+1 全量插入，保留历史）、pgvector-replace-version（先 DELETE 再 INSERT，最省空间）；自动 DDL 初始化 rag_documents/rag_chunks 表；Dimension Guard（写入前检查现有维度，不匹配返回 409）；HNSW/IVFFlat/none 三种索引模式；connectionString 表单字段（优先于 DATABASE_URL env）；AggregateError unwrap 修复 Node 18+ ECONNREFUSED 错误信息为空的问题；curl 验证：missing_upstream/missing_connection/db_connection_refused 错误码和消息均正确；typecheck 通过。"
     },
     {
-      "id": "feat-004",
-      "name": "Retrieval Pipeline 分阶段执行",
-      "description": "实现 query rewrite、retrieval、filter、rerank、citation stages，并为每个阶段提供 Playground 配置、执行、输出和 trace。",
+      "id": "feat-003.7",
+      "name": "Pipeline Step Orchestration Infrastructure",
+      "description": "重构为可配置步骤编排系统：(1) 新建 lib/pipelineStages.ts，扩展 PipelineStage 类型（category/module/conditionKey/defaultEnabled），补全所有步骤（intent-recognition/context-management/multi-recall-merge/fallback/prompt-build/output-validation）；(2) lib/types.ts 扩展 PipelineRun（enabledSteps/runtimeContext）；(3) lib/pipelineDeps.ts 补全 STAGE_DEPS + 新增 resolveEffectiveUpstream/isStageActive；(4) stageRegistry.ts 补充新步骤 StageDef stub；(5) PipelineStepList 加可选步骤 toggle switch；(6) PlaygroundShell 接入新依赖解析 + toggle 状态管理；(7) StageConfigPanel 处理禁用/条件/未实现状态。设计原则：不破坏现有代码，全量 enabled 时行为与重构前完全一致。详见 docs/ORCHESTRATION.md。",
       "dependencies": [
         "feat-003.6"
       ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-004",
+      "name": "Retrieval Pipeline 分阶段执行",
+      "description": "实现 query rewrite、retrieval、filter、rerank、citation stages，并为每个阶段提供 Playground 配置、执行、输出和 trace。包含新增步骤：intent-recognition、context-management、multi-recall-merge、fallback、prompt-build、output-validation。",
+      "dependencies": [
+        "feat-003.7"
+      ],
       "status": "epic",
-      "evidence": "父级 feature，用于聚合 feat-004.1 至 feat-004.5；不要直接执行本项。"
+      "evidence": "父级 feature，用于聚合 feat-004.1 至 feat-004.x；不要直接执行本项。"
     },
     {
       "id": "feat-004.1",
       "name": "Query Rewrite Stage",
       "description": "实现 none、rule-keyword-expansion、llm-marketing-rewrite 及对应 Playground：配置 provider、model、targetAudience、rewriteGoal、maxQueries，展示 rewritten queries 和 provider trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
-        "feat-003.6"
+        "feat-003.7"
       ],
       "status": "todo",
       "evidence": ""
