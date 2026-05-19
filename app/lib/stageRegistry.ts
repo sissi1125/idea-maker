@@ -276,30 +276,51 @@ const registry: StageDef[] = [
         label: "pgvector upsert 版本",
         params: [
           {
+            key: "connectionString",
+            label: "数据库连接串",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 DATABASE_URL 环境变量，例：postgresql://user:pass@localhost:5432/rag",
+          },
+          {
             key: "conflictPolicy",
             label: "冲突策略",
             type: "select",
             default: "upsert",
             options: [
-              { value: "upsert", label: "Upsert" },
-              { value: "error", label: "报错" },
+              { value: "upsert", label: "Upsert（覆盖旧向量）" },
+              { value: "error", label: "报错（不允许重复）" },
             ],
           },
-          { key: "indexMode", label: "索引模式", type: "select", default: "ivfflat", options: [{ value: "ivfflat", label: "IVFFlat" }, { value: "hnsw", label: "HNSW" }] },
+          { key: "indexMode", label: "索引模式", type: "select", default: "hnsw", options: [{ value: "hnsw", label: "HNSW（推荐）" }, { value: "ivfflat", label: "IVFFlat" }, { value: "none", label: "不建索引" }] },
         ],
       },
       {
         id: "pgvector-new-version",
         label: "pgvector 新建版本",
         params: [
-          { key: "indexMode", label: "索引模式", type: "select", default: "ivfflat", options: [{ value: "ivfflat", label: "IVFFlat" }, { value: "hnsw", label: "HNSW" }] },
+          {
+            key: "connectionString",
+            label: "数据库连接串",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 DATABASE_URL 环境变量",
+          },
+          { key: "indexMode", label: "索引模式", type: "select", default: "hnsw", options: [{ value: "hnsw", label: "HNSW（推荐）" }, { value: "ivfflat", label: "IVFFlat" }, { value: "none", label: "不建索引" }] },
         ],
       },
       {
         id: "pgvector-replace-version",
         label: "pgvector 替换版本",
         params: [
-          { key: "indexMode", label: "索引模式", type: "select", default: "ivfflat", options: [{ value: "ivfflat", label: "IVFFlat" }, { value: "hnsw", label: "HNSW" }] },
+          {
+            key: "connectionString",
+            label: "数据库连接串",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 DATABASE_URL 环境变量",
+          },
+          { key: "indexMode", label: "索引模式", type: "select", default: "hnsw", options: [{ value: "hnsw", label: "HNSW（推荐）" }, { value: "ivfflat", label: "IVFFlat" }, { value: "none", label: "不建索引" }] },
         ],
       },
     ],
