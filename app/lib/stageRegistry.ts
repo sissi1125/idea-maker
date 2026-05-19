@@ -24,6 +24,11 @@ export interface MethodDef {
 export interface StageDef {
   id: string;
   methods: MethodDef[];
+  /**
+   * API route 是否已实现。
+   * 默认 true（现有步骤）；设为 false 的步骤展示参数配置但 Run 按钮 disabled。
+   */
+  implemented?: boolean;
 }
 
 function defaults(method: MethodDef): Record<string, unknown> {
@@ -481,6 +486,128 @@ const registry: StageDef[] = [
           { key: "targetAudience", label: "目标受众", type: "text", default: "" },
           { key: "ideaCount", label: "生成 Idea 数量", type: "number", default: 5, min: 1, max: 20 },
           { key: "includeEvidence", label: "包含 evidence 引用", type: "boolean", default: true },
+        ],
+      },
+    ],
+  },
+
+  // ─── 新增步骤 stub（API route 尚未实现）────────────────────────────────────
+
+  {
+    id: "context-management",
+    implemented: false,
+    methods: [
+      {
+        id: "session-history",
+        label: "Session 历史管理",
+        params: [
+          { key: "maxTurns", label: "最大历史轮数", type: "number", default: 10, min: 1, max: 50 },
+          { key: "resolveCoref", label: "执行指代消解", type: "boolean", default: true },
+          { key: "fillEllipsis", label: "补全省略成分", type: "boolean", default: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: "intent-recognition",
+    implemented: false,
+    methods: [
+      {
+        id: "rule-based",
+        label: "规则分类",
+        params: [
+          { key: "fallbackIntent", label: "兜底意图", type: "text", default: "knowledge-qa" },
+        ],
+      },
+      {
+        id: "llm-router",
+        label: "LLM 路由",
+        params: [
+          { key: "provider", label: "Provider", type: "text", default: "openai" },
+          { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
+          { key: "intents", label: "意图列表 (JSON)", type: "json", default: ["knowledge-qa", "marketing-strategy", "chitchat"] },
+        ],
+      },
+    ],
+  },
+  {
+    id: "multi-recall-merge",
+    implemented: false,
+    methods: [
+      {
+        id: "rrf-merge",
+        label: "RRF 合并",
+        params: [
+          { key: "k", label: "RRF 常数 k", type: "number", default: 60, min: 1, max: 200 },
+          { key: "deduplicateThreshold", label: "去重相似度阈值", type: "number", default: 0.95, min: 0, max: 1 },
+        ],
+      },
+      {
+        id: "score-merge",
+        label: "分数归一化合并",
+        params: [
+          { key: "normalizeMethod", label: "归一化方法", type: "select", default: "min-max", options: [{ value: "min-max", label: "Min-Max" }, { value: "z-score", label: "Z-Score" }] },
+          { key: "deduplicateThreshold", label: "去重相似度阈值", type: "number", default: 0.95, min: 0, max: 1 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "fallback",
+    implemented: false,
+    methods: [
+      {
+        id: "reject-answer",
+        label: "拒答（无法回答）",
+        params: [
+          { key: "message", label: "拒答消息", type: "textarea", default: "抱歉，我目前没有足够的信息来回答这个问题。" },
+        ],
+      },
+      {
+        id: "generic-response",
+        label: "通用兜底回复",
+        params: [
+          { key: "provider", label: "Provider", type: "text", default: "openai" },
+          { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "prompt-build",
+    implemented: false,
+    methods: [
+      {
+        id: "rag-template",
+        label: "RAG 标准模板",
+        params: [
+          { key: "systemPrompt", label: "System Prompt", type: "textarea", default: "你是一个专业的产品运营助手，基于提供的产品资料回答问题。" },
+          { key: "maxContextTokens", label: "最大 context tokens", type: "number", default: 2000, min: 100, max: 8000 },
+          { key: "includeSourceRefs", label: "包含来源引用", type: "boolean", default: true },
+        ],
+      },
+      {
+        id: "marketing-template",
+        label: "营销场景模板",
+        params: [
+          { key: "targetAudience", label: "目标受众", type: "text", default: "", placeholder: "例: B2B SaaS 决策者" },
+          { key: "tone", label: "语气", type: "select", default: "professional", options: [{ value: "professional", label: "专业" }, { value: "casual", label: "轻松" }, { value: "persuasive", label: "说服性" }] },
+          { key: "maxContextTokens", label: "最大 context tokens", type: "number", default: 2000, min: 100, max: 8000 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "output-validation",
+    implemented: false,
+    methods: [
+      {
+        id: "format-check",
+        label: "格式校验",
+        params: [
+          { key: "checkHallucination", label: "幻觉检测", type: "boolean", default: true },
+          { key: "checkCitations", label: "引用有效性验证", type: "boolean", default: true },
+          { key: "filterSensitive", label: "敏感词过滤", type: "boolean", default: false },
         ],
       },
     ],

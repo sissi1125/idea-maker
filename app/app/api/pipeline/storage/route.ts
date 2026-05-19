@@ -140,8 +140,7 @@ async function checkDimension(
  */
 async function ensureVectorIndex(
   client: Client,
-  indexMode: string,
-  dimension: number
+  indexMode: string
 ): Promise<{ created: boolean; skipped: boolean; reason?: string }> {
   if (indexMode === "none") return { created: false, skipped: true, reason: "indexMode=none" };
 
@@ -352,7 +351,7 @@ export async function POST(req: NextRequest) {
     await upsertChunks(client, chunks, documentId, version, conflictPolicy);
 
     // 建索引
-    const indexResult = await ensureVectorIndex(client, indexMode, dimension);
+    const indexResult = await ensureVectorIndex(client, indexMode);
     if (indexResult.skipped && indexResult.reason) {
       warnings.push(`向量索引：${indexResult.reason}`);
     }
