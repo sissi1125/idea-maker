@@ -27,6 +27,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createLLMClient } from "@/lib/providers";
 import type { RerankOutput, RankedChunk } from "../rerank/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
@@ -98,8 +99,10 @@ async function handleGenericResponse(
     return { triggered: false, triggerReason: reason, rankedMatches: matches, originalQuery, warnings: [] };
   }
 
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  let client;
+  try {
+    ({ client } = await createLLMClient(paramApiKey));
+  } catch {
     // 没有 API Key 时退化为拒答
     return {
       triggered: true,
@@ -107,12 +110,9 @@ async function handleGenericResponse(
       fallbackResponse: "抱歉，我目前没有足够的信息来回答这个问题，建议您查阅产品官方文档。",
       rankedMatches: [],
       originalQuery,
-      warnings: [`Fallback 触发（无 API Key，退化为拒答）：${reason}`],
+      warnings: [`Fallback 触发（无 LLM 配置，退化为拒答）：${reason}`],
     };
   }
-
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
 
   const resp = await client.chat.completions.create({
     model, temperature: 0.5,

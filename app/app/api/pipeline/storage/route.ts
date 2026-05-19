@@ -48,12 +48,13 @@ import { Client } from "pg";
 interface EmbeddedChunk {
   index: number;
   text: string;
-  enhancedText: string;
+  /** Transform 禁用时为 undefined，storage 回退到 text */
+  enhancedText?: string;
   sourceRef: string;
   charCount: number;
   tokenEstimate: number;
-  enhancedTokenEstimate: number;
-  keywords: string[];
+  enhancedTokenEstimate?: number;
+  keywords?: string[];
   embedding: number[];
   embeddingDimension: number;
 }
@@ -197,7 +198,7 @@ async function upsertChunks(
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::vector)`,
         [
           id, documentId, version, chunk.index,
-          chunk.text, chunk.enhancedText, chunk.sourceRef,
+          chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
           chunk.charCount, chunk.tokenEstimate, chunk.keywords,
           chunk.embeddingDimension, embeddingStr,
         ]
@@ -220,7 +221,7 @@ async function upsertChunks(
            embedding          = EXCLUDED.embedding`,
         [
           id, documentId, version, chunk.index,
-          chunk.text, chunk.enhancedText, chunk.sourceRef,
+          chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
           chunk.charCount, chunk.tokenEstimate, chunk.keywords,
           chunk.embeddingDimension, embeddingStr,
         ]
@@ -315,7 +316,18 @@ export async function POST(req: NextRequest) {
     // 初始化表结构
     await client.query(DDL);
 
-    // Dimension Guard
+    // truncateTable：在 Dimension Guard 之前清空所有历史向量（开发调试用）
+    const truncateTable = params.truncateTable === true || params.truncateTable === "true";
+    if (truncateTable) {
+      await client.query("TRUNCATE TABLE rag_chunks");
+      warnings.push("truncateTable=true：已清空 rag_chunks 表所有历史数据（包括其他文档的向量）");
+      // 同时删除旧向量索引（维度变化后必须重建）
+      await client.query(
+        "DROP INDEX IF EXISTS idx_rag_chunks_embedding_hnsw; DROP INDEX IF EXISTS idx_rag_chunks_embedding_ivfflat"
+      );
+    }
+
+    // Dimension Guard：检查现有向量维度是否与本次写入一致
     const dimCheck = await checkDimension(client, dimension);
     if (!dimCheck.ok) {
       await client.end();
@@ -323,13 +335,14 @@ export async function POST(req: NextRequest) {
         {
           error: {
             code: "dimension_mismatch",
-            message: `Dimension Guard 失败：表内已有维度为 ${dimCheck.existingDimension} 的向量，本次写入维度为 ${dimension}。请清空表或使用相同 embedding provider。`,
+            message: `Dimension Guard 失败：表内已有维度为 ${dimCheck.existingDimension} 的向量，本次写入维度为 ${dimension}。` +
+              `可选方案：①开启 truncateTable=true 清空历史数据；②使用相同 embedding provider；③改用 pgvector-replace-version 方法（仅删除当前文档的旧向量）。`,
           },
         },
         { status: 409 }
       );
     }
-    const freshTable = dimCheck.existingDimension === null;
+    const freshTable = dimCheck.existingDimension === null || truncateTable;
 
     // 根据方法确定版本号并写入
     let version: number;

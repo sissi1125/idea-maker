@@ -25,6 +25,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createLLMClient } from "@/lib/providers";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -126,11 +127,7 @@ async function disambiguateByLLM(
   model: string,
   paramApiKey?: string
 ): Promise<ContextManagementOutput> {
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("缺少 OpenAI API Key：请在表单中填写或设置 OPENAI_API_KEY 环境变量");
-
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
+  const { client } = await createLLMClient(paramApiKey);
 
   const historyText = history
     .slice(-6) // 最近 3 轮

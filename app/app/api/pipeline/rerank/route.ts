@@ -29,6 +29,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createLLMClient } from "@/lib/providers";
 import type { FilterOutput, FilteredChunk } from "../filter/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
@@ -163,11 +164,7 @@ async function rerankLLMRelevance(
   criteria: string,
   paramApiKey?: string
 ): Promise<RerankOutput> {
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("缺少 OpenAI API Key：请在表单中填写或设置 OPENAI_API_KEY 环境变量");
-
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
+  const { client } = await createLLMClient(paramApiKey);
 
   const criteriaContext = criteria ? `\n额外评判标准：${criteria}` : "";
   const systemPrompt = `你是 RAG 检索质量评估员。

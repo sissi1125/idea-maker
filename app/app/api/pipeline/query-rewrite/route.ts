@@ -26,6 +26,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createLLMClient } from "@/lib/providers";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -135,15 +136,7 @@ async function rewriteLLMMarketing(
   targetAudience: string,
   paramApiKey?: string
 ): Promise<QueryRewriteOutput> {
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "缺少 OpenAI API Key：请在表单中填写，或设置 OPENAI_API_KEY 环境变量"
-    );
-  }
-
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
+  const { client } = await createLLMClient(paramApiKey);
 
   const goalContext = rewriteGoal ? `\n改写目标：${rewriteGoal}` : "";
   const audienceContext = targetAudience ? `\n目标受众：${targetAudience}` : "";

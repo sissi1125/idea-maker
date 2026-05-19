@@ -31,20 +31,26 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createEmbeddingClient, embedBatch } from "@/lib/providers";
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
 
 interface TransformedChunk {
   index: number;
   text: string;
-  enhancedText: string;
+  /**
+   * enhancedText 在 Transform 阶段注入；当 Transform 步骤被禁用时为 undefined。
+   * embedding 阶段使用 enhancedText ?? text 作为向量化输入。
+   */
+  enhancedText?: string;
   charCount: number;
   tokenEstimate: number;
-  enhancedTokenEstimate: number;
+  /** Transform 步骤被禁用时为 undefined，回退到 tokenEstimate */
+  enhancedTokenEstimate?: number;
   sourceRef: string;
-  injectedPrefix: string;
-  keywords: string[];
-  summary: string;
+  injectedPrefix?: string;
+  keywords?: string[];
+  summary?: string;
 }
 
 interface TransformOutput {
@@ -105,42 +111,25 @@ async function embedOpenAI(
   model: string,
   dimension: number,
   batchSize: number,
-  /** 表单临时填写的 key，优先于环境变量 */
-  paramApiKey?: string
+  paramApiKey?: string,
+  paramBaseUrl?: string
 ): Promise<{ vectors: number[][]; batchCount: number; costEstimate: string }> {
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "缺少 OpenAI API Key：请在表单 \"API Key\" 字段中填写，或设置 OPENAI_API_KEY 环境变量后重启 dev server"
-    );
-  }
-
-  // 动态 import，避免在非 OpenAI provider 时加载 SDK
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
-
-  const texts = chunks.map((c) => c.enhancedText);
+  const { client } = await createEmbeddingClient(paramApiKey, paramBaseUrl);
+  // Transform 禁用时 enhancedText 为 undefined，回退到 text
+  const texts = chunks.map((c) => c.enhancedText ?? c.text);
   const vectors: number[][] = [];
   let batchCount = 0;
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    const resp = await client.embeddings.create({
-      model,
-      input: batch,
-      // text-embedding-3-* 支持 dimensions 参数降维；旧模型不支持，需忽略
-      ...(model.startsWith("text-embedding-3") ? { dimensions: dimension } : {}),
-    });
-    // OpenAI 按 index 返回，顺序与输入一致
-    resp.data.sort((a, b) => a.index - b.index);
-    vectors.push(...resp.data.map((d) => d.embedding));
+    const batchVecs = await embedBatch(batch, model, dimension, client);
+    vectors.push(...batchVecs);
     batchCount++;
   }
 
-  // text-embedding-3-small 定价：$0.02 / 1M tokens（2024 年）
-  const totalTokens = chunks.reduce((s, c) => s + c.enhancedTokenEstimate, 0);
+  const totalTokens = chunks.reduce((s, c) => s + (c.enhancedTokenEstimate ?? c.tokenEstimate), 0);
   const costUSD = ((totalTokens / 1_000_000) * 0.02).toFixed(5);
-  const costEstimate = `~$${costUSD} (${totalTokens} tokens × $0.02/1M)`;
+  const costEstimate = `~$${costUSD} (${totalTokens} tokens × $0.02/1M，仅供参考)`;
 
   return { vectors, batchCount, costEstimate };
 }
@@ -165,7 +154,7 @@ async function embedHFTEI(
     );
   }
 
-  const texts = chunks.map((c) => c.enhancedText);
+  const texts = chunks.map((c) => c.enhancedText ?? c.text); // transform 禁用时回退到 text
   const vectors: number[][] = [];
   let batchCount = 0;
 
@@ -212,7 +201,7 @@ async function embedTransformersJS(
     dtype: "fp32",
   });
 
-  const texts = chunks.map((c) => c.enhancedText);
+  const texts = chunks.map((c) => c.enhancedText ?? c.text); // transform 禁用时回退
   const vectors: number[][] = [];
   let batchCount = 0;
 
@@ -275,6 +264,7 @@ export async function POST(req: NextRequest) {
   const batchSize = Number(params.batchSize ?? 100);
   const model = String(params.model ?? "");
   const paramApiKey = typeof params.apiKey === "string" ? params.apiKey : undefined;
+  const paramBaseUrl = typeof params.baseUrl === "string" ? params.baseUrl : undefined;
   const paramEndpoint = typeof params.endpoint === "string" ? params.endpoint : undefined;
   const warnings: string[] = [];
 
@@ -287,7 +277,7 @@ export async function POST(req: NextRequest) {
     switch (methodId) {
       case "debug-deterministic": {
         resolvedModel = "debug-deterministic";
-        vectors = chunks.map((c) => debugDeterministicEmbed(c.enhancedText, dimension));
+        vectors = chunks.map((c) => debugDeterministicEmbed(c.enhancedText ?? c.text, dimension));
         warnings.push(
           "debug-deterministic 向量不携带语义，仅用于流程验证。生产环境请换用真实 embedding provider。"
         );
@@ -296,7 +286,7 @@ export async function POST(req: NextRequest) {
 
       case "openai-3-small": {
         resolvedModel = model || "text-embedding-3-small";
-        const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey);
+        const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey, paramBaseUrl);
         vectors = result.vectors;
         batchCount = result.batchCount;
         costEstimate = result.costEstimate;
@@ -353,7 +343,7 @@ export async function POST(req: NextRequest) {
     }));
 
     const totalTokensEstimated = chunks.reduce(
-      (s, c) => s + c.enhancedTokenEstimate,
+      (s, c) => s + (c.enhancedTokenEstimate ?? c.tokenEstimate),
       0
     );
 

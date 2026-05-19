@@ -23,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createLLMClient } from "@/lib/providers";
 import type { ContextManagementOutput } from "../context-management/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
@@ -97,11 +98,7 @@ async function classifyByLLM(
   intents: string[],
   paramApiKey?: string
 ): Promise<Omit<IntentRecognitionOutput, "query" | "warnings">> {
-  const apiKey = paramApiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("缺少 OpenAI API Key：请在表单中填写或设置 OPENAI_API_KEY 环境变量");
-
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
+  const { client } = await createLLMClient(paramApiKey);
 
   const intentList = intents.join(", ");
   const systemPrompt = `你是一个意图分类器。将用户查询分类为以下意图之一：${intentList}

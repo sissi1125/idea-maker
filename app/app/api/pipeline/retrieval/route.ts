@@ -31,6 +31,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
+import { createEmbeddingClient, embedSingleText } from "@/lib/providers";
 import type { QueryRewriteOutput } from "../query-rewrite/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
@@ -102,17 +103,11 @@ async function embedQuery(
     return data[0];
   }
 
-  // OpenAI（默认）
-  const key = apiKey?.trim() || process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("缺少 OpenAI API Key：请在表单中填写或设置 OPENAI_API_KEY 环境变量");
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey: key });
-  const resp = await client.embeddings.create({
-    model,
-    input: text,
-    ...(model.startsWith("text-embedding-3") ? { dimensions: dimension } : {}),
-  });
-  return resp.data[0].embedding;
+  // OpenAI-compatible（支持 Qwen / DeepSeek / 其他兼容服务）
+  // baseUrl 通过 params.teiEndpoint 传入（tei 字段复用），或读取 EMBEDDING_BASE_URL
+  const baseUrl = teiEndpoint?.trim() || undefined;
+  const { client } = await createEmbeddingClient(apiKey, baseUrl);
+  return embedSingleText(text, model, dimension, client);
 }
 
 // ─── dense-vector ─────────────────────────────────────────────────────────────
