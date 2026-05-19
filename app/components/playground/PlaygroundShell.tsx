@@ -15,6 +15,14 @@ export default function PlaygroundShell() {
   const [pipelineRun, setPipelineRun] = useState<PipelineRun>(createPipelineRun());
   const [stepRuns, setStepRuns] = useState<StepRunMap>({});
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  /**
+   * 每个 stage 的 (methodId, params) 持久化存储。
+   * StageConfigPanel 在 key 变化时重新挂载，但从此处读取初始值，
+   * 使得切换 stage 后再切回时参数不会被重置。
+   */
+  const [stageParamsMap, setStageParamsMap] = useState<
+    Record<string, { methodId: string; params: Record<string, unknown> }>
+  >({});
 
   // 页面加载时拉取已上传文档
   useEffect(() => {
@@ -46,6 +54,15 @@ export default function PlaygroundShell() {
     }));
     setStepRuns({});
   }, []);
+
+  // ─── Stage params 持久化 ──────────────────────────────────────────────────
+
+  const handleParamsChange = useCallback(
+    (stageId: string, methodId: string, params: Record<string, unknown>) => {
+      setStageParamsMap((prev) => ({ ...prev, [stageId]: { methodId, params } }));
+    },
+    []
+  );
 
   // ─── 步骤开关 ─────────────────────────────────────────────────────────────
 
@@ -187,6 +204,9 @@ export default function PlaygroundShell() {
           onDocumentSelected={handleDocumentSelected}
           onDocumentDeleted={handleDocumentDeleted}
           getLatestRun={latestRun}
+          initialMethodId={stageParamsMap[activeStage.id]?.methodId}
+          initialParams={stageParamsMap[activeStage.id]?.params}
+          onParamsChange={handleParamsChange}
         />
         <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
       </div>

@@ -20,6 +20,12 @@ interface Props {
   onDocumentSelected: (doc: DocumentRecord) => void;
   onDocumentDeleted: (id: string) => void;
   getLatestRun: (stageId: string) => StepRun | undefined;
+  /** 切换 stage 再切回时恢复上次选择的 method */
+  initialMethodId?: string;
+  /** 切换 stage 再切回时恢复上次填写的 params */
+  initialParams?: Record<string, unknown>;
+  /** 每次 method 或 param 变更时回传给父组件，用于跨 stage 切换持久化 */
+  onParamsChange?: (stageId: string, methodId: string, params: Record<string, unknown>) => void;
 }
 
 export default function StageConfigPanel({
@@ -32,6 +38,9 @@ export default function StageConfigPanel({
   onDocumentSelected,
   onDocumentDeleted,
   getLatestRun,
+  initialMethodId,
+  initialParams,
+  onParamsChange,
 }: Props) {
   const stageDef = getStage(stage.id);
   const isImplemented = !stageDef || stageDef.implemented !== false;
@@ -40,21 +49,30 @@ export default function StageConfigPanel({
   const upstreamStale = checkUpstreamStale(stage.id, latestRun, getLatestRun);
 
   const firstMethod = stageDef?.methods[0];
-  const [selectedMethodId, setSelectedMethodId] = useState(firstMethod?.id ?? "");
+  // 优先使用父组件传入的持久化值，没有则用 stageRegistry 默认值
+  const [selectedMethodId, setSelectedMethodId] = useState(
+    initialMethodId ?? firstMethod?.id ?? ""
+  );
   const [params, setParams] = useState<Record<string, unknown>>(
-    firstMethod ? defaults(firstMethod) : {}
+    initialParams ?? (firstMethod ? defaults(firstMethod) : {})
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleMethodChange = (methodId: string) => {
     const m = stageDef?.methods.find((x) => x.id === methodId);
+    const newParams = m ? defaults(m) : {};
     setSelectedMethodId(methodId);
-    setParams(m ? defaults(m) : {});
+    setParams(newParams);
     setErrors({});
+    onParamsChange?.(stage.id, methodId, newParams);
   };
 
   const handleParamChange = (key: string, value: unknown) => {
-    setParams((prev) => ({ ...prev, [key]: value }));
+    setParams((prev) => {
+      const next = { ...prev, [key]: value };
+      onParamsChange?.(stage.id, selectedMethodId, next);
+      return next;
+    });
     setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
   };
 

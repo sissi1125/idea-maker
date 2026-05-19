@@ -139,9 +139,16 @@ async function checkDimension(
  * HNSW / IVFFlat 都需要知道向量维度（通过 operator class 隐含）。
  * 小表（< 1000 行）时 IVFFlat 的 lists 参数用 1，避免 "too few rows" 错误。
  */
+/**
+ * 为 rag_chunks.embedding 创建向量索引。
+ * HNSW / IVFFlat 都要求列有明确维度。DDL 里 embedding 定义为 `vector`（无维度）以保持灵活性，
+ * 因此建索引前先 ALTER COLUMN embedding TYPE vector(N)。
+ * Dimension Guard 已确保表内所有向量维度一致，ALTER 是安全操作。
+ */
 async function ensureVectorIndex(
   client: Client,
-  indexMode: string
+  indexMode: string,
+  dimension: number
 ): Promise<{ created: boolean; skipped: boolean; reason?: string }> {
   if (indexMode === "none") return { created: false, skipped: true, reason: "indexMode=none" };
 
@@ -152,6 +159,17 @@ async function ensureVectorIndex(
   );
   if (existing.rows.length > 0) {
     return { created: false, skipped: true, reason: "索引已存在，跳过重建" };
+  }
+
+  // HNSW / IVFFlat 要求 embedding 列类型为 vector(N)（有明确维度）。
+  // DDL 建表时用无维度 `vector` 保持灵活；此处在已写入数据后补充维度。
+  // Dimension Guard 确保表内维度一致，ALTER COLUMN 不会产生数据冲突。
+  try {
+    await client.query(
+      `ALTER TABLE rag_chunks ALTER COLUMN embedding TYPE vector(${dimension})`
+    );
+  } catch {
+    // 极端情况（列已是正确类型时 psql 可能报 "nothing to alter"），忽略即可
   }
 
   const rowCountRes = await client.query<{ cnt: string }>("SELECT COUNT(*) AS cnt FROM rag_chunks");
@@ -363,8 +381,8 @@ export async function POST(req: NextRequest) {
 
     await upsertChunks(client, chunks, documentId, version, conflictPolicy);
 
-    // 建索引
-    const indexResult = await ensureVectorIndex(client, indexMode);
+    // 建索引（需要传入维度，用于 ALTER COLUMN 补充维度后再建 HNSW/IVFFlat）
+    const indexResult = await ensureVectorIndex(client, indexMode, dimension);
     if (indexResult.skipped && indexResult.reason) {
       warnings.push(`向量索引：${indexResult.reason}`);
     }
