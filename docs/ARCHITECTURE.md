@@ -13,11 +13,12 @@
 - 本地 JSON 存储（`app/data/documents.json`）—— **当前 dev 阶段**，后续替换为 PostgreSQL
 - pdf-parse v1 + mammoth + turndown（文档解析）
 - Python FastAPI 微服务（`services/pymupdf/`）—— 提供 pymupdf PDF 精确提取
+- `openai` SDK + `@huggingface/transformers`（embedding provider）
+- `pg` + `pgvector`（向量存储，Storage Stage API route 已实现；需 `DATABASE_URL` env）
 
 待引入（后续阶段）：
-- PostgreSQL + pgvector
-- Drizzle ORM
-- OpenAI / HF TEI / Transformers.js embedding provider
+- Drizzle ORM（生产阶段替换直接 SQL 查询）
+- 完整 Retrieval / Generation pipeline routes（feat-004.x / feat-005）
 
 ## UI 布局
 
@@ -34,13 +35,15 @@ Playground 的首屏应该就是实际工具：
 
 ```mermaid
 flowchart LR
-  A["产品文档"] --> B["幂等性检查"]
-  B --> C["预处理"]
-  C --> D["Chunk"]
-  D --> E["Transform 增强"]
-  E --> F["Embedding"]
-  F --> G["Storage"]
+  A["文档上传"] --> B["幂等性检查（可选）"]
+  B --> C["预处理（可选）"]
+  C --> D["Chunk（必选）"]
+  D --> E["Transform 增强（可选）"]
+  E --> F["Embedding（必选）"]
+  F --> G["Storage（必选）"]
 ```
+
+> 括号内为步骤分类（详见 `docs/ORCHESTRATION.md`）。可选步骤被禁用时，下游自动向上查找最近活跃步骤的 output。
 
 每一步返回 trace envelope：
 
@@ -68,13 +71,21 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  A["用户任务 / Query"] --> B["Query Rewrite"]
-  B --> C["Retrieval"]
-  C --> D["Filter"]
-  D --> E["Rerank"]
-  E --> F["Citation"]
-  F --> G["Evidence Pack"]
+  A["用户 Query"] --> B["对话上下文（条件）"]
+  B --> C["意图识别（可选）"]
+  C --> D["Query 改写（可选）"]
+  D --> E["检索（必选）"]
+  E --> F["多路合并（条件）"]
+  F --> G["过滤（可选）"]
+  G --> H["重排（可选）"]
+  H --> I["Fallback（条件）"]
+  I --> J["Prompt 构造（必选）"]
+  J --> K["生成（必选）"]
+  K --> L["输出校验（可选）"]
+  L --> M["引用 Citation（可选）"]
 ```
+
+> 完整步骤分类和可配置编排方案见 `docs/ORCHESTRATION.md`（feat-003.7）。
 
 当前阶段 retrieval 字段：
 
@@ -102,12 +113,15 @@ flowchart LR
 
 ## 存储模型
 
-**当前 dev 阶段**：使用本地 JSON 文件（`app/data/documents.json`）持久化。
+**文档存储（当前 dev 阶段）**：`app/data/documents.json` 本地 JSON 文件。
 所有读写通过 `app/lib/docStore.ts` 封装（Repository Pattern），迁移到 PostgreSQL 只需替换内部实现。
+二进制文件（PDF/DOCX）以 base64 存储（`isBinary: true`）；迁移后改用 `BYTEA` 类型，接口不变。
 
-二进制文件（PDF/DOCX）在 JSON 中以 base64 存储（`isBinary: true`）；迁移到 PostgreSQL 后改用 `BYTEA` 类型，`getDocumentBuffer()` 接口不变。
+**向量存储（已实现）**：PostgreSQL + pgvector。
+Storage Stage API route（`/api/pipeline/storage`）已实现；自动 DDL 初始化 `rag_documents`/`rag_chunks` 表，含 UNIQUE 约束和可选 HNSW/IVFFlat 索引。
+需要环境变量 `DATABASE_URL`（或在表单中临时填写连接串）。
 
-**生产阶段目标**：PostgreSQL + pgvector 为主存储，Drizzle ORM 管理 schema。需要保留清晰 adapter 边界，避免 API、UI 和具体数据库查询强耦合。
+**生产阶段目标**：Drizzle ORM 管理 schema，替换直接 pg 查询；保留清晰 adapter 边界。
 
 核心实体：
 

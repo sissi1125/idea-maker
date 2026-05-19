@@ -11,6 +11,7 @@ required_files=(
   "docs/API_CONTRACTS.md"
   "docs/RAG_PIPELINE_PLAYGROUND.md"
   "docs/VERIFICATION.md"
+  "docs/ORCHESTRATION.md"
   "feature_list.json"
   "progress.md"
   "session-handoff.md"
