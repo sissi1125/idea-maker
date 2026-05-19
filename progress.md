@@ -25,9 +25,23 @@
 - curl 验证：debug-deterministic dim=4 正确，确定性验证通过；missing_upstream 返回 400；typecheck 通过。
 - 补 `.interview/feat-003.5_embedding-stage.md`（5 道面试题）。
 
+- 实现 `feat-003.6` Storage Stage：
+  - `app/api/pipeline/storage/route.ts`：三种写入策略。
+    - `pgvector-upsert-version`：ON CONFLICT DO UPDATE，conflictPolicy=upsert/error。
+    - `pgvector-new-version`：查最大 version，+1 后全量插入，保留历史版本。
+    - `pgvector-replace-version`：先 DELETE 该 documentId 所有旧 chunk，再 INSERT。
+  - 自动 DDL 初始化 rag_documents/rag_chunks 表和索引（含 UNIQUE 约束）。
+  - Dimension Guard：写入前检查现有向量维度，不匹配返回 409。
+  - HNSW/IVFFlat/none 三种索引模式，IVFFlat lists = sqrt(rowCount)。
+  - connectionString 表单字段（优先于 DATABASE_URL env）；同样模式也用于 embedding stage。
+  - AggregateError unwrap：修复 Node 18+ 连接拒绝时 message 为空的问题。
+- 安装 pg + pgvector + @types/pg；stageRegistry 三个 storage 方法均补充 connectionString 参数。
+- curl 验证：missing_upstream/missing_connection/db_connection_refused 错误码均正确；typecheck 通过。
+- 补 `.interview/feat-003.6_storage-stage.md`（5 道面试题）。
+
 ### 当前状态
 
-- `feat-003.3`、`feat-003.4`、`feat-003.5` 完成，下一步：`feat-003.6` Storage Stage。
+- `feat-003.3`～`feat-003.6` 全部完成。下一步：`feat-004.1` Query Rewrite Stage。
 
 ---
 

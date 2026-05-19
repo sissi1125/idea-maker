@@ -147,8 +147,8 @@
       "dependencies": [
         "feat-003.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-19 实现 POST /api/pipeline/storage；三种方法：pgvector-upsert-version（ON CONFLICT DO UPDATE，conflictPolicy=upsert/error）、pgvector-new-version（version+1 全量插入，保留历史）、pgvector-replace-version（先 DELETE 再 INSERT，最省空间）；自动 DDL 初始化 rag_documents/rag_chunks 表；Dimension Guard（写入前检查现有维度，不匹配返回 409）；HNSW/IVFFlat/none 三种索引模式；connectionString 表单字段（优先于 DATABASE_URL env）；AggregateError unwrap 修复 Node 18+ ECONNREFUSED 错误信息为空的问题；curl 验证：missing_upstream/missing_connection/db_connection_refused 错误码和消息均正确；typecheck 通过。"
     },
     {
       "id": "feat-004",
