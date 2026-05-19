@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-19（会话 7）
+2026-05-19（会话 9，harness 一致性修复）
 
 ## 项目
 
@@ -20,51 +20,82 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 | feat-003.2 | Preprocess Stage | done |
 | feat-003.3 | Chunk Stage（fixed-size / recursive / markdown-heading） | done |
 | feat-003.4 | Transform Stage（none / heading-context / summary-keywords） | done |
-| feat-003.5 | Embedding Stage（openai-3-small / hf-tei / transformers.js / debug-deterministic）；API Key 和 TEI Endpoint 支持表单直接输入 | done |
+| feat-003.5 | Embedding Stage（openai / hf-tei / transformers.js / debug-deterministic；API Key 表单直接输入） | done |
 | feat-003.6 | Storage Stage（pgvector upsert/new-version/replace-version；Dimension Guard；HNSW/IVFFlat） | done |
-| feat-003.7 | Pipeline Step Orchestration 架构设计（`docs/ORCHESTRATION.md`，待 owner 确认后执行） | spec done / impl pending |
+| feat-003.7 | Pipeline Step Orchestration（19 步骤定义；toggle UI；resolveEffectiveUpstream；5 个可选步骤全实现） | done |
+| feat-004.1 | Query Rewrite Stage（none / rule-keyword-expansion / llm-marketing-rewrite） | done |
+| feat-004.2 | Retrieval Stage（dense-vector / postgres-fulltext / hybrid-rrf） | done |
+| feat-004.3 | Filter Stage（score-threshold / metadata-filter / mmr-diversity） | done |
+| feat-004.4 | Rerank Stage（score-only / metadata-boost / hf-tei-rerank / llm-relevance-rerank） | done |
+| feat-004.5 | Citation Stage（chunk-citation / page-aware-citation / snippet-citation） | done |
+
+### 待做 features
+
+| Feature | 描述 | 状态 |
+|---------|------|------|
+| feat-005 | Marketing Generation（产品画像、卖点地图、内容 idea + evidence refs） | todo |
+| feat-006 | RAG Quality Evaluation（hit rate、citation coverage、confidence） | todo |
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`cabb373`（Merge feat-003.7 feature registration）
-- **工作树**：`gallant-dubinsky-b9bb6d`（`claude/gallant-dubinsky-b9bb6d` 分支）——正在开发中，每个 feature 合并后保留
+- **主分支**：`main`，当前 HEAD：`524c0e5`（Merge branch 'claude/gallant-dubinsky-b9bb6d'）
+- **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
-- **向量存储**：PostgreSQL + pgvector（API route 已实现，需 `DATABASE_URL` env）
-- **面试题**：`.interview/` 目录，已覆盖 feat-002.5/003.1/003.2/003.3/003.4/003.5/003.6
+- **向量存储**：PostgreSQL + pgvector（`docker compose up postgres` 启动；需 `DATABASE_URL` env）
+- **Provider 抽象**：`app/lib/providers.ts`（`createLLMClient` / `createEmbeddingClient`，读 `LLM_*` / `EMBEDDING_*` env，兼容 Qwen/DashScope）
+- **面试题**：`.interview/` 目录，已覆盖 feat-002.5、feat-003.1～003.6、feat-004.1～004.5（各独立文件）
 
 ### 已实现的 API routes
 
 ```
-POST /api/documents           — 文档上传
-GET  /api/documents           — 文档列表
-DELETE /api/documents/:id     — 删除文档
-POST /api/pipeline/idempotency  — 幂等性检查
-POST /api/pipeline/preprocess   — 文档预处理
-POST /api/pipeline/chunk        — 分块
-POST /api/pipeline/transform    — Transform 增强
-POST /api/pipeline/embedding    — 向量化（4 providers）
-POST /api/pipeline/storage      — pgvector 存储
+POST /api/documents                       — 文档上传
+GET  /api/documents                       — 文档列表
+DELETE /api/documents/:id                 — 删除文档
+
+POST /api/pipeline/idempotency            — 文档幂等性检查
+POST /api/pipeline/preprocess             — 文档预处理
+POST /api/pipeline/chunk                  — 分块
+POST /api/pipeline/transform              — Transform 增强
+POST /api/pipeline/embedding              — 向量化（4 providers）
+POST /api/pipeline/storage                — pgvector 存储
+
+POST /api/pipeline/context-management    — 对话上下文管理（可选步骤）
+POST /api/pipeline/intent-recognition    — 意图识别（可选步骤）
+POST /api/pipeline/query-rewrite         — Query 重写
+POST /api/pipeline/retrieval             — 检索（dense-vector / fulltext / hybrid-rrf）
+POST /api/pipeline/filter                — 过滤（score-threshold / metadata / mmr）
+POST /api/pipeline/multi-recall-merge    — 多路召回合并（可选步骤）
+POST /api/pipeline/rerank                — 重排序（4 methods）
+POST /api/pipeline/citation              — 引用打包（3 methods）
+POST /api/pipeline/fallback              — Fallback 兜底（可选步骤）
+POST /api/pipeline/prompt-build          — Prompt 构建（可选步骤）
 ```
 
-## 待决策项
+### 已知 bugs（已修复）
 
-1. **feat-003.7 4 个设计问题**（见 `docs/ORCHESTRATION.md` Section 7）：
-   - fallback 的触发时机（retrievalQualityLow 写入时机）
-   - context-management 成为新入口是否可接受
-   - 条件步骤是否支持强制覆盖
-   - 未实现步骤的 UI 展示方式
+| Bug | 描述 | 修复 commit |
+|-----|------|------------|
+| BUG-001 | TransformedChunk.enhancedText 为 undefined 时 Embedding crash | e873cc1 |
+| BUG-002 | Dimension Guard 在切换 embedding 模型后误拦截 | e873cc1（truncateTable 参数） |
+| BUG-003 | 仅支持 OpenAI，无法接入 Qwen/DashScope | e873cc1（lib/providers.ts） |
+| BUG-004 | 可选步骤关闭后 Run 按钮未禁用 | 6114117 |
+| BUG-005 | Qwen embedding 维度校验：debug-deterministic dim=4 被 API 拒绝 | 6114117（min=64，default=1024） |
+| BUG-006 | Embedding 模型默认为 OpenAI，应改为 Qwen text-embedding-v4 | 6114117 |
+| BUG-UI-1 | 切换 stage 后 params 被重置 | 6fca865（stageParamsMap lift） |
+| BUG-UI-2 | Embedding output 含大向量导致浏览器崩溃 | 6fca865（VectorSummary 组件） |
+| BUG-UI-3 | HNSW/IVFFlat DDL 需要 vector(N) 类型 | 6fca865 |
 
 ## 下一步
 
-1. **等 owner 确认 feat-003.7 设计问题后**，执行 feat-003.7 实现（7 个文件改动）。
-2. feat-003.7 完成后依次实现 feat-004.x：
-   - feat-004.1 Query Rewrite Stage（rule + LLM 两种方法）
-   - feat-004.2 Retrieval Stage（dense-vector / fulltext / hybrid-rrf）
-   - feat-004.3 Filter Stage
-   - feat-004.4 Rerank Stage
-   - feat-004.5 Citation Stage
-3. 新增步骤（来自 feat-003.7 设计）：intent-recognition / context-management / multi-recall-merge / fallback / prompt-build / output-validation
+1. **feat-005 Marketing Generation**：
+   - 利用 citation stage 的 evidencePack 生成产品画像、卖点地图、内容 idea
+   - 每条生成结果必须携带 evidence chunk references
+   - 接入 prompt-build stage 输出作为 LLM 上下文
+
+2. **feat-006 RAG Quality Evaluation**：
+   - 依赖 feat-005 完成
+   - 指标：hit rate、citation coverage、confidence score、warnings
 
 ## 重要边界
 
@@ -77,16 +108,23 @@ POST /api/pipeline/storage      — pgvector 存储
 ## 验证
 
 ```bash
-./init.sh           # harness 文件检查 + JSON 校验 + typecheck + lint
-cd app && npm run dev   # 启动 dev server（localhost:3000）
+./init.sh                    # harness 文件检查 + JSON 校验 + typecheck + lint
+docker compose up postgres   # 启动 pgvector（bitnami/postgresql + vector.so）
+cd app && npm run dev        # 启动 dev server（localhost:3000）
 ```
 
-快速验证 embedding（debug-deterministic，无需任何 env）：
+快速冒烟测试（无需任何 env）：
 
 ```bash
-# 先运行 dev server，然后
 curl -s -X POST http://localhost:3000/api/pipeline/embedding \
   -H "Content-Type: application/json" \
-  -d '{"methodId":"debug-deterministic","params":{"dimension":4},"upstreamOutput":{"chunks":[{"index":0,"text":"test","enhancedText":"test","charCount":4,"tokenEstimate":1,"enhancedTokenEstimate":1,"sourceRef":"","injectedPrefix":"","keywords":[],"summary":""}],"chunkCount":1,"warnings":[]}}' \
-  | python3 -m json.tool
+  -d '{
+    "methodId": "debug-deterministic",
+    "params": {"dimension": 64},
+    "upstreamOutput": {
+      "chunks": [{"index":0,"text":"test","charCount":4,"tokenEstimate":1,"sourceRef":""}],
+      "chunkCount": 1,
+      "warnings": []
+    }
+  }' | python3 -m json.tool
 ```

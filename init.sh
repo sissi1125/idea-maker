@@ -46,4 +46,20 @@ else
   echo "尚未发现 app/package.json；跳过应用验证。"
 fi
 
+echo "=== session-handoff.md HEAD 一致性检查 ==="
+CURRENT_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+if [ -n "$CURRENT_HEAD" ]; then
+  RECORDED_HEAD=$(grep "当前 HEAD" session-handoff.md | sed 's/.*HEAD：`\([a-f0-9]*\)`.*/\1/' | head -1)
+  if [ -z "$RECORDED_HEAD" ]; then
+    echo "警告：session-handoff.md 中未找到 HEAD 记录，请检查格式。"
+    exit 1
+  elif [ "$RECORDED_HEAD" != "$CURRENT_HEAD" ]; then
+    echo "文档滞后：session-handoff.md 记录的 HEAD 是 $RECORDED_HEAD，当前 HEAD 是 $CURRENT_HEAD"
+    echo "请先更新 session-handoff.md 和 progress.md，再继续开发。"
+    exit 1
+  else
+    echo "HEAD 一致：$CURRENT_HEAD ✓"
+  fi
+fi
+
 echo "=== Harness 验证完成 ==="

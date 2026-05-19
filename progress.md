@@ -1,5 +1,104 @@
 # 进度记录
 
+## 2026-05-19（会话 9，harness 一致性修复）
+
+### 已完成
+
+- Harness 一致性审查：发现 session-handoff.md 滞后、progress.md 缺失多会话记录、面试题粒度不符规则。
+- 重写 `session-handoff.md`（反映真实 HEAD `524c0e5`、feat-004.x 全部 done、worktree 已完成）。
+- 补记 `progress.md` 会话 8～9，修正会话 7"当前状态"与 feature_list.json 的矛盾。
+- 为 feat-004.1～004.5 各补独立面试题文件（`.interview/feat-004.x_*.md`）。
+
+### 当前状态
+
+- `feat-001`～`feat-004.5` 全部完成。Harness 五子系统一致。
+- 下一步：`feat-005` Marketing Generation。
+
+---
+
+## 2026-05-19（会话 8）
+
+### 已完成
+
+- 实现 `feat-004.1` Query Rewrite Stage：
+  - `app/api/pipeline/query-rewrite/route.ts`：三种方法（none / rule-keyword-expansion / llm-marketing-rewrite）。
+  - rule 方法：TF 停用词过滤 + 营销模板扩展，生成最多 maxQueries 个变体。
+  - llm 方法：OpenAI JSON mode，apiKey 表单字段；扩展后去重。
+  - typecheck+lint 通过，curl 验证（三种方法均正确返回 rewrittenQueries 列表）。
+
+- 实现 `feat-004.2` Retrieval Stage：
+  - `app/api/pipeline/retrieval/route.ts`：三种方法（dense-vector / postgres-fulltext / hybrid-rrf）。
+  - dense-vector：embed query + pgvector 余弦搜索，多 query 最高分合并。
+  - postgres-fulltext：tsvector + plainto_tsquery，simple 字典。
+  - hybrid-rrf：两路结果 RRF k=60 合并。
+  - connectionString / embeddingConfig 支持表单直接配置；AggregateError unwrap。
+
+- 实现 `feat-004.3` Filter Stage：
+  - `app/api/pipeline/filter/route.ts`：三种方法（score-threshold / metadata-filter / mmr-diversity）。
+  - score-threshold：分数下限 + 每文档上限。
+  - metadata-filter：sourceRef 白名单过滤。
+  - mmr-diversity：Jaccard 词集 MMR，lambda 参数控制多样性权重。
+  - output 含 filteredMatches / removedMatches / removedReasons。
+
+- 实现 `feat-004.4` Rerank Stage：
+  - `app/api/pipeline/rerank/route.ts`：四种方法（score-only / metadata-boost / hf-tei-rerank / llm-relevance-rerank）。
+  - llm-relevance-rerank：Promise.all 并行打分，OpenAI JSON mode。
+  - output 含 rankChanges（排序前后 index 对比）。
+
+- 实现 `feat-004.5` Citation Stage：
+  - `app/api/pipeline/citation/route.ts`：三种方法（chunk-citation / page-aware-citation / snippet-citation）。
+  - evidenceId = `{documentId}_v{version}_c{chunkIndex}`，全链路可溯源。
+  - output 含 evidencePack + contextText（供 prompt-build 使用）。
+
+- 实现 5 个可选步骤 API routes（feat-003.7 stub → 实现）：
+  - `context-management`：对话历史注入、query 前追加上下文轮次。
+  - `intent-recognition`：规则分类（informational / comparative / transactional）+ LLM 方法。
+  - `multi-recall-merge`：合并多路召回结果，RRF 重打分。
+  - `fallback`：retrieval 质量低于阈值时触发兜底策略（返回摘要/拒绝/默认回答）。
+  - `prompt-build`：将 evidencePack + query 拼装为 LLM prompt，支持多模板。
+
+- Docker 支持：`docker-compose.yml` 加入 bitnami/postgresql（含 vector.so）；`services/postgres/Dockerfile` 备用构建方案；`.env.local.example` 记录全部 env 变量。
+
+- query propagation 修复：originalQuery 从 query-rewrite → retrieval → filter → rerank → citation 全链路透传。
+
+- 补 `.interview/feat-004_retrieval-pipeline.md`（5 道综合面试题，覆盖 RRF、MMR、Bi/Cross-encoder、Citation evidenceId）。
+
+### 当前状态
+
+- `feat-004.1`～`feat-004.5` 全部完成，5 个可选步骤实现完毕。
+- 下一步：修复若干 UI/后端 bug，然后实现 feat-005。
+
+---
+
+## 2026-05-19（会话 8 续，bug 修复）
+
+### 已完成
+
+- **BUG-001/002/003**（commit `e873cc1`）：
+  - TransformedChunk.enhancedText 改为可选（`?`），embedding 方法全部改用 `c.enhancedText ?? c.text` fallback。
+  - Storage route 新增 `truncateTable` 参数（TRUNCATE rag_chunks before insert），解决 Dimension Guard 误拦截。
+  - 新建 `app/lib/providers.ts`：`createLLMClient` / `createEmbeddingClient` 工厂，读 `LLM_*` / `EMBEDDING_*` env，支持 Qwen/DashScope 和任意 OpenAI-compatible endpoint。
+
+- **BUG-UI-1/2/3**（commit `6fca865`）：
+  - 切换 stage 后 params 被重置：将 (methodId, params) state 提升到 PlaygroundShell 作为 `stageParamsMap`，导航回 stage 时恢复填入值。
+  - Embedding output 含大向量导致浏览器崩溃：`truncateStrings()` 检测 length>16 的 number[] 并替换为 `__vector {dimension, preview}` 摘要；新增 `VectorSummary` 组件，full 向量懒展开。
+  - HNSW/IVFFlat DDL：embedding 列需要显式 `vector(N)` 类型，修复 DDL 生成逻辑。
+
+- **BUG-004/005/006**（commit `6114117`）：
+  - 可选步骤关闭后 Run 按钮未禁用：`StageConfigPanel.runDisabled` 加入 `!stageActive` 检查，显示"步骤已关闭"提示。
+  - Qwen embedding 维度校验：`embeddingDimension` min 从 1 改为 64（Qwen 最小允许值），default 改为 1024；提示有效维度列表。
+  - Embedding/Retrieval 默认 provider 全部改为 Qwen text-embedding-v4（baseUrl 指向 DashScope）。
+
+- **batchSize 默认值**（commit `ffe2fc8`）：
+  - `app/api/pipeline/embedding/route.ts` batchSize 默认值手动修正。
+
+### 当前状态
+
+- 所有已知 bug 修复完毕，working tree 干净，已合并至 main（HEAD `524c0e5`）。
+- 下一步：`feat-005` Marketing Generation。
+
+---
+
 ## 2026-05-19（会话 7）
 
 ### 已完成
@@ -22,10 +121,12 @@
   - `ARCHITECTURE.md` 删除错误的"待引入 pgvector/embedding"、更新存储模型描述、更新两条 pipeline 图
   - `init.sh` required_files 加入 `docs/ORCHESTRATION.md`
 
+- `feat-003.7` 完整实现完成（7 个文件改动，见上方"已完成"列表），typecheck+lint 通过，dev server 正常。
+
 ### 当前状态
 
-- `feat-003.1`～`feat-003.6` 全部完成；`feat-003.7` 设计文档完成，等 owner 确认 4 个设计问题后执行实现。
-- 下一步（等确认后）：实现 feat-003.7，然后依次做 feat-004.x。
+- `feat-001`～`feat-003.7` 全部完成。
+- 下一步：`feat-004.1` Query Rewrite Stage。
 
 ---
 
