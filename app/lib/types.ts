@@ -56,3 +56,35 @@ export function createPipelineRun(): PipelineRun {
     runtimeContext: { isMultiTurn: false, multipleRetrievalSources: false },
   };
 }
+
+// ─── Snapshot & Pipeline Run History ─────────────────────────────────────────
+
+export interface StageSnapshot {
+  id: string;
+  stageId: string;
+  methodId: string;
+  params: Record<string, unknown>;
+  upstreamOutput: unknown | null;
+  output: unknown;
+  durationMs: number;
+  createdAt: string;
+}
+
+export interface PipelineRunStageEntry {
+  methodId: string;
+  params: Record<string, unknown>;
+  output: unknown;
+  trace: unknown;
+  durationMs: number;
+  status: string;
+  warnings?: string[];
+}
+
+export interface PipelineRunRecord {
+  id: string;
+  name: string;
+  documentId?: string;
+  stages: Record<string, PipelineRunStageEntry>;
+  stageCount: number;
+  createdAt: string;
+}
