@@ -50,6 +50,8 @@ export interface MatchedChunk {
 }
 
 export interface RetrievalOutput {
+  /** query-rewrite 传入的第一个查询，用于下游 filter/rerank/citation 的相关性计算 */
+  originalQuery: string;
   queries: string[];
   matches: MatchedChunk[];
   totalMatches: number;
@@ -352,6 +354,7 @@ export async function POST(req: NextRequest) {
     await db.end();
 
     const output: RetrievalOutput = {
+      originalQuery: queries[0] ?? "",
       queries, matches, totalMatches: matches.length,
       method: methodId, dimension, warnings,
     };

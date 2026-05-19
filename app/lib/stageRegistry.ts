@@ -514,75 +514,82 @@ const registry: StageDef[] = [
     ],
   },
 
-  // ─── 新增步骤 stub（API route 尚未实现）────────────────────────────────────
-
   {
     id: "context-management",
-    implemented: false,
     methods: [
       {
         id: "session-history",
-        label: "Session 历史管理",
+        label: "规则消解",
         params: [
-          { key: "maxTurns", label: "最大历史轮数", type: "number", default: 10, min: 1, max: 50 },
-          { key: "resolveCoref", label: "执行指代消解", type: "boolean", default: true },
-          { key: "fillEllipsis", label: "补全省略成分", type: "boolean", default: true },
+          { key: "currentMessage", label: "当前消息", type: "textarea", default: "", required: true, placeholder: "输入当前轮用户消息，例如：它的定价是多少？" },
+          { key: "history", label: "历史记录 (JSON)", type: "json", default: [], hint: "格式：[{\"role\":\"user\",\"content\":\"...\"},{\"role\":\"assistant\",\"content\":\"...\"}]" },
+        ],
+      },
+      {
+        id: "llm-disambiguate",
+        label: "LLM 消解",
+        params: [
+          { key: "currentMessage", label: "当前消息", type: "textarea", default: "", required: true, placeholder: "输入当前轮用户消息" },
+          { key: "history", label: "历史记录 (JSON)", type: "json", default: [] },
+          { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
         ],
       },
     ],
   },
   {
     id: "intent-recognition",
-    implemented: false,
     methods: [
       {
         id: "rule-based",
         label: "规则分类",
         params: [
-          { key: "fallbackIntent", label: "兜底意图", type: "text", default: "knowledge-qa" },
+          { key: "query", label: "查询（可选）", type: "textarea", default: "", placeholder: "留空则读取上游 context-management 输出的 query" },
         ],
       },
       {
         id: "llm-router",
         label: "LLM 路由",
         params: [
-          { key: "provider", label: "Provider", type: "text", default: "openai" },
+          { key: "query", label: "查询（可选）", type: "textarea", default: "", placeholder: "留空则读取上游 context-management 输出的 query" },
           { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
-          { key: "intents", label: "意图列表 (JSON)", type: "json", default: ["knowledge-qa", "marketing-strategy", "chitchat"] },
+          { key: "intents", label: "意图列表 (JSON)", type: "json", default: ["knowledge-qa", "marketing-strategy", "chitchat", "out-of-scope"] },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
         ],
       },
     ],
   },
   {
     id: "multi-recall-merge",
-    implemented: false,
     methods: [
       {
         id: "rrf-merge",
         label: "RRF 合并",
         params: [
           { key: "k", label: "RRF 常数 k", type: "number", default: 60, min: 1, max: 200 },
-          { key: "deduplicateThreshold", label: "去重相似度阈值", type: "number", default: 0.95, min: 0, max: 1 },
+          { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
+          { key: "additionalMatches", label: "附加检索结果 (JSON)", type: "json", default: [], hint: "可选：粘贴第二路检索结果数组，与主路结果合并融合" },
         ],
       },
       {
         id: "score-merge",
         label: "分数归一化合并",
         params: [
-          { key: "normalizeMethod", label: "归一化方法", type: "select", default: "min-max", options: [{ value: "min-max", label: "Min-Max" }, { value: "z-score", label: "Z-Score" }] },
-          { key: "deduplicateThreshold", label: "去重相似度阈值", type: "number", default: 0.95, min: 0, max: 1 },
+          { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
+          { key: "additionalMatches", label: "附加检索结果 (JSON)", type: "json", default: [] },
         ],
       },
     ],
   },
   {
     id: "fallback",
-    implemented: false,
     methods: [
       {
         id: "reject-answer",
         label: "拒答（无法回答）",
         params: [
+          { key: "minMatchCount", label: "最少命中数", type: "number", default: 1, min: 0, max: 10, hint: "低于此数量时触发降级" },
+          { key: "minScore", label: "最低分数", type: "number", default: 0.3, min: 0, max: 1 },
           { key: "message", label: "拒答消息", type: "textarea", default: "抱歉，我目前没有足够的信息来回答这个问题。" },
         ],
       },
@@ -590,23 +597,24 @@ const registry: StageDef[] = [
         id: "generic-response",
         label: "通用兜底回复",
         params: [
-          { key: "provider", label: "Provider", type: "text", default: "openai" },
+          { key: "minMatchCount", label: "最少命中数", type: "number", default: 1, min: 0, max: 10 },
+          { key: "minScore", label: "最低分数", type: "number", default: 0.3, min: 0, max: 1 },
           { key: "model", label: "模型", type: "text", default: "gpt-4o-mini" },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 OPENAI_API_KEY 环境变量" },
         ],
       },
     ],
   },
   {
     id: "prompt-build",
-    implemented: false,
     methods: [
       {
         id: "rag-template",
         label: "RAG 标准模板",
         params: [
-          { key: "systemPrompt", label: "System Prompt", type: "textarea", default: "你是一个专业的产品运营助手，基于提供的产品资料回答问题。" },
+          { key: "systemPrompt", label: "System Prompt（可选）", type: "textarea", default: "", placeholder: "留空使用默认 RAG 角色设定" },
           { key: "maxContextTokens", label: "最大 context tokens", type: "number", default: 2000, min: 100, max: 8000 },
-          { key: "includeSourceRefs", label: "包含来源引用", type: "boolean", default: true },
+          { key: "includeSourceRefs", label: "要求 LLM 标注 evidence 引用", type: "boolean", default: true },
         ],
       },
       {

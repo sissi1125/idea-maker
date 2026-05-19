@@ -48,6 +48,8 @@ export interface EvidenceItem {
 }
 
 export interface CitationOutput {
+  /** 从 rerank 透传，供 prompt-build 使用（route handler 注入） */
+  originalQuery?: string;
   evidencePack: EvidenceItem[];
   totalEvidence: number;
   method: string;
@@ -242,7 +244,8 @@ export async function POST(req: NextRequest) {
   }
 
   const maxEvidence = Number(params.maxEvidencePerClaim ?? 3);
-  const query = String(params.query ?? "").trim();
+  // 优先从上游透传的 originalQuery 读取（无需用户重复输入）
+  const query = (upstreamOutput.originalQuery ?? String(params.query ?? "")).trim();
 
   let result: CitationOutput;
 
@@ -261,7 +264,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    output: result,
+    output: { ...result, originalQuery: query || undefined },
     trace: {
       methodId,
       inputMatches: matches.length,

@@ -158,7 +158,7 @@
         "feat-003.6"
       ],
       "status": "done",
-      "evidence": "2026-05-19 实现 7 个文件：新建 lib/pipelineStages.ts（19 个步骤定义，含 category/module/conditionKey/defaultEnabled）；lib/types.ts 迁移 PipelineRun + 加 enabledSteps/runtimeContext/createPipelineRun；lib/pipelineDeps.ts 补全 STAGE_DEPS（全部 18 条）+ resolveEffectiveUpstream/isStageActive；stageRegistry.ts 加 implemented 字段 + 6 个新步骤 stub（context-management/intent-recognition/multi-recall-merge/fallback/prompt-build/output-validation）；PipelineStepList.tsx toggle UI（hover 显示开关，disabled 步骤名称划线，优化项★标记，图例）；PlaygroundShell.tsx 接入 resolveEffectiveUpstream + handleToggleStep + createPipelineRun；StageConfigPanel.tsx 修复 getBlockReason（区分 ingestion/query 链）+ implemented 检查 + CategoryBadge。全量 enabled 时行为与重构前一致；typecheck 通过；lint 0 errors；dev server 正常；embedding API 冒烟测试通过。"
+      "evidence": "2026-05-19 实现 7 个文件：新建 lib/pipelineStages.ts（19 个步骤定义，含 category/module/conditionKey/defaultEnabled）；lib/types.ts 迁移 PipelineRun + 加 enabledSteps/runtimeContext/createPipelineRun；lib/pipelineDeps.ts 补全 STAGE_DEPS（全部 18 条）+ resolveEffectiveUpstream/isStageActive；stageRegistry.ts 加 implemented 字段 + 6 个新步骤 stub（context-management/intent-recognition/multi-recall-merge/fallback/prompt-build/output-validation）；PipelineStepList.tsx toggle UI（hover 显示开关，disabled 步骤名称划线，优化项★标记，图例）；PlaygroundShell.tsx 接入 resolveEffectiveUpstream + handleToggleStep + createPipelineRun；StageConfigPanel.tsx 修复 getBlockReason（区分 ingestion/query 链）+ implemented 检查 + CategoryBadge。全量 enabled 时行为与重构前一致；typecheck 通过；lint 0 errors；dev server 正常；embedding API 冒烟测试通过。 可选步骤全部实现：context-management/intent-recognition/multi-recall-merge/fallback/prompt-build；stageRegistry 移除 implemented:false 标记。"
     },
     {
       "id": "feat-004",

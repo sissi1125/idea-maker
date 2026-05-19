@@ -43,6 +43,8 @@ export interface RemovedChunk {
 }
 
 export interface FilterOutput {
+  /** 从 retrieval 透传，供 rerank/citation 使用（route handler 注入） */
+  originalQuery?: string;
   filteredMatches: FilteredChunk[];
   removedMatches: RemovedChunk[];
   keptCount: number;
@@ -204,6 +206,7 @@ export async function POST(req: NextRequest) {
   }
 
   const matches = upstreamOutput.matches ?? [];
+  const originalQuery = upstreamOutput.originalQuery ?? "";
   const warnings: string[] = [...(upstreamOutput.warnings ?? [])];
 
   let result: FilterOutput;
@@ -228,7 +231,7 @@ export async function POST(req: NextRequest) {
     if (result.keptCount === 0) warnings.push("过滤后无结果，建议降低 minScore 或放宽 metadata 过滤条件");
 
     return NextResponse.json({
-      output: { ...result, warnings: [...warnings, ...result.warnings] },
+      output: { ...result, originalQuery, warnings: [...warnings, ...result.warnings] },
       trace: { methodId, inputCount: matches.length, keptCount: result.keptCount, removedCount: result.removedCount, durationMs: Date.now() - startMs },
       durationMs: Date.now() - startMs,
       warnings: [...warnings, ...result.warnings],

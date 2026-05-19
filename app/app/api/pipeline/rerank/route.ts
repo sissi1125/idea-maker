@@ -40,6 +40,8 @@ export interface RankedChunk extends FilteredChunk {
 }
 
 export interface RerankOutput {
+  /** 从 filter 透传，供 citation/prompt-build 使用（route handler 注入） */
+  originalQuery?: string;
   rankedMatches: RankedChunk[];
   /** 重排前后对比，用于 Playground 展示顺序变化 */
   rankChanges: Array<{ chunkId: string; sourceRef: string; originalRank: number; newRank: number; delta: number }>;
@@ -228,9 +230,9 @@ export async function POST(req: NextRequest) {
   }
 
   // query 从 params 里获取（由 PlaygroundShell 无法自动传递，需要用户在 rerank params 里填写或复用 query-rewrite output）
-  // 简化处理：从 upstreamOutput 溯源 query（filter output 不含 query，通过 trace 传递）
-  // 实际上 rerank 需要 query 来计算相关性。我们约定 query 从 params.query 获取，或从 upstreamOutput.queries[0] 溯源
-  const query = String(params.query ?? "").trim() || "";
+  // query 优先从上游透传的 originalQuery 读取（retrieval → filter → rerank 链自动传递），
+  // params.query 作为用户手动覆盖入口（直接运行 rerank 时使用）
+  const query = (upstreamOutput.originalQuery ?? String(params.query ?? "")).trim();
 
   const topN = Number(params.rerankTopN ?? 5);
 
@@ -262,7 +264,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      output: result,
+      output: { ...result, originalQuery: query },
       trace: { methodId, inputCount: matches.length, outputCount: result.rankedMatches.length, topN, durationMs: Date.now() - startMs },
       durationMs: Date.now() - startMs,
       warnings: result.warnings,

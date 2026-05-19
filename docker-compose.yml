@@ -13,6 +13,36 @@ version: "3.9"
 #   docker compose up pymupdf
 
 services:
+  # ── PostgreSQL + pgvector ─────────────────────────────────────────────────────
+  # 向量数据库，供 Storage Stage 写入 embedding 和 Retrieval Stage 检索使用。
+  #
+  # 连接串（填入 app/.env.local 或 Playground 表单）：
+  #   postgresql://postgres:postgres@localhost:5432/rag
+  #
+  # 验证 pgvector 扩展已安装：
+  #   docker compose exec postgres psql -U postgres -d rag -c "SELECT extname FROM pg_extension WHERE extname='vector';"
+  postgres:
+    # bitnami/postgresql:latest 本地已缓存，内置 pgvector 0.8.x，无需额外拉取镜像
+    # 如需使用官方镜像（需网络畅通）可改为：
+    #   build: { context: ./services/postgres, dockerfile: Dockerfile }
+    image: bitnami/postgresql:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRESQL_DATABASE: rag
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: postgres
+      # bitnami 镜像需要 postgres 超级用户才能 CREATE EXTENSION
+      POSTGRESQL_POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/bitnami/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # ── pymupdf Python 微服务 ────────────────────────────────────────────────────
   pymupdf:
     build:
@@ -41,3 +71,6 @@ services:
         condition: service_healthy
     profiles:
       - full   # 默认不启动，用 docker compose --profile full up 启动完整栈
+
+volumes:
+  pgdata:  # pgvector 数据持久化
