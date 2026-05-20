@@ -250,6 +250,20 @@
       ],
       "status": "todo",
       "evidence": ""
+    },
+    {
+      "id": "feat-008",
+      "name": "自动化评估矩阵（Eval Matrix Runner）",
+      "description": "离线 CLI 脚本，对 RAG pipeline 的 12 个预定义配置组合（Chunk × Retrieval × Transform × Filter × Query Rewrite）进行系统性自动化对比评估。每个 test case 串行运行完整 ingestion + retrieval × 3 query pipeline，从 evaluation stage 收集 hitRate / citationCoverage / confidenceScore / avgScore / totalDurationMs 等第二类指标（无需 ground truth），输出终端对比表和 results/summary.json。测试文档：docs/PRODUCT.md；测试 query：Q1（目标用户）/ Q2（embedding 和检索方式）/ Q3（生成营销 idea）。详见 docs/EVAL_MATRIX.md。",
+      "dependencies": [
+        "feat-006",
+        "feat-003.6",
+        "feat-004.2",
+        "feat-004.3",
+        "feat-005"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

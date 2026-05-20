@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-20（会话 14）
+2026-05-20（会话 15）
 
 ## 项目
 
@@ -38,6 +38,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 | Feature | 描述 | 状态 |
 |---------|------|------|
 | feat-006 | RAG Quality Evaluation（hit rate、citation coverage、confidence） | todo |
+| feat-008 | 自动化评估矩阵——12 test case × 3 query CLI 脚本，对比 Chunk/Retrieval/Transform/Filter/Query Rewrite 5 维配置，输出指标对比报告。设计文档：docs/EVAL_MATRIX.md | todo |
 
 ### 技术状态
 
@@ -47,7 +48,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
 - **向量存储**：PostgreSQL + pgvector（`docker compose up postgres` 启动；需 `DATABASE_URL` env）
 - **Provider 抽象**：`app/lib/providers.ts`（`createLLMClient` / `createEmbeddingClient`，读 `LLM_*` / `EMBEDDING_*` env，兼容 Qwen/DashScope）
-- **面试题**：`.interview/` 目录，已覆盖 feat-002.5、feat-003.1～003.6、feat-004.1～004.5（各独立文件）
+- **面试题**：`.interview/` 目录，已覆盖 feat-002.5、feat-003.1～003.6、feat-004.1～004.5、feat-006、feat-008（各独立文件）
 
 ### 已实现的 API routes
 
@@ -98,11 +99,15 @@ GET  /api/pipeline-runs/:id              — 获取单条 pipeline run 详情
 
 ## 下一步
 
-所有计划内 features（feat-001～feat-006）已全部完成。
+- **feat-008（自动化评估矩阵）**：设计已完成（docs/EVAL_MATRIX.md），待实现脚本代码：
+  - `scripts/eval-matrix/test-matrix.json`（12 个 test case 配置）
+  - `scripts/eval-matrix/run-matrix.ts`（主执行脚本，串行调用 pipeline API）
+  - `scripts/eval-matrix/collect-metrics.ts`（从 evaluation 输出提取指标）
+  - `scripts/eval-matrix/report.ts`（终端对比表 + summary.json）
+- **feat-006（RAG Quality Evaluation UI）**：仍为 todo，但 evaluation route 已在会话 13 实现。
 
-潜在的后续方向（用户未明确要求）：
-- 面试题补全：feat-006 的面试题文件（`.interview/feat-006_*.md`）
-- 产品功能扩展：多文档对比、pipeline 配置导出/导入、评估结果历史对比
+潜在的后续方向：
+- 多文档对比、pipeline 配置导出/导入、评估结果历史对比
 
 ## 重要边界
 

@@ -1,5 +1,26 @@
 # 进度记录
 
+## 2026-05-20（会话 15）
+
+### 已完成
+
+- 设计 feat-008 自动化评估矩阵（Eval Matrix Runner）：
+  - 确定 5 个测试维度（D1 Chunk / D2 Retrieval / D3 Transform / D4 Filter / D5 Query Rewrite）和 5 个固定维度。
+  - 设计 12 个代表性 test case，覆盖基准、单维变化、多维叠加、预期最差配置。
+  - 确定测试文档：`docs/PRODUCT.md`（3500 中文字符，三层 MD 结构）。
+  - 确定 3 个固定测试 query（Q1 宽泛语义 / Q2 精确关键词 / Q3 语义模糊）。
+  - 确定评估指标：第二类指标（无需 ground truth）—— hitRate / citationCoverage / confidenceScore / retrievedCount / avgScore / ideaCount / totalDurationMs。
+  - 创建 `docs/EVAL_MATRIX.md`（完整产品设计文档）。
+  - 创建 `.interview/feat-008_eval-matrix.md`（6 道面试题：组合爆炸、指标诊断、DB 隔离、多 query 设计、部分因子设计、失败处理）。
+  - 更新 `feature_list.json`：新增 feat-008（status: planned）。
+
+### 当前状态
+
+- feat-008 设计已完成，尚未实现脚本代码。
+- 待实现：`scripts/eval-matrix/` 目录下的 run-matrix.ts / collect-metrics.ts / report.ts / test-matrix.json。
+
+---
+
 ## 2026-05-20（会话 14）
 
 ### 已完成
