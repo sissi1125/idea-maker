@@ -8,7 +8,7 @@ interface EvaluationOutputPanelProps {
 }
 
 function formatPct(n: number): string {
-  return `${(n * 100).toFixed(0)}%`;
+  return isNaN(n) ? "—" : `${(n * 100).toFixed(0)}%`;
 }
 
 function levelColor(level: "good" | "warning" | "poor"): string {
