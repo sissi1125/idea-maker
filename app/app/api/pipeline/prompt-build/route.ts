@@ -22,7 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import type { CitationOutput } from "../citation/route";
+import type { CitationOutput, EvidenceItem } from "../citation/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export interface PromptBuildOutput {
   originalQuery: string;
   warnings: string[];
   /** passthrough from CitationOutput，供 generation → evaluation 使用 */
-  evidencePack?: import("../citation/route").EvidenceItem[];
+  evidencePack?: EvidenceItem[];
 }
 
 // ─── rag-template ─────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ function buildRAGTemplate(
   systemPrompt: string,
   maxContextTokens: number,
   includeSourceRefs: boolean,
-  evidencePack?: import("../citation/route").EvidenceItem[]
+  evidencePack?: EvidenceItem[]
 ): PromptBuildOutput {
   const warnings: string[] = [];
 
@@ -108,7 +108,7 @@ function buildMarketingTemplate(
   targetAudience: string,
   tone: string,
   maxContextTokens: number,
-  evidencePack?: import("../citation/route").EvidenceItem[]
+  evidencePack?: EvidenceItem[]
 ): PromptBuildOutput {
   const warnings: string[] = [];
 
