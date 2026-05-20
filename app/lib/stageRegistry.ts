@@ -230,7 +230,7 @@ const registry: StageDef[] = [
         params: [
           { key: "model", label: "模型", type: "text", default: "text-embedding-v4", hint: "Qwen: text-embedding-v4（推荐）｜OpenAI: text-embedding-3-small" },
           { key: "dimension", label: "向量维度", type: "number", default: 1024, min: 64, max: 4096, hint: "Qwen 合法值: 64/128/256/512/768/1024/1536/2048/3072｜OpenAI 3-small 最大 1536" },
-          { key: "batchSize", label: "批大小", type: "number", default: 100, min: 1, max: 2048 },
+          { key: "batchSize", label: "批大小", type: "number", default: 10, min: 1, max: 2048 },
           { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 EMBEDDING_API_KEY / LLM_API_KEY / OPENAI_API_KEY" },
           { key: "baseUrl", label: "API Base URL（可选）", type: "text", default: "https://dashscope.aliyuncs.com/compatible-mode/v1", placeholder: "Qwen: https://dashscope.aliyuncs.com/compatible-mode/v1｜留空=OpenAI" },
         ],
@@ -405,6 +405,16 @@ const registry: StageDef[] = [
           { key: "vectorWeight", label: "向量权重", type: "number", default: 0.6, min: 0, max: 1 },
           { key: "textWeight", label: "文本权重", type: "number", default: 0.4, min: 0, max: 1 },
           { key: "threshold", label: "相似度阈值", type: "number", default: 0.5, min: 0, max: 1 },
+        ],
+      },
+      {
+        id: "bm25-chinese",
+        label: "BM25 中文分词",
+        params: [
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
+          { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
+          { key: "k1", label: "k1（词频饱和）", type: "number", default: 1.5, min: 0.5, max: 3, hint: "控制词频饱和速度，1.2–2.0 为常用范围" },
+          { key: "b", label: "b（长度归一化）", type: "number", default: 0.75, min: 0, max: 1, hint: "0=不归一化，1=完全归一化，0.75 为标准默认值" },
         ],
       },
     ],

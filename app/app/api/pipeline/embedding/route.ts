@@ -8,7 +8,7 @@
  *
  * 四种 provider：
  *
- *   openai-3-small          调用 OpenAI /v1/embeddings API，模型 text-embedding-3-small
+ *   openai-3-small          调用 OpenAI /v1/embeddings API，模型 text-embedding-v4
  *                            需要环境变量 OPENAI_API_KEY
  *                            默认维度 1536；支持 dimensions 参数降维（节省存储 + 加速检索）
  *
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "openai-3-small": {
-        resolvedModel = model || "text-embedding-3-small";
+        resolvedModel = model || "text-embedding-v4";
         const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey, paramBaseUrl);
         vectors = result.vectors;
         batchCount = result.batchCount;

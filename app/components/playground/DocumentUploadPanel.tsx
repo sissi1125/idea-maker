@@ -21,7 +21,7 @@ export default function DocumentUploadPanel({ documents, selectedId, onUploaded,
 }
 
 function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void }) {
-  const [tab, setTab] = useState<"file" | "paste">("paste");
+  const [tab, setTab] = useState<"file" | "paste">("file");
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
   const [uploading, setUploading] = useState(false);
