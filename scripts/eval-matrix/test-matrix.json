@@ -1,110 +1,110 @@
 [
   {
     "id": "T01",
-    "label": "基准 happy path",
+    "label": "Run-002 基准",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none",              "params": {} },
     "queryRewrite": { "methodId": "none",              "params": {} },
     "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.3, "maxPerDocument": 5 } }
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T02",
-    "label": "混合检索 vs 纯向量",
+    "label": "heading-context + pipeline-filter",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none",              "params": {} },
+    "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "hybrid-rrf",        "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.0, "vectorWeight": 0.6, "textWeight": 0.4 } },
-    "filter":       { "methodId": "mmr-diversity",     "params": { "mmrLambda": 0.5, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T03",
-    "label": "关键词检索 vs 向量",
+    "label": "summary-keywords transform（新）",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none",              "params": {} },
+    "transform":    { "methodId": "summary-keywords",  "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "bm25-chinese",      "params": { "topK": 10, "k1": 1.5, "b": 0.75 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.0, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T04",
-    "label": "小 chunk 对精度的影响",
-    "chunk":        { "methodId": "fixed-size",        "params": { "chunkSize": 256, "overlap": 32 } },
-    "transform":    { "methodId": "none",              "params": {} },
+    "label": "markdown-heading + summary-keywords",
+    "chunk":        { "methodId": "markdown-heading",  "params": { "headingDepth": 2, "chunkSize": 1024, "overlap": 0 } },
+    "transform":    { "methodId": "summary-keywords",  "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
     "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.3, "maxPerDocument": 5 } }
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T05",
-    "label": "结构化切分",
-    "chunk":        { "methodId": "markdown-heading",  "params": { "headingDepth": 2, "chunkSize": 1024, "overlap": 0 } },
+    "label": "hybrid-bm25-rrf 基准（新检索）",
+    "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none",              "params": {} },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.3, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T06",
-    "label": "Transform 对向量质量的增益",
+    "label": "heading-context + hybrid-bm25-rrf",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.3, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T07",
-    "label": "Transform + 混合检索叠加",
+    "label": "summary-keywords + hybrid-bm25-rrf",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
+    "transform":    { "methodId": "summary-keywords",  "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "hybrid-rrf",        "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.0, "vectorWeight": 0.6, "textWeight": 0.4 } },
-    "filter":       { "methodId": "mmr-diversity",     "params": { "mmrLambda": 0.5, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T08",
-    "label": "多样性过滤 vs 精度过滤",
-    "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none",              "params": {} },
+    "label": "markdown-heading + heading-context + hybrid-bm25-rrf",
+    "chunk":        { "methodId": "markdown-heading",  "params": { "headingDepth": 2, "chunkSize": 1024, "overlap": 0 } },
+    "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
     "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "mmr-diversity",     "params": { "mmrLambda": 0.5, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T09",
-    "label": "Query 扩展对召回的影响",
+    "label": "filter 对比：score-threshold",
     "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none",              "params": {} },
-    "queryRewrite": { "methodId": "rule-keyword-expansion", "params": { "maxQueries": 3 } },
+    "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
+    "queryRewrite": { "methodId": "none",              "params": {} },
     "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.3, "maxPerDocument": 5 } }
   },
   {
     "id": "T10",
-    "label": "多维叠加（中间配置）",
-    "chunk":        { "methodId": "fixed-size",        "params": { "chunkSize": 256, "overlap": 32 } },
+    "label": "filter 对比：mmr-diversity",
+    "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
-    "queryRewrite": { "methodId": "rule-keyword-expansion", "params": { "maxQueries": 3 } },
-    "retrieval":    { "methodId": "hybrid-rrf",        "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.0, "vectorWeight": 0.6, "textWeight": 0.4 } },
+    "queryRewrite": { "methodId": "none",              "params": {} },
+    "retrieval":    { "methodId": "dense-vector",      "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "mmr-diversity",     "params": { "mmrLambda": 0.5, "maxPerDocument": 5 } }
   },
   {
     "id": "T11",
-    "label": "结构化文档最优假设",
-    "chunk":        { "methodId": "markdown-heading",  "params": { "headingDepth": 2, "chunkSize": 1024, "overlap": 0 } },
+    "label": "query 扩展 + hybrid-bm25-rrf",
+    "chunk":        { "methodId": "recursive",        "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "heading-context",   "params": { "includeTitle": true, "includeHeadingPath": true } },
     "queryRewrite": { "methodId": "rule-keyword-expansion", "params": { "maxQueries": 3 } },
-    "retrieval":    { "methodId": "hybrid-rrf",        "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.0, "vectorWeight": 0.6, "textWeight": 0.4 } },
-    "filter":       { "methodId": "mmr-diversity",     "params": { "mmrLambda": 0.5, "maxPerDocument": 5 } }
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   },
   {
     "id": "T12",
-    "label": "预期最差配置（对比基准）",
-    "chunk":        { "methodId": "fixed-size",        "params": { "chunkSize": 256, "overlap": 32 } },
-    "transform":    { "methodId": "none",              "params": {} },
-    "queryRewrite": { "methodId": "none",              "params": {} },
-    "retrieval":    { "methodId": "bm25-chinese",      "params": { "topK": 10, "k1": 1.5, "b": 0.75 } },
-    "filter":       { "methodId": "score-threshold",   "params": { "minScore": 0.0, "maxPerDocument": 5 } }
+    "label": "全新特性叠加（最大变化配置）",
+    "chunk":        { "methodId": "markdown-heading",  "params": { "headingDepth": 2, "chunkSize": 1024, "overlap": 0 } },
+    "transform":    { "methodId": "summary-keywords",  "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
+    "queryRewrite": { "methodId": "rule-keyword-expansion", "params": { "maxQueries": 3 } },
+    "retrieval":    { "methodId": "hybrid-bm25-rrf",   "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "k1": 1.5, "b": 0.75 } },
+    "filter":       { "methodId": "pipeline-filter",   "params": { "requiredSourceTypes": [], "minScore": 0.001, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } }
   }
 ]

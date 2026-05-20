@@ -9,10 +9,12 @@
  *   - Next.js dev server 已启动（cd app && npm run dev）
  *   - PostgreSQL 可访问（docker compose up postgres）
  *   - DATABASE_URL / EMBEDDING_API_KEY / LLM_API_KEY 已设置
+ *   - HF_TEI_ENDPOINT 已设置（pipeline-rerank 需要 TEI 服务）
  *
  * 可选环境变量：
  *   BASE_URL=http://localhost:3000   （默认）
  *   START_FROM=T04                   （跳过前面的 test case，用于断点续跑）
+ *   RUN_ID=run-002-20260521          （指定结果目录名，默认按日期自动生成）
  */
 
 import fs from "fs";
@@ -25,7 +27,21 @@ import type { TestCase, TestCaseResult, QueryResult } from "./types.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const START_FROM = process.env.START_FROM ?? null;
-const RESULTS_DIR = path.join(__dirname, "results");
+
+// 结果目录：每次运行独立文件夹，格式 run-XXX-YYYYMMDD
+function resolveResultsDir(): string {
+  if (process.env.RUN_ID) return path.join(__dirname, "results", process.env.RUN_ID);
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  // 自动递增 run 编号
+  const base = path.join(__dirname, "results");
+  if (!fs.existsSync(base)) fs.mkdirSync(base, { recursive: true });
+  const existing = fs.readdirSync(base).filter((d) => /^run-\d{3}-/.test(d)).sort();
+  const lastNum = existing.length > 0 ? parseInt(existing[existing.length - 1].slice(4, 7)) : 0;
+  const nextNum = String(lastNum + 1).padStart(3, "0");
+  return path.join(base, `run-${nextNum}-${today}`);
+}
+
+const RESULTS_DIR = resolveResultsDir();
 
 const QUERIES = [
   { id: "Q1", text: "这个产品的目标用户是谁，解决什么问题？" },
@@ -39,7 +55,8 @@ const FIXED = {
   // baseUrl 和 apiKey 不传，由 dev server 的 EMBEDDING_API_KEY / LLM_API_KEY / EMBEDDING_BASE_URL 统一决定
   embedding:  { methodId: "openai-3-small",     params: { model: "text-embedding-v4", dimension: 1024, batchSize: 10 } },
   storage:    { methodId: "pgvector-upsert-version", params: { truncateTable: true, conflictPolicy: "upsert", indexMode: "hnsw" } },
-  rerank:     { methodId: "score-only",          params: {} },
+  intentRecognition: { methodId: "rule-based",   params: {} },
+  rerank:     { methodId: "pipeline-rerank",     params: { boostPassN: 20, rerankTopN: 5 } },
   citation:   { methodId: "chunk-citation",      params: { maxEvidencePerClaim: 3 } },
   promptBuild:{ methodId: "marketing-template",  params: { targetAudience: "产品运营和独立开发者", tone: "professional", maxContextTokens: 2000 } },
   generation: { methodId: "marketing-ideas",     params: { ideaCount: 5, includeEvidence: true } },
@@ -124,9 +141,17 @@ async function runRetrieval(
   const t0 = Date.now();
   const outputs: Record<string, { output: unknown }> = {};
 
+  // 意图识别（固定：rule-based）
+  outputs.intentRecognition = await post("intent-recognition", {
+    methodId: FIXED.intentRecognition.methodId,
+    params: { ...FIXED.intentRecognition.params, query },
+    upstreamOutput: null,
+  }) as { output: unknown };
+
   outputs.queryRewrite = await post("query-rewrite", {
     methodId: testCase.queryRewrite.methodId,
     params: { ...testCase.queryRewrite.params, query },
+    upstreamOutput: outputs.intentRecognition.output,
   }) as { output: unknown };
 
   outputs.retrieval = await post("retrieval", {
@@ -264,6 +289,7 @@ async function preflight(): Promise<void> {
 async function main() {
   console.log("=== Eval Matrix Runner ===");
   console.log(`BASE_URL: ${BASE_URL}`);
+  console.log(`结果目录: ${path.relative(process.cwd(), RESULTS_DIR)}`);
   await preflight();
 
   if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
