@@ -80,10 +80,9 @@ function computeAlgorithmicMetrics(
   const hitRate = hitCount / totalEvidence;
 
   const citedSet = new Set(citedEvidenceIds);
-  const citedCount = citedEvidenceIds.length;
-  const citationCoverage = citedCount / totalEvidence;
-
   const citedEvidence = evidencePack.filter((e) => citedSet.has(e.evidenceId));
+  const citedCount = citedEvidence.length;  // 实际在 evidencePack 中匹配到的数量，已去重且过滤无效 id
+  const citationCoverage = citedCount / totalEvidence;
   const confidenceScore = citedEvidence.length > 0
     ? citedEvidence.reduce((sum, e) => sum + e.score, 0) / citedEvidence.length
     : 0;
@@ -213,7 +212,12 @@ ${generatedText}
 
   const raw = completion.choices[0]?.message?.content ?? "{}";
   let parsed: { faithfulnessScore?: number; unsupportedClaims?: string[]; reason?: string } = {};
-  try { parsed = JSON.parse(raw); } catch { /* fall through */ }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // 解析失败时抛出，被外层 catch 捕获为 faithfulnessWarnings，faithfulness 保持 null，避免误触低分 warning
+    throw new Error(`LLM 返回内容无法解析为 JSON，原始内容：${raw.slice(0, 100)}`);
+  }
 
   return {
     score: typeof parsed.faithfulnessScore === "number" ? Math.max(0, Math.min(1, parsed.faithfulnessScore)) : 0,
@@ -263,7 +267,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const scoreThreshold = Math.max(0, Math.min(1, Number(params.scoreThreshold ?? 0.5)));
+  const rawThreshold = Number(params.scoreThreshold);
+  const scoreThreshold = isNaN(rawThreshold) ? 0.5 : Math.max(0, Math.min(1, rawThreshold));
   const evidencePack = upstreamOutput.evidencePack ?? [];
   const evidencePackMissing = !upstreamOutput.evidencePack;
   const citedEvidenceIds = upstreamOutput.citedEvidenceIds ?? [];
@@ -306,6 +311,8 @@ export async function POST(req: NextRequest) {
 
   const level = computeLevel(algorithmicMetrics, faithfulness?.score ?? null, warnings);
 
+  const durationMs = Date.now() - startMs;  // 缓存一次，避免三处调用时间不一致
+
   const output: EvaluationOutput = {
     ...algorithmicMetrics,
     scoreThreshold,
@@ -313,7 +320,7 @@ export async function POST(req: NextRequest) {
     level,
     warnings,
     method: methodId,
-    durationMs: Date.now() - startMs,
+    durationMs,
   };
 
   return NextResponse.json({
@@ -326,9 +333,9 @@ export async function POST(req: NextRequest) {
       citationCoverage: algorithmicMetrics.citationCoverage,
       confidenceScore: algorithmicMetrics.confidenceScore,
       faithfulnessScore: faithfulness?.score ?? null,
-      durationMs: Date.now() - startMs,
+      durationMs,
     },
-    durationMs: Date.now() - startMs,
+    durationMs,
     warnings,
   });
 }
