@@ -9,9 +9,9 @@
  * Query 链（context-management 为链首，实际入口由 resolveEffectiveUpstream 动态决定）：
  *   context-management → intent-recognition → query-rewrite →
  *   retrieval → multi-recall-merge → filter → rerank → fallback →
- *   prompt-build → generation → output-validation → citation
- *                            ↓
- *                        evaluation（直接依赖 generation，与 output-validation/citation 平行）
+ *   citation → prompt-build → generation → output-validation
+ *                                        ↓
+ *                                    evaluation（直接依赖 generation）
  *
  * 当可选/条件步骤被禁用时，resolveEffectiveUpstream 会沿链向上跳过被禁用的步骤，
  * 找到最近的活跃步骤作为实际上游。required 步骤永远不会被跳过。
@@ -38,10 +38,10 @@ export const STAGE_DEPS: Record<string, string> = {
   "filter":              "multi-recall-merge",
   "rerank":              "filter",
   "fallback":            "rerank",
-  "prompt-build":        "fallback",
+  "citation":            "fallback",
+  "prompt-build":        "citation",
   "generation":          "prompt-build",
   "output-validation":   "generation",
-  "citation":            "output-validation",
   "evaluation":          "generation",
 };
 
