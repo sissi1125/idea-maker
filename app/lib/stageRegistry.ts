@@ -10,6 +10,7 @@ export interface ParamDef {
   required?: boolean;
   min?: number;
   max?: number;
+  step?: number;
   options?: ParamOption[];
   placeholder?: string;
   hint?: string;
@@ -676,6 +677,64 @@ const registry: StageDef[] = [
           { key: "checkHallucination", label: "幻觉检测", type: "boolean", default: true },
           { key: "checkCitations", label: "引用有效性验证", type: "boolean", default: true },
           { key: "filterSensitive", label: "敏感词过滤", type: "boolean", default: false },
+        ],
+      },
+    ],
+  },
+  {
+    id: "evaluation",
+    methods: [
+      {
+        id: "rag-metrics-only",
+        label: "算法指标（无 LLM）",
+        params: [
+          {
+            key: "scoreThreshold",
+            label: "命中率阈值",
+            type: "number",
+            default: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            hint: "evidence score 超过此值才计为命中；dense-vector 结果通常在 0.3-0.9，RRF 结果通常在 0.01-0.03",
+          },
+        ],
+      },
+      {
+        id: "rag-metrics-with-faithfulness",
+        label: "算法指标 + LLM Faithfulness",
+        params: [
+          {
+            key: "scoreThreshold",
+            label: "命中率阈值",
+            type: "number",
+            default: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            hint: "同上",
+          },
+          {
+            key: "model",
+            label: "模型",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 LLM_MODEL 环境变量",
+          },
+          {
+            key: "apiKey",
+            label: "API Key（可选）",
+            type: "password",
+            default: "",
+            placeholder: "留空则读取 LLM_API_KEY / OPENAI_API_KEY 环境变量",
+          },
+          {
+            key: "baseUrl",
+            label: "API Base URL（可选）",
+            type: "text",
+            default: "",
+            placeholder: "留空则读取 LLM_BASE_URL",
+          },
         ],
       },
     ],

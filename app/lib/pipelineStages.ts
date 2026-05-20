@@ -229,6 +229,15 @@ const GENERATION_STAGES: PipelineStage[] = [
     defaultEnabled: true,
     featureId: "feat-004.5",
   },
+  {
+    id: "evaluation",
+    name: "RAG 质量评估",
+    group: "generation",
+    module: "生成后",
+    category: "optional",
+    defaultEnabled: true,
+    featureId: "feat-006",
+  },
 ];
 
 export const PIPELINE_STAGES: PipelineStage[] = [
