@@ -16,11 +16,25 @@ export default function PlaygroundShell() {
   const [stepRuns, setStepRuns] = useState<StepRunMap>({});
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
 
-  // 页面加载时拉取已上传文档
+  // 页面加载时拉取已上传文档，并恢复上次选中的文档
   useEffect(() => {
     fetch("/api/documents")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data.documents)) setDocuments(data.documents); })
+      .then((data) => {
+        if (!Array.isArray(data.documents)) return;
+        setDocuments(data.documents);
+        const savedId = localStorage.getItem("pipeline:selectedDocumentId");
+        if (savedId) {
+          const doc = data.documents.find((d: DocumentRecord) => d.id === savedId);
+          if (doc) {
+            setPipelineRun((p) => ({
+              ...p,
+              selectedDocumentId: doc.id,
+              selectedDocumentVersionId: `${doc.id}-v${doc.version}`,
+            }));
+          }
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -32,12 +46,17 @@ export default function PlaygroundShell() {
 
   const handleDocumentDeleted = useCallback((id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
-    setPipelineRun((p) =>
-      p.selectedDocumentId === id ? createPipelineRun() : p
-    );
+    setPipelineRun((p) => {
+      if (p.selectedDocumentId === id) {
+        localStorage.removeItem("pipeline:selectedDocumentId");
+        return createPipelineRun();
+      }
+      return p;
+    });
   }, []);
 
   const handleDocumentSelected = useCallback((doc: DocumentRecord) => {
+    localStorage.setItem("pipeline:selectedDocumentId", doc.id);
     setPipelineRun((p) => ({
       ...p,
       status: "idle",

@@ -225,11 +225,11 @@ const registry: StageDef[] = [
     methods: [
       {
         id: "openai-3-small",
-        label: "OpenAI text-embedding-3-small",
+        label: "OpenAI text-embedding-v4",
         params: [
-          { key: "model", label: "模型", type: "text", default: "text-embedding-3-small" },
-          { key: "dimension", label: "向量维度", type: "number", default: 1536, min: 256, max: 3072 },
-          { key: "batchSize", label: "批大小", type: "number", default: 100, min: 1, max: 2048 },
+          { key: "model", label: "模型", type: "text", default: "text-embedding-v4" },
+          { key: "dimension", label: "向量维度", type: "number", default: 1024, min: 256, max: 3072 },
+          { key: "batchSize", label: "批大小", type: "number", default: 10, min: 1, max: 2048 },
           {
             key: "apiKey",
             label: "API Key（可选）",

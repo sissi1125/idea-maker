@@ -41,20 +41,32 @@ export default function StageConfigPanel({
 
   const firstMethod = stageDef?.methods[0];
   const [selectedMethodId, setSelectedMethodId] = useState(firstMethod?.id ?? "");
-  const [params, setParams] = useState<Record<string, unknown>>(
-    firstMethod ? defaults(firstMethod) : {}
-  );
+  // 每个 method 独立存一份 params，切换时不会重置已填内容
+  const [paramsMap, setParamsMap] = useState<Record<string, Record<string, unknown>>>(() => {
+    const init: Record<string, Record<string, unknown>> = {};
+    for (const m of stageDef?.methods ?? []) init[m.id] = defaults(m);
+    return init;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const params = paramsMap[selectedMethodId] ?? {};
+
   const handleMethodChange = (methodId: string) => {
-    const m = stageDef?.methods.find((x) => x.id === methodId);
     setSelectedMethodId(methodId);
-    setParams(m ? defaults(m) : {});
     setErrors({});
+    // 若该 method 尚无保存值，则用 defaults 初始化
+    setParamsMap((prev) => {
+      if (prev[methodId]) return prev;
+      const m = stageDef?.methods.find((x) => x.id === methodId);
+      return { ...prev, [methodId]: m ? defaults(m) : {} };
+    });
   };
 
   const handleParamChange = (key: string, value: unknown) => {
-    setParams((prev) => ({ ...prev, [key]: value }));
+    setParamsMap((prev) => ({
+      ...prev,
+      [selectedMethodId]: { ...(prev[selectedMethodId] ?? {}), [key]: value },
+    }));
     setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
   };
 

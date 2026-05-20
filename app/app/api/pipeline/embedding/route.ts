@@ -8,7 +8,7 @@
  *
  * 四种 provider：
  *
- *   openai-3-small          调用 OpenAI /v1/embeddings API，模型 text-embedding-3-small
+ *   openai-3-small          调用 OpenAI /v1/embeddings API，模型 text-embedding-v4
  *                            需要环境变量 OPENAI_API_KEY
  *                            默认维度 1536；支持 dimensions 参数降维（节省存储 + 加速检索）
  *
@@ -137,7 +137,7 @@ async function embedOpenAI(
     batchCount++;
   }
 
-  // text-embedding-3-small 定价：$0.02 / 1M tokens（2024 年）
+  // text-embedding-v4 定价：$0.02 / 1M tokens（2024 年）
   const totalTokens = chunks.reduce((s, c) => s + c.enhancedTokenEstimate, 0);
   const costUSD = ((totalTokens / 1_000_000) * 0.02).toFixed(5);
   const costEstimate = `~$${costUSD} (${totalTokens} tokens × $0.02/1M)`;
@@ -295,7 +295,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "openai-3-small": {
-        resolvedModel = model || "text-embedding-3-small";
+        resolvedModel = model || "text-embedding-v4";
         const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey);
         vectors = result.vectors;
         batchCount = result.batchCount;

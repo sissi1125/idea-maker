@@ -1,5 +1,16 @@
 # 进度记录
 
+## 2026-05-20（会话 8）
+
+### 已完成
+
+- UI 优化 #1：文档上传 tab 默认改为"上传文件"（原为"粘贴文本"）。`DocumentUploadPanel.tsx` `useState("file")`。
+- UI 优化 #2：Embedding 批大小默认值 100 → 10（`stageRegistry.ts` + `route.ts` fallback 同步修正，已在上一次提交完成）。
+- UI 优化 #3：页面刷新保持上次选中文档。`PlaygroundShell.tsx` 用 `localStorage.setItem/getItem("pipeline:selectedDocumentId")` 在选文档、删文档时同步写读；`useEffect` 初始化时恢复选中。
+- UI 优化 #4：切换 method 不再重置表单内容。`StageConfigPanel.tsx` 用 `paramsMap`（`Record<methodId, params>`）分 method 存储表单值；切换 method 时保留已填字段，仅在该 method 首次出现时使用 defaults 初始化。
+
+---
+
 ## 2026-05-19（会话 7）
 
 ### 已完成
