@@ -79,9 +79,19 @@ function computeAlgorithmicMetrics(
   const hitCount = evidencePack.filter((e) => e.score >= scoreThreshold).length;
   const hitRate = hitCount / totalEvidence;
 
-  const citedSet = new Set(citedEvidenceIds);
+  // 建立索引映射，兼容三种引用格式：
+  //   [1],[2]…          — generation structured 方法返回的简单编号
+  //   [evidence-001]…   — citation buildContextText 在 contextText 里的标注
+  //   doc1_v1_c0…       — evidenceId 原始值（直接匹配，作为兜底）
+  const indexToId = new Map<string, string>();
+  evidencePack.forEach((e, i) => {
+    indexToId.set(`[${i + 1}]`, e.evidenceId);
+    indexToId.set(`[evidence-${String(i + 1).padStart(3, "0")}]`, e.evidenceId);
+  });
+  const normalizedCited = citedEvidenceIds.map((id) => indexToId.get(id) ?? id);
+  const citedSet = new Set(normalizedCited);
   const citedEvidence = evidencePack.filter((e) => citedSet.has(e.evidenceId));
-  const citedCount = citedEvidence.length;  // 实际在 evidencePack 中匹配到的数量，已去重且过滤无效 id
+  const citedCount = citedEvidence.length;
   const citationCoverage = citedCount / totalEvidence;
   const confidenceScore = citedEvidence.length > 0
     ? citedEvidence.reduce((sum, e) => sum + e.score, 0) / citedEvidence.length
