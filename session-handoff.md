@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-20（会话 12）
+2026-05-20（会话 13）
 
 ## 项目
 
@@ -31,6 +31,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 | feat-005 | Marketing Generation（product-persona / selling-points / content-ideas；专属展示面板） | done |
 | feat-007 | Stage 快照持久化与 Pipeline 全链路追踪（stage_snapshots + pipeline_run_history；4 API 路由；PipelineTraceDrawer 底部抽屉） | done |
 | feat-007.1 | 页面加载自动恢复 pipeline 状态（GET /api/snapshots + useEffect mount restore） | done |
+| feat-006 | RAG Quality Evaluation（hitRate/citationCoverage/confidenceScore + LLM Faithfulness judge；EvaluationOutputPanel 卡片展示） | done |
 
 ### 待做 features
 
@@ -40,7 +41,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`5a16074`（feat: auto-restore pipeline state from snapshots on page load）
+- **主分支**：`main`，当前 HEAD：`f4d184e`（feat: render EvaluationOutputPanel for evaluation stage）
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
@@ -72,6 +73,7 @@ POST /api/pipeline/rerank                — 重排序（4 methods）
 POST /api/pipeline/citation              — 引用打包（3 methods）
 POST /api/pipeline/fallback              — Fallback 兜底（可选步骤）
 POST /api/pipeline/prompt-build          — Prompt 构建（可选步骤）
+POST /api/pipeline/evaluation            — RAG 质量评估（2 方法：rag-metrics-only / rag-metrics-with-faithfulness）
 
 POST /api/snapshots                      — 保存/更新 stage 快照
 GET  /api/snapshots/:stageId             — 获取最新 stage 快照
@@ -96,9 +98,11 @@ GET  /api/pipeline-runs/:id              — 获取单条 pipeline run 详情
 
 ## 下一步
 
-1. **feat-006 RAG Quality Evaluation**：
-   - 依赖 feat-005（已完成）、快照恢复（已完成）
-   - 指标：hit rate、citation coverage、confidence score、warnings
+所有计划内 features（feat-001～feat-006）已全部完成。
+
+潜在的后续方向（用户未明确要求）：
+- 面试题补全：feat-006 的面试题文件（`.interview/feat-006_*.md`）
+- 产品功能扩展：多文档对比、pipeline 配置导出/导入、评估结果历史对比
 
 ## 重要边界
 

@@ -1,5 +1,26 @@
 # 进度记录
 
+## 2026-05-20（会话 13）
+
+### 已完成
+
+- 实现 `feat-006` RAG Quality Evaluation：
+  - `prompt-build/route.ts`：`PromptBuildOutput` 加 `evidencePack?: EvidenceItem[]` passthrough。
+  - `generation/route.ts`：四种方法输出接口（GenerationOutput/ProductPersonaOutput/SellingPointsOutput/ContentIdeasOutput）均加 `evidencePack` passthrough。
+  - `pipelineStages.ts`：新增 evaluation stage（optional, defaultEnabled: true, group: generation）。
+  - `stageRegistry.ts`：注册两种方法 `rag-metrics-only`（纯算法）和 `rag-metrics-with-faithfulness`（+LLM judge）；同时补全 `ParamDef` 的 `step?: number` 字段。
+  - 新建 `evaluation/route.ts`：算法计算三指标（hitRate/citationCoverage/confidenceScore）+ LLM Faithfulness judge（JSON mode）；含 citedCount 去重修复、NaN guard、durationMs 缓存、JSON 解析失败抛出等质量修复。
+  - 新建 `EvaluationOutputPanel.tsx`：三指标卡片（进度条 + 颜色编码）+ Faithfulness 区块（可折叠无支撑主张列表）+ Warnings 列表。
+  - `PlaygroundShell.tsx`：evaluation stage 时渲染 EvaluationOutputPanel。
+  - typecheck + lint + init.sh 全部通过（HEAD: f4d184e）。
+
+### 当前状态
+
+- `feat-006` 完成。所有计划内 features 已全部实现。
+- 下一步：待定（所有 feat-001～feat-006 均已完成）。
+
+---
+
 ## 2026-05-20（会话 12）
 
 ### 已完成
