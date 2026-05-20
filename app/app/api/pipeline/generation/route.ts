@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
 import type { PromptBuildOutput } from "../prompt-build/route";
+import type { EvidenceItem } from "../citation/route";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ export interface GenerationOutput {
   /** 输出 token 用量 */
   outputTokens: number;
   warnings: string[];
+  /** 从上游 Citation Stage 传递的完整 evidence 列表，供下游溯源展示 */
+  evidencePack?: EvidenceItem[];
 }
 
 export interface ProductPersonaOutput {
@@ -43,6 +46,8 @@ export interface ProductPersonaOutput {
   inputTokens: number;
   outputTokens: number;
   warnings: string[];
+  /** 从上游 Citation Stage 传递的完整 evidence 列表，供下游溯源展示 */
+  evidencePack?: EvidenceItem[];
 }
 
 export interface SellingPoint {
@@ -60,6 +65,8 @@ export interface SellingPointsOutput {
   inputTokens: number;
   outputTokens: number;
   warnings: string[];
+  /** 从上游 Citation Stage 传递的完整 evidence 列表，供下游溯源展示 */
+  evidencePack?: EvidenceItem[];
 }
 
 export interface ContentIdea {
@@ -77,6 +84,8 @@ export interface ContentIdeasOutput {
   inputTokens: number;
   outputTokens: number;
   warnings: string[];
+  /** 从上游 Citation Stage 传递的完整 evidence 列表，供下游溯源展示 */
+  evidencePack?: EvidenceItem[];
 }
 
 // ─── 工具：提取 evidence 引用 ─────────────────────────────────────────────────
@@ -368,6 +377,7 @@ export async function POST(req: NextRequest) {
         inputTokens: completion.usage?.prompt_tokens ?? 0,
         outputTokens: completion.usage?.completion_tokens ?? 0,
         warnings,
+        evidencePack: upstreamOutput.evidencePack,
       };
       return NextResponse.json({
         output,
@@ -386,6 +396,8 @@ export async function POST(req: NextRequest) {
     } else {
       output = await handleContentIdeas(llmConfig, resolvedModel, systemPrompt, userPrompt, params);
     }
+    // passthrough evidencePack from upstream Citation Stage
+    output = { ...output, evidencePack: upstreamOutput.evidencePack };
 
     return NextResponse.json({
       output,
