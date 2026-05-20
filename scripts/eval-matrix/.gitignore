@@ -1,1 +1,2 @@
-results/
+# results/ 目录已纳入 git 版本控制，每次 run 的数据和分析都会提交
+# 不需要 gitignore 任何内容
