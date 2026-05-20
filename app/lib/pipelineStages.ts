@@ -189,6 +189,15 @@ const RETRIEVAL_STAGES: PipelineStage[] = [
     featureId: "feat-004.x",
   },
   {
+    id: "citation",
+    name: "引用 Citation",
+    group: "retrieval",
+    module: "生成前",
+    category: "optional",
+    defaultEnabled: true,
+    featureId: "feat-004.5",
+  },
+  {
     id: "prompt-build",
     name: "Prompt 构造",
     group: "retrieval",
@@ -219,15 +228,6 @@ const GENERATION_STAGES: PipelineStage[] = [
     category: "optional",
     defaultEnabled: false,
     featureId: "feat-005.x",
-  },
-  {
-    id: "citation",
-    name: "引用 Citation",
-    group: "generation",
-    module: "生成后",
-    category: "optional",
-    defaultEnabled: true,
-    featureId: "feat-004.5",
   },
   {
     id: "evaluation",
