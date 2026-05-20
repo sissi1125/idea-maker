@@ -1,5 +1,22 @@
 # 进度记录
 
+## 2026-05-20（会话 14）
+
+### 已完成
+
+- 修复三个 pipeline 链路 bug：
+  - `pipelineDeps.ts`：`evaluation` 未加入 `STAGE_DEPS`，导致 evaluation stage 拿不到上游 → 加入 `"evaluation": "generation"`。
+  - `pipelineDeps.ts`：`citation` 位于 generation 之后，导致 prompt-build 取到 rerank 输出（无 contextText），生成内容为空 → 将 citation 移至 fallback 之后、prompt-build 之前（`"citation": "fallback"`，`"prompt-build": "citation"`）。
+  - `pipelineStages.ts`：citation 的 UI 位置与依赖链不一致 → 移至 RETRIEVAL_STAGES（fallback 之后），group 改为 "retrieval"，module 改为 "生成前"。
+- 补面试题：`.interview/feat-006_rag-quality-evaluation.md`（5 题）。
+
+### 当前状态
+
+- 所有 features 完成，pipeline 链路正确。
+- 正确测试顺序：query-rewrite → retrieval → filter → rerank → citation → prompt-build → generation → evaluation。
+
+---
+
 ## 2026-05-20（会话 13）
 
 ### 已完成

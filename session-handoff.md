@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-20（会话 13）
+2026-05-20（会话 14）
 
 ## 项目
 
@@ -41,7 +41,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`f4d184e`（feat: render EvaluationOutputPanel for evaluation stage）
+- **主分支**：`main`，当前 HEAD：`81915be`（fix: move citation stage before prompt-build in UI order and retrieval group）
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
