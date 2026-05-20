@@ -37,6 +37,8 @@ export interface PromptBuildOutput {
   tokenEstimate: number;
   originalQuery: string;
   warnings: string[];
+  /** passthrough from CitationOutput，供 generation → evaluation 使用 */
+  evidencePack?: import("../citation/route").EvidenceItem[];
 }
 
 // ─── rag-template ─────────────────────────────────────────────────────────────
@@ -54,7 +56,8 @@ function buildRAGTemplate(
   query: string,
   systemPrompt: string,
   maxContextTokens: number,
-  includeSourceRefs: boolean
+  includeSourceRefs: boolean,
+  evidencePack?: import("../citation/route").EvidenceItem[]
 ): PromptBuildOutput {
   const warnings: string[] = [];
 
@@ -87,7 +90,7 @@ ${truncatedContext}
   const fullPrompt = `${finalSystem}\n\n${userPrompt}`;
   const tokenEstimate = Math.ceil(fullPrompt.length / 4);
 
-  return { systemPrompt: finalSystem, userPrompt, fullPrompt, tokenEstimate, originalQuery: query, warnings };
+  return { systemPrompt: finalSystem, userPrompt, fullPrompt, tokenEstimate, originalQuery: query, warnings, evidencePack };
 }
 
 // ─── marketing-template ───────────────────────────────────────────────────────
@@ -104,7 +107,8 @@ function buildMarketingTemplate(
   query: string,
   targetAudience: string,
   tone: string,
-  maxContextTokens: number
+  maxContextTokens: number,
+  evidencePack?: import("../citation/route").EvidenceItem[]
 ): PromptBuildOutput {
   const warnings: string[] = [];
 
@@ -136,7 +140,7 @@ ${truncatedContext}
   const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
   const tokenEstimate = Math.ceil(fullPrompt.length / 4);
 
-  return { systemPrompt, userPrompt, fullPrompt, tokenEstimate, originalQuery: query, warnings };
+  return { systemPrompt, userPrompt, fullPrompt, tokenEstimate, originalQuery: query, warnings, evidencePack };
 }
 
 // ─── Route Handler ────────────────────────────────────────────────────────────
@@ -176,7 +180,8 @@ export async function POST(req: NextRequest) {
         contextText, query,
         String(params.systemPrompt ?? ""),
         maxContextTokens,
-        Boolean(params.includeSourceRefs ?? true)
+        Boolean(params.includeSourceRefs ?? true),
+        upstreamOutput.evidencePack  // 新增：透传 evidence pack 供 evaluation 使用
       );
       break;
     case "marketing-template":
@@ -184,7 +189,8 @@ export async function POST(req: NextRequest) {
         contextText, query,
         String(params.targetAudience ?? ""),
         String(params.tone ?? "professional"),
-        maxContextTokens
+        maxContextTokens,
+        upstreamOutput.evidencePack  // 新增：透传 evidence pack 供 evaluation 使用
       );
       break;
     default:
