@@ -338,11 +338,17 @@ export async function POST(req: NextRequest) {
     const truncateTable = params.truncateTable === true || params.truncateTable === "true";
     if (truncateTable) {
       await client.query("TRUNCATE TABLE rag_chunks");
-      warnings.push("truncateTable=true：已清空 rag_chunks 表所有历史数据（包括其他文档的向量）");
-      // 同时删除旧向量索引（维度变化后必须重建）
+      // 删除旧向量索引（维度变化后必须重建）
       await client.query(
         "DROP INDEX IF EXISTS idx_rag_chunks_embedding_hnsw; DROP INDEX IF EXISTS idx_rag_chunks_embedding_ivfflat"
       );
+      // TRUNCATE 只删行，ALTER COLUMN 的维度约束（vector(N)）会持久保留。
+      // 切换 embedding 维度时必须先把列类型还原为无维度的 vector，
+      // 否则 Dimension Guard 通过（查不到行）但 INSERT 仍会被 pg 拒绝。
+      await client.query(
+        "ALTER TABLE rag_chunks ALTER COLUMN embedding TYPE vector"
+      );
+      warnings.push("truncateTable=true：已清空 rag_chunks 表所有历史数据并重置列类型，可写入新维度向量");
     }
 
     // Dimension Guard：检查现有向量维度是否与本次写入一致

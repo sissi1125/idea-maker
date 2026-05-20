@@ -203,6 +203,86 @@ async function rerankLLMRelevance(
   };
 }
 
+// ─── pipeline-rerank（组合：Metadata Boost → HF-TEI）──────────────────────────
+
+/**
+ * 两步串联重排，对应工业实践中的轻量级 + 精准模型组合策略：
+ *
+ *   Step 1: Metadata Boost  — 规则层：根据 sourceRef/关键词给 chunk 加权，快速提升有结构信号的结果
+ *   Step 2: HF-TEI Rerank   — 模型层：Cross-encoder 精排，只对 boost 后前 boostPassN 个 chunk 打分
+ *
+ * 设计意图：
+ *   - Metadata Boost 成本为零，把"肯定相关"的章节先提到前排
+ *   - TEI Rerank 精度高但有延迟，限制输入量（boostPassN）控制耗时
+ *   - 两步结合比单独 TEI Rerank 更快，比单独 Boost 更准
+ *
+ * trace 记录 boost 后和 TEI 后各自的排名，方便对比两步的贡献。
+ */
+async function rerankCombined(
+  matches: FilteredChunk[],
+  query: string,
+  topN: number,
+  boostPassN: number,
+  paramEndpoint?: string
+): Promise<RerankOutput & { pipelineSteps: { afterBoost: number; sentToTEI: number } }> {
+  // ── Step 1: Metadata Boost ────────────────────────────────────────────────
+  const qTokens = new Set(
+    query.toLowerCase()
+      .split(/[\s，。？！、；：\?!,.:;()\n]+/)
+      .filter((t) => t.length >= 2)
+  );
+
+  const boosted = matches.map((m, idx) => {
+    const source = m.sourceRef.toLowerCase();
+    const text = m.text.toLowerCase();
+    const hits = [...qTokens].filter((t) => source.includes(t) || text.includes(t)).length;
+    const boost = qTokens.size > 0 ? hits / qTokens.size : 0;
+    return { ...m, boostedScore: parseFloat((m.score + 0.2 * boost).toFixed(4)), originalFilterRank: idx + 1 };
+  });
+
+  boosted.sort((a, b) => b.boostedScore - a.boostedScore);
+  const afterBoost = boosted.length;
+
+  // ── Step 2: HF-TEI Rerank（只处理 boost 后前 boostPassN 个）─────────────
+  const candidates = boosted.slice(0, boostPassN);
+  const sentToTEI = candidates.length;
+
+  const endpoint = (paramEndpoint?.trim() || process.env.HF_TEI_ENDPOINT)?.replace(/\/$/, "");
+  if (!endpoint) throw new Error("缺少 TEI Endpoint：请在表单中填写或设置 HF_TEI_ENDPOINT 环境变量");
+
+  const resp = await fetch(`${endpoint}/rerank`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, texts: candidates.map((c) => c.text) }),
+  });
+  if (!resp.ok) throw new Error(`TEI rerank 错误 ${resp.status}: ${await resp.text()}`);
+
+  const data = await resp.json() as Array<{ index: number; score: number }>;
+  const ranked: RankedChunk[] = data.slice(0, topN).map((item, newIdx) => {
+    const chunk = candidates[item.index];
+    return {
+      ...chunk,
+      rerankScore: parseFloat(item.score.toFixed(4)),
+      originalRank: chunk.originalFilterRank,
+      newRank: newIdx + 1,
+    };
+  });
+
+  return {
+    rankedMatches: ranked,
+    rankChanges: ranked.map((r) => ({
+      chunkId: r.chunkId,
+      sourceRef: r.sourceRef,
+      originalRank: r.originalRank,
+      newRank: r.newRank,
+      delta: r.originalRank - r.newRank,
+    })),
+    method: "pipeline-rerank",
+    warnings: [`Metadata Boost 后取前 ${sentToTEI} 个送入 TEI，最终返回 top-${ranked.length}`],
+    pipelineSteps: { afterBoost, sentToTEI },
+  };
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -247,6 +327,21 @@ export async function POST(req: NextRequest) {
         if (!query) return NextResponse.json({ error: { code: "missing_query", message: "hf-tei-rerank 需要 query 参数，请在 filter/rerank 表单中填写" } }, { status: 400 });
         result = await rerankHFTEI(matches, query, topN, typeof params.endpoint === "string" ? params.endpoint : undefined);
         break;
+      case "pipeline-rerank": {
+        if (!query) return NextResponse.json({ error: { code: "missing_query", message: "pipeline-rerank 需要 query，请确保上游 originalQuery 已透传" } }, { status: 400 });
+        const boostPassN = Number(params.boostPassN ?? Math.min(matches.length, 20));
+        const combined = await rerankCombined(
+          matches, query, topN, boostPassN,
+          typeof params.endpoint === "string" ? params.endpoint : undefined
+        );
+        result = combined;
+        return NextResponse.json({
+          output: { ...result, originalQuery: query },
+          trace: { methodId, inputCount: matches.length, outputCount: result.rankedMatches.length, topN, pipelineSteps: combined.pipelineSteps, durationMs: Date.now() - startMs },
+          durationMs: Date.now() - startMs,
+          warnings: result.warnings,
+        });
+      }
       case "llm-relevance-rerank":
         if (!query) return NextResponse.json({ error: { code: "missing_query", message: "llm-relevance-rerank 需要 query 参数，请在表单中填写" } }, { status: 400 });
         result = await rerankLLMRelevance(

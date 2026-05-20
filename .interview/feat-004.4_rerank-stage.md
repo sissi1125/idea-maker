@@ -109,3 +109,38 @@ const boostedScore = chunk.score + boost;
 - 如果 rerank 前后排名完全不变：说明 embedding 和 reranker 判断一致，不需要 rerank（可以跳过）
 
 这帮助用户判断"我的 Rerank stage 有没有在真正发挥作用"，是 RAG 可调试性的核心体现。
+
+---
+
+## Q6：pipeline-rerank 为什么先做 Metadata Boost 再做 TEI Rerank，而不是反过来？
+
+**答：**
+
+**顺序依据：成本从低到高，范围从宽到窄。**
+
+Metadata Boost 是纯规则计算（无 API 调用），可以对全部 filter 后的候选运行，成本接近零。它的作用是把有明确结构信号（sourceRef 命中关键词）的 chunk 先提到前排，缩小 TEI Reranker 的输入范围。
+
+TEI Reranker（Cross-encoder）对每个 `(query, passage)` pair 都要跑一次 forward pass，延迟随输入数量线性增长。`boostPassN` 参数控制送入 TEI 的上限（默认 20），只对最有希望的候选精排，而不是全量。
+
+**反过来的问题：**
+若先 TEI 再 Boost，TEI 需要处理全量 filter 结果（可能 50-100 个），延迟大幅上升，而 Metadata Boost 的提升信号（章节相关性）早已在 TEI 的 cross-attention 中被模型隐式考虑——做了一次多余且成本高的排序。
+
+**工业类比：** 先用规则过滤（免费）缩小候选，再用 ML 模型（有成本）精排，是推荐系统"粗排 → 精排"的经典分层策略。
+
+---
+
+## Q7：`boostPassN` 这个参数的作用是什么？设得太小或太大各有什么风险？
+
+**答：**
+
+`boostPassN` 控制 Metadata Boost 后送入 TEI Reranker 的 chunk 数量上限。
+
+**太小（如 boostPassN=5）：**
+- TEI 只看 5 个 chunk，速度最快
+- 风险：Metadata Boost 排名靠后但语义高度相关的 chunk 被截掉，TEI 没机会纠正排名。例如某个 chunk 因关键词未命中 boost 不高，但 Cross-encoder 实际上认为它与 query 最相关——此时被截掉导致精度损失。
+
+**太大（如 boostPassN=全量）：**
+- TEI 处理全部候选，精度最高（等同于直接跑 TEI，Boost 只是排序前置但无截断价值）
+- 风险：延迟与输入数量线性相关，失去了 pipeline-rerank 的设计初衷
+
+**合理范围：** 通常设为最终 `rerankTopN` 的 3-5 倍（`rerankTopN=5` 时 `boostPassN=15-25`），在截断精度损失和延迟之间取平衡。本项目默认 20。

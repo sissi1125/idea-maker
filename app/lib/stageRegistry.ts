@@ -417,6 +417,22 @@ const registry: StageDef[] = [
           { key: "b", label: "b（长度归一化）", type: "number", default: 0.75, min: 0, max: 1, hint: "0=不归一化，1=完全归一化，0.75 为标准默认值" },
         ],
       },
+      {
+        id: "hybrid-bm25-rrf",
+        label: "混合检索 BM25+向量 (RRF)",
+        params: [
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
+          { key: "embeddingProvider", label: "Embedding Provider", type: "select", default: "openai", options: [{ value: "openai", label: "OpenAI-compatible（Qwen / OpenAI）" }, { value: "hf-tei", label: "HF TEI" }, { value: "debug-deterministic", label: "Debug 确定性" }] },
+          { key: "embeddingModel", label: "Embedding 模型", type: "text", default: "text-embedding-v4", hint: "必须与 ingestion embedding 阶段使用的模型一致" },
+          { key: "embeddingDimension", label: "向量维度", type: "number", default: 1024, min: 64, max: 4096, hint: "必须与 ingestion embedding 阶段使用的维度一致｜Qwen 合法值: 64/128/256/512/768/1024/1536/2048/3072" },
+          { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 EMBEDDING_API_KEY / LLM_API_KEY / OPENAI_API_KEY 环境变量" },
+          { key: "baseUrl", label: "API Base URL（可选）", type: "text", default: "https://dashscope.aliyuncs.com/compatible-mode/v1", placeholder: "Qwen: https://dashscope.aliyuncs.com/compatible-mode/v1｜留空=OpenAI" },
+          { key: "teiEndpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "http://localhost:8080" },
+          { key: "topK", label: "Top K", type: "number", default: 10, min: 1, max: 100 },
+          { key: "k1", label: "k1（词频饱和）", type: "number", default: 1.5, min: 0.5, max: 3, hint: "控制词频饱和速度，1.2–2.0 为常用范围" },
+          { key: "b", label: "b（长度归一化）", type: "number", default: 0.75, min: 0, max: 1, hint: "0=不归一化，1=完全归一化，0.75 为标准默认值" },
+        ],
+      },
     ],
   },
   {
@@ -444,6 +460,17 @@ const registry: StageDef[] = [
         params: [
           { key: "mmrLambda", label: "MMR λ (相关性 vs 多样性)", type: "number", default: 0.5, min: 0, max: 1 },
           { key: "maxPerDocument", label: "每文档最多", type: "number", default: 3, min: 1, max: 20 },
+        ],
+      },
+      {
+        id: "pipeline-filter",
+        label: "组合过滤 (Metadata → Score → MMR)",
+        params: [
+          { key: "requiredSourceTypes", label: "章节白名单 (JSON)", type: "json", default: [], hint: "空列表 = 跳过 metadata 过滤，例: [\"产品介绍\", \"核心功能\"]" },
+          { key: "minScore", label: "最低分数（Score 步）", type: "number", default: 0.5, min: 0, max: 1 },
+          { key: "maxPerDocument", label: "每文档最多（Score 步）", type: "number", default: 5, min: 1, max: 20 },
+          { key: "finalTopK", label: "最终保留数量（MMR 步）", type: "number", default: 10, min: 1, max: 50 },
+          { key: "mmrLambda", label: "MMR λ（相关性 vs 多样性）", type: "number", default: 0.7, min: 0, max: 1, hint: "0.7 偏相关性，0.3 偏多样性" },
         ],
       },
     ],
@@ -477,6 +504,15 @@ const registry: StageDef[] = [
           { key: "criteria", label: "评判标准", type: "textarea", default: "", placeholder: "例: 优先返回包含价格信息的 chunk" },
           { key: "apiKey", label: "API Key（可选）", type: "password", default: "", placeholder: "留空则读取 LLM_API_KEY / OPENAI_API_KEY 环境变量" },
           { key: "baseUrl", label: "API Base URL（可选）", type: "text", default: "", placeholder: "留空则读取 LLM_BASE_URL，Qwen: https://dashscope.aliyuncs.com/compatible-mode/v1" },
+        ],
+      },
+      {
+        id: "pipeline-rerank",
+        label: "组合重排 (Metadata Boost → TEI Rerank)",
+        params: [
+          { key: "endpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "留空则读取 HF_TEI_ENDPOINT 环境变量" },
+          { key: "boostPassN", label: "Boost 后送入 TEI 的数量", type: "number", default: 20, min: 5, max: 100, hint: "Metadata Boost 后取前 N 个送给 TEI Reranker，控制 TEI 调用规模" },
+          { key: "rerankTopN", label: "最终返回 Top N", type: "number", default: 5, min: 1, max: 50 },
         ],
       },
     ],

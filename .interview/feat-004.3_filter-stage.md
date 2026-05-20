@@ -96,3 +96,35 @@ chunk.sourceRef.startsWith(prefix)
 用户可以立即判断："我的 minScore 设得太高了，把相关内容过滤掉了"——然后调低 minScore 重跑，无需修改代码。
 
 这是 RAG 系统可观测性的核心：**不仅展示结果，也展示被丢弃的内容和原因**。
+
+---
+
+## Q6：pipeline-filter 把三个过滤步骤串联，每步的职责边界是什么？顺序能调换吗？
+
+**答：**
+
+本项目 `pipeline-filter` 固定顺序：**Metadata → Score → MMR**，三步职责互不重叠：
+
+| 步骤 | 过滤依据 | 目标 |
+|------|---------|------|
+| Metadata Filter | 结构化元数据（章节路径） | 排除"来源不对"的 chunk，无论分数高低 |
+| Score Threshold | 相似度/BM25 分数 | 排除"分数太低"的 chunk，与来源无关 |
+| MMR Diversity | chunk 之间的文本相似度 | 从剩余中选出"覆盖面广"的子集 |
+
+**为什么是这个顺序，能否调换：**
+
+- **Metadata 必须在 Score 前**：Metadata 是基于业务规则的硬约束（比如只看第三章），先排除无关章节让 Score 门槛在正确的候选池上生效。若先 Score 再 Metadata，可能保留了分数高但章节错误的 chunk。
+- **Score 必须在 MMR 前**：MMR 是贪心算法，输入质量直接影响结果。若把低分 chunk 送入 MMR，它可能因"多样性"被选中，但对 LLM 毫无价值。
+- **MMR 必须最后**：MMR 是"主动选"而非"被动排除"，放在最后才能对整个过滤链的结果做全局多样性优化。
+
+---
+
+## Q7：pipeline-filter 中 `finalTopK` 和 `maxPerDocument` 控制的是不同维度，各自解决什么问题？
+
+**答：**
+
+- **`maxPerDocument`（Score 步）**：控制单个文档最多贡献几个 chunk。解决"来源多样性"——防止一篇文档的 chunk 霸占全部结果，让不同文档都有代表。
+- **`finalTopK`（MMR 步）**：控制最终送给 Rerank 的 chunk 总数。解决"总量控制"——Reranker（尤其 LLM Reranker）对每个 chunk 有计算成本，`finalTopK` 是向下游承诺的上限。
+
+**区别举例：**
+10 份文档各出 2 个高分 chunk（`maxPerDocument=2` 后有 20 个）→ MMR 从这 20 个里选 `finalTopK=8` 个送 Rerank。`maxPerDocument` 控制"每家出几个代表"，`finalTopK` 控制"最终开会的总人数"。

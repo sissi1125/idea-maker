@@ -187,6 +187,87 @@ function filterByMMR(
   return { filteredMatches: selected, removedMatches: removed, keptCount: selected.length, removedCount: removed.length, method: "mmr-diversity", warnings };
 }
 
+// ─── pipeline-filter（组合：Metadata → Score → MMR）──────────────────────────
+
+/**
+ * 三步串联过滤，对应工业实践中的标准组合：
+ *
+ *   Step 1: Metadata Filter  — 快速排除不相关章节（可选，sourceTypes 为空则跳过）
+ *   Step 2: Score Threshold  — 扔掉低分 chunk
+ *   Step 3: MMR Diversity    — 从剩余中贪心选出 finalTopK 个多样化结果
+ *
+ * trace 中记录每步后的数量，方便调参时定位瓶颈在哪一步。
+ */
+function filterCombined(
+  matches: MatchedChunk[],
+  requiredSourceTypes: string[],
+  minScore: number,
+  maxPerDocument: number,
+  finalTopK: number,
+  mmrLambda: number
+): FilterOutput & { pipelineSteps: { afterMetadata: number; afterScore: number; afterMMR: number } } {
+  const allRemoved: RemovedChunk[] = [];
+
+  // ── Step 1: Metadata ──────────────────────────────────────────────────────
+  let current = matches;
+  if (requiredSourceTypes.length > 0) {
+    const r1 = filterByMetadata(current, requiredSourceTypes, Infinity);
+    allRemoved.push(...r1.removedMatches.map((c) => ({ ...c, reason: `[metadata] ${c.reason}` })));
+    current = r1.filteredMatches;
+  }
+  const afterMetadata = current.length;
+
+  // ── Step 2: Score Threshold ───────────────────────────────────────────────
+  const r2 = filterByScore(current, minScore, maxPerDocument);
+  allRemoved.push(...r2.removedMatches.map((c) => ({ ...c, reason: `[score] ${c.reason}` })));
+  current = r2.filteredMatches;
+  const afterScore = current.length;
+
+  // ── Step 3: MMR（贪心选 finalTopK 个，达到上限即停止）────────────────────
+  const warnings: string[] = [];
+  const selected: FilteredChunk[] = [];
+  const remaining = [...current];
+  const maxScore = Math.max(...current.map((m) => m.score), 1e-9);
+  const normalize = (s: number) => s / maxScore;
+
+  while (remaining.length > 0 && selected.length < finalTopK) {
+    let bestIdx = -1;
+    let bestMmr = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const m = remaining[i];
+      const relevance = normalize(m.score);
+      const maxSim = selected.length === 0
+        ? 0
+        : Math.max(...selected.map((s) => jaccardOverlap(m.text, s.text)));
+      const mmr = mmrLambda * relevance - (1 - mmrLambda) * maxSim;
+      if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
+    }
+    if (bestIdx === -1) break;
+    const chosen = remaining.splice(bestIdx, 1)[0];
+    selected.push({ ...chosen, filteredRank: selected.length + 1 });
+  }
+
+  allRemoved.push(...remaining.map((m) => ({ chunkId: m.chunkId, text: m.text, score: m.score, reason: "[mmr] MMR 多样性过滤移除" })));
+  const afterMMR = selected.length;
+
+  if (afterMetadata === 0 && requiredSourceTypes.length > 0)
+    warnings.push("Metadata 过滤后无结果，请检查 requiredSourceTypes 是否与文档章节匹配");
+  if (afterScore === 0)
+    warnings.push("Score 过滤后无结果，建议降低 minScore");
+  if (afterMMR === 0)
+    warnings.push("MMR 过滤后无结果");
+
+  return {
+    filteredMatches: selected,
+    removedMatches: allRemoved,
+    keptCount: selected.length,
+    removedCount: allRemoved.length,
+    method: "pipeline-filter",
+    warnings,
+    pipelineSteps: { afterMetadata, afterScore, afterMMR },
+  };
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -224,15 +305,29 @@ export async function POST(req: NextRequest) {
       case "mmr-diversity":
         result = filterByMMR(matches, Number(params.mmrLambda ?? 0.5), Number(params.maxPerDocument ?? 3));
         break;
+      case "pipeline-filter": {
+        const sourceTypes = Array.isArray(params.requiredSourceTypes) ? params.requiredSourceTypes as string[] : [];
+        result = filterCombined(
+          matches,
+          sourceTypes,
+          Number(params.minScore ?? 0.5),
+          Number(params.maxPerDocument ?? 5),
+          Number(params.finalTopK ?? 10),
+          Number(params.mmrLambda ?? 0.7)
+        );
+        break;
+      }
       default:
         return NextResponse.json({ error: { code: "unknown_method", message: `未知方法: ${methodId}` } }, { status: 400 });
     }
 
     if (result.keptCount === 0) warnings.push("过滤后无结果，建议降低 minScore 或放宽 metadata 过滤条件");
 
+    const pipelineSteps = "pipelineSteps" in result ? (result as ReturnType<typeof filterCombined>).pipelineSteps : undefined;
+
     return NextResponse.json({
       output: { ...result, originalQuery, warnings: [...warnings, ...result.warnings] },
-      trace: { methodId, inputCount: matches.length, keptCount: result.keptCount, removedCount: result.removedCount, durationMs: Date.now() - startMs },
+      trace: { methodId, inputCount: matches.length, keptCount: result.keptCount, removedCount: result.removedCount, ...(pipelineSteps && { pipelineSteps }), durationMs: Date.now() - startMs },
       durationMs: Date.now() - startMs,
       warnings: [...warnings, ...result.warnings],
     });
