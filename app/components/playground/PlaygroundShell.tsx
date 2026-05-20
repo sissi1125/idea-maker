@@ -7,6 +7,7 @@ import type { PipelineStage } from "@/lib/pipelineStages";
 import StageConfigPanel from "./StageConfigPanel";
 import OutputTracePanel from "./OutputTracePanel";
 import GenerationOutputPanel from "./GenerationOutputPanel";
+import EvaluationOutputPanel from "./EvaluationOutputPanel";
 import { StepRun, StepRunMap, PipelineRun, PipelineRunStatus, createPipelineRun } from "@/lib/types";
 import type { StageSnapshot, PipelineRunRecord, PipelineRunStageEntry } from "@/lib/types";
 import { DocumentRecord } from "@/lib/docStore";
@@ -351,6 +352,8 @@ export default function PlaygroundShell() {
         />
         {activeStage.id === "generation" ? (
           <GenerationOutputPanel runs={stepRuns["generation"] ?? []} />
+        ) : activeStage.id === "evaluation" ? (
+          <EvaluationOutputPanel runs={stepRuns["evaluation"] ?? []} />
         ) : (
           <OutputTracePanel stage={activeStage} runs={stepRuns[activeStage.id] ?? []} />
         )}
