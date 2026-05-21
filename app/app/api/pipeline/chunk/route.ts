@@ -259,10 +259,13 @@ function chunkRecursive(
  *
  * 实现原理：
  *   扫描 cleanText，遇到 headingDepth 以内的标题（# / ## / ###...）就开始新 chunk。
- *   如果某章节超过 maxChunkSize，递归调用 fixed-size 切分。
+ *   如果某章节超过 maxChunkSize，降级为 fixed-size 切分（硬截断）。
  *
  * 最适合：产品文档、Wiki、README 等有明确章节结构的 Markdown 文档。
  *   例如：一个 ## 功能介绍 章节 → 一个 chunk，embedding 代表该章节的语义。
+ *
+ * 局限：长章节降级为 fixed-size，可能在语义中间截断。
+ *   如需语义感知的降级，请使用 markdown-heading-recursive。
  */
 function chunkMarkdownHeading(
   text: string,
@@ -324,6 +327,104 @@ function chunkMarkdownHeading(
   return buildStats(chunks, warnings);
 }
 
+// ─── markdown-heading-recursive ───────────────────────────────────────────────
+
+/**
+ * 层级切分（Hierarchical Chunking）：先按 Markdown 标题划定章节边界，
+ * 再对超长章节用 recursive 语义切分，而非 fixed-size 硬截断。
+ *
+ * 与 markdown-heading 的区别：
+ *   markdown-heading          长章节 → fixed-size（在字符边界截断，可能截断语义）
+ *   markdown-heading-recursive 长章节 → recursive（优先在段落/换行处截断，保留语义）
+ *
+ * 适用场景：
+ *   - 文档有清晰的 Markdown 标题层级（受益于章节边界）
+ *   - 部分章节篇幅较长（受益于 recursive 语义感知）
+ *   - 下游有 cross-encoder reranker（完整章节的语义更易被 reranker 识别）
+ *
+ * 业界对应实践：
+ *   LangChain 的 MarkdownHeaderTextSplitter + RecursiveCharacterTextSplitter 组合，
+ *   LlamaIndex 的 HierarchicalNodeParser（父子节点分离版本）。
+ */
+function chunkMarkdownHeadingRecursive(
+  text: string,
+  sourceRefs: SourceRef[],
+  params: {
+    headingDepth: number;
+    chunkSize: number;
+    overlap: number;
+    separators: string[];
+    minChunkSize: number;
+  }
+): ChunkOutput {
+  const { headingDepth, chunkSize, overlap, separators, minChunkSize } = params;
+  const warnings: string[] = [];
+  const lines = text.split("\n");
+
+  // 与 chunkMarkdownHeading 相同的章节边界检测
+  const sections: Array<{ start: number; end: number }> = [];
+  let sectionStart = 0;
+  let charCursor = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headingMatch = line.match(/^(#{1,6})\s+/);
+    if (headingMatch && headingMatch[1].length <= headingDepth && i > 0) {
+      sections.push({ start: sectionStart, end: charCursor });
+      sectionStart = charCursor;
+    }
+    charCursor += line.length + 1;
+  }
+  sections.push({ start: sectionStart, end: text.length });
+
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  for (const { start, end } of sections) {
+    const sectionText = text.slice(start, end).trimEnd();
+    if (!sectionText.trim()) continue;
+
+    if (sectionText.length <= chunkSize) {
+      // 章节足够短：整章作为一个 chunk，保留完整语义
+      chunks.push({
+        index: chunkIndex++,
+        text: sectionText,
+        charStart: start,
+        charEnd: start + sectionText.length,
+        charCount: sectionText.length,
+        tokenEstimate: estimateTokens(sectionText),
+        sourceRef: findSourceRef(start, sourceRefs),
+      });
+    } else {
+      // 章节过长：降级为 recursive 语义切分（不再硬截断）
+      warnings.push(
+        `章节（起始位置 ${start}）超过 chunkSize(${chunkSize})，降级为 recursive 语义切分`
+      );
+      const sub = chunkRecursive(sectionText, sourceRefs, {
+        chunkSize,
+        overlap,
+        separators,
+        minChunkSize,
+      });
+      for (const c of sub.chunks) {
+        chunks.push({
+          ...c,
+          index: chunkIndex++,
+          // 偏移量修正：sub chunk 的位置是相对于 sectionText 的，需要加上章节起始位置
+          charStart: start + c.charStart,
+          charEnd: start + c.charEnd,
+          // sourceRef 重新查找，确保指向正确的标题路径
+          sourceRef: findSourceRef(start + c.charStart, sourceRefs),
+        });
+      }
+      // 把子切分的 warnings 也透传上来
+      warnings.push(...sub.warnings);
+    }
+  }
+
+  return buildStats(chunks, warnings);
+}
+
 // ─── API Route ────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -366,6 +467,16 @@ export async function POST(req: NextRequest) {
 
       case "markdown-heading":
         result = chunkMarkdownHeading(cleanText, sourceRefs, { headingDepth, chunkSize, overlap });
+        break;
+
+      case "markdown-heading-recursive":
+        result = chunkMarkdownHeadingRecursive(cleanText, sourceRefs, {
+          headingDepth,
+          chunkSize,
+          overlap,
+          separators: (params?.separators as string[]) ?? ["\n\n", "\n", " ", ""],
+          minChunkSize,
+        });
         break;
 
       default: // recursive

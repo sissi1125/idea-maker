@@ -191,6 +191,17 @@ const registry: StageDef[] = [
           { key: "overlap", label: "重叠字符数", type: "number", default: 0, min: 0, max: 256 },
         ],
       },
+      {
+        id: "markdown-heading-recursive",
+        label: "Markdown 标题 + Recursive（层级切分）",
+        params: [
+          { key: "headingDepth", label: "标题深度 (1-6)", type: "number", default: 2, min: 1, max: 6 },
+          { key: "chunkSize", label: "最大 Chunk 大小", type: "number", default: 512, min: 64, max: 8192, hint: "短章节整章保留；超过此值时用 recursive 切分" },
+          { key: "overlap", label: "重叠字符数（recursive 降级时生效）", type: "number", default: 64, min: 0, max: 512 },
+          { key: "separators", label: "分隔符 (JSON 数组)", type: "json", default: ["\\n\\n", "\\n", " ", ""], hint: "recursive 降级时的分隔符优先级" },
+          { key: "minChunkSize", label: "最小 Chunk 大小", type: "number", default: 64, min: 0, hint: "recursive 降级时过滤过小片段" },
+        ],
+      },
     ],
   },
   {

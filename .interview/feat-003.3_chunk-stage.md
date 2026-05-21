@@ -5,6 +5,8 @@
 - `app/lib/stageRegistry.ts`（chunk 方法 schema）
 - `app/components/playground/PlaygroundShell.tsx`（upstreamOutput 透传）
 
+> **2026-05-21 新增**：Q6、Q7 覆盖 `markdown-heading-recursive`（层级切分）
+
 ---
 
 ## Q1：RAG 系统为什么需要分块？chunk 粒度对检索质量有什么影响？
@@ -113,3 +115,59 @@ fetch(`/api/pipeline/${stageId}`, {
 2. **可调试**：用户可以看到每个 stage 的 output，发现问题直接改参数重跑上游
 3. **通用性**：所有下游 stage（chunk/transform/embedding/storage）都复用同一套逻辑，不需要各自处理上游产物获取
 4. **显式依赖**：API 收到 `upstreamOutput: null` 时返回明确的 `missing_upstream` 错误，而不是在服务端查询时失败并产生难以调试的错误信息
+
+---
+
+## Q6：什么是 Hierarchical Chunking（层级切分）？`markdown-heading-recursive` 解决了什么问题？
+
+**答：**
+
+`markdown-heading` 的局限：按标题边界切分后，如果某章节超过 `chunkSize`，会降级为 `fixed-size` 硬截断——在字符边界截断，可能把一个完整的段落或句子截成两半，破坏语义。
+
+`markdown-heading-recursive` 的改进：超长章节不再硬截断，而是在章节内部用 `recursive` 语义切分——优先在段落（`\n\n`）、换行（`\n`）、空格处断开，只有在没有更好断点时才在字符边界截断。
+
+**两种方法的行为对比：**
+
+```
+文档章节（800 字符，chunkSize=512）：
+
+markdown-heading：
+  chunk A = 字符 0-511（在句子中间截断）
+  chunk B = 字符 512-800（另半句话 + 后续内容）
+
+markdown-heading-recursive：
+  chunk A = 字符 0-480（到第一个段落结束）
+  chunk B = 字符 481-800（完整的下一段落）
+```
+
+**层级切分的业界背景：**
+
+这是 RAG 领域的标准实践，对应：
+- LangChain：`MarkdownHeaderTextSplitter` + `RecursiveCharacterTextSplitter` 组合
+- LlamaIndex：`HierarchicalNodeParser`（更进一步，还会存储父子节点关系用于上下文扩展）
+
+核心思想："先用文档结构确定语义边界，再在边界内部做语义感知的进一步切分"。
+
+---
+
+## Q7：`markdown-heading-recursive` 实现时，子 chunk 的 `sourceRef` 和 `charStart/charEnd` 为什么需要偏移量修正？
+
+**答：**
+
+`chunkRecursive` 接收的是 `sectionText`（从原文中切出的章节片段），它内部计算的所有位置（`charStart`、`charEnd`）都是**相对于 `sectionText` 起始位置的偏移量**，而不是相对于原始完整文档的偏移量。
+
+例如，章节在原文中从位置 500 开始，章节内某个子 chunk 在章节内从位置 100 开始：
+- `chunkRecursive` 返回：`charStart=100, charEnd=200`
+- 相对于原文应该是：`charStart=600, charEnd=700`
+
+所以代码中做了修正：
+
+```typescript
+charStart: start + c.charStart,   // start = 章节在原文的起始位置
+charEnd:   start + c.charEnd,
+sourceRef: findSourceRef(start + c.charStart, sourceRefs),
+```
+
+`sourceRef` 也需要重新查找，因为 `findSourceRef` 是根据在原文中的绝对位置来匹配最近的标题路径的。如果直接用 `c.charStart`（相对位置），会匹配到错误的标题，导致子 chunk 的 `sourceRef` 指向文档开头而非实际所在章节。
+
+**这是一个常见的"坐标系"错误**：在子函数内计算相对坐标，在外部使用时需要转换为绝对坐标。不修正会导致 Playground 的 sourceRef 展示错误，也会影响依赖 sourceRef 的 transform（heading-context）和 citation（page-aware-citation）stage。
