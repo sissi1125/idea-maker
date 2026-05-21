@@ -252,7 +252,7 @@ scripts/eval-matrix/results/
     ...
 ```
 
-新的测试运行**不会覆盖旧结果**。`results/` 目录已加入 `.gitignore`，不提交到 git。
+新的测试运行**不会覆盖旧结果**。`results/` 目录纳入 git 版本控制，每次运行后提交。
 
 ### 如何解读指标
 
@@ -268,12 +268,15 @@ scripts/eval-matrix/results/
 
 ### 已知局限性
 
-1. **hitRate 跨检索方法不可比**：各方法分数刻度不同。建议只在同一检索方法内比较不同配置。
-2. **citationCoverage 区分度低**：对于短文档，generation 模型倾向于引用所有 evidence，导致大多数配置得分相同。长文档或多文档场景下会更有意义。
-3. **单文档局限**：结论基于特定文档类型，换文档可能得到不同结论。
+1. **hitRate 跨检索方法不可比**：各方法分数刻度不同（cosine/RRF/rerankScore）。建议只在同一检索方法内比较不同配置。
+2. **hitRate 跨 rerank 方法需重新校准**：pipeline-rerank（cross-encoder）的分数范围与余弦相似度不同，scoreThreshold=0.5 对 rerankScore 偏严格，建议改为 0.2。
+3. **citationCoverage 区分度低**：对于短文档，generation 模型倾向于引用所有 evidence。长文档或多文档场景下会更有意义。
+4. **单文档局限**：结论基于特定文档类型，换文档可能得到不同结论。
 
 ### 测试历史
 
-| Run | 日期 | 文档 | embedding 模型 | 主要结论 |
-|-----|------|------|----------------|---------|
-| run-001 | 2026-05-20 | docs/PRODUCT.md | text-embedding-v4 / dim=1024 | heading-context transform +11% hitRate；256 小 chunk -22%；最优配置 T06 |
+| Run | 日期 | 主要变化 | 核心发现 |
+|-----|------|---------|---------|
+| run-001 | 2026-05-20 | 基础矩阵，score-only rerank | heading-context transform +11% hitRate；256 chunk -22%；最优配置 T06（hitRate=0.89）|
+| run-002 | 2026-05-20 | 数据丢失（worktree 删除前未提交）| — |
+| run-003 | 2026-05-20 | pipeline-rerank（TEI cross-encoder）+ hybrid-bm25-rrf + pipeline-filter + intent-recognition | reranker 主导质量信号，ingestion/retrieval 差异被抹平；scoreThreshold 需重新校准为 0.2 |

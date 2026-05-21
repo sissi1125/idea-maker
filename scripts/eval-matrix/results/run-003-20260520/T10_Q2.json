@@ -1,0 +1,655 @@
+{
+  "testId": "T10",
+  "queryId": "Q2",
+  "query": "产品支持哪些 embedding 和检索方式？",
+  "config": {
+    "id": "T10",
+    "label": "filter 对比：mmr-diversity",
+    "chunk": {
+      "methodId": "recursive",
+      "params": {
+        "chunkSize": 512,
+        "overlap": 64,
+        "separators": [
+          "\\n\\n",
+          "\\n",
+          " ",
+          ""
+        ],
+        "minChunkSize": 64
+      }
+    },
+    "transform": {
+      "methodId": "heading-context",
+      "params": {
+        "includeTitle": true,
+        "includeHeadingPath": true
+      }
+    },
+    "queryRewrite": {
+      "methodId": "none",
+      "params": {}
+    },
+    "retrieval": {
+      "methodId": "dense-vector",
+      "params": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-v4",
+        "embeddingDimension": 1024,
+        "topK": 10,
+        "threshold": 0.1
+      }
+    },
+    "filter": {
+      "methodId": "mmr-diversity",
+      "params": {
+        "mmrLambda": 0.5,
+        "maxPerDocument": 5
+      }
+    }
+  },
+  "outputs": {
+    "intentRecognition": {
+      "output": {
+        "query": "产品支持哪些 embedding 和检索方式？",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "routingReason": "无规则命中，默认为产品知识问答",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "rule-based",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "queryRewrite": {
+      "output": {
+        "originalQuery": "产品支持哪些 embedding 和检索方式？",
+        "rewrittenQueries": [
+          "产品支持哪些 embedding 和检索方式？"
+        ],
+        "method": "none",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "none",
+        "originalQuery": "产品支持哪些 embedding 和检索方式？",
+        "queryCount": 1,
+        "queries": [
+          "产品支持哪些 embedding 和检索方式？"
+        ],
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "retrieval": {
+      "output": {
+        "originalQuery": "产品支持哪些 embedding 和检索方式？",
+        "queries": [
+          "产品支持哪些 embedding 和检索方式？"
+        ],
+        "matches": [
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5501,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c4",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 4,
+            "text": "、score distribution、evidence coverage、citation correctness 等指标。\n支持 curated test queries，用固定问题回归 retrieval 表现。\n增加 chunk 参数、threshold、topK、transform 方法的对比视图。\n可选接入 RAGAS 或自定义轻量评估器。\n交付标准：\n用户能对同一文档运行多组 retrieval 配置并比较结果。\n每次生成结果都能看到 evidence 覆盖率和低置信 warning。\n质量问题能被定位到具体 pipeline 阶段。\n阶段 3：卖点地图与内容策略增强\n目标：从“生成几个 idea”升级为“围绕产品定位持续产出内容方向”。\n范围：\n扩展结构化卖点地图：functional、emotional、scenario、differentiation。\n引入 Product -> Feature -> User Pain -> Scenario -> Selling Point -> Content Angle -> Idea 的图谱化关系。\n支持按平台、目标用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 2：RAG 质量评估与调参能力",
+            "keywords": [],
+            "score": 0.5311,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5254,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c6",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 6,
+            "text": "以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：\n扩展真实 LLM provider 和 embedding provider，并保留 debug deterministic 等显式调试 provider。\n支持 rerank、query rewrite、semantic chunking 和更强的 citation builder。\n可选接入内容发布平台、分析工具或外部知识库。\n探索轻量 agent workflow，但必须建立在可观测、可回放的 pipeline 之上。\n增加 benchmark、成本统计和质量回归报告。\n交付标准：\n自动化能力不会破坏 evidence-first 和 debuggable 的产品原则。\n外部集成产生的结果仍然能追溯到文档证据和 pipeline trace。\n系统具备质量回归和成本观测能力。\n产品原则\nEvidence first：生成声明必须能指向 chunk IDs。\nDebuggable by default：每一步都应该展示 input、params、output、status、timing 和 trace。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 5：高级自动化与生态集成",
+            "keywords": [],
+            "score": 0.5224,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "keywords": [],
+            "score": 0.4945,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c0",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品说明\n名称\n暂定名：Marketing RAG Playground\n备选名：IdeaGraph AI\n产品定位\n一个面向产品运营、独立开发者、一人公司和小团队的可视化 RAG Pipeline Playground。它把产品资料处理成可复用、可检索、可追踪的知识库，再基于可信 evidence 生成产品画像、卖点地图和运营内容 idea。\n更简洁地说：一个可调试的 RAG 驱动运营选题生成系统。\n目标用户\n准备做产品发布或增长内容的独立开发者。\n有产品资料但没有完整市场团队的一人公司。\n需要验证内容方向的小团队产品运营。\n希望围绕自己产品构建营销工作流的开发者。\n核心用户流程\n上传产品资料，或从已上传文档库中选择历史 document version。\n配置 RAG ingestion pipeline。\n执行 ingestion 并查看每一步产物。\n配置 retrieval。\n检索相关 evidence chunks。\n生成产品画像。\n生成结构化卖点地图。\n基于卖点和 evidence 生成内容 idea。\n查看引用和 confidence。\n调整 pipeline 参数并重新运行。\n项目阶段规划",
+            "sourceRef": "产品说明",
+            "keywords": [],
+            "score": 0.4902,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c7",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 7,
+            "text": " by default：每一步都应该展示 input、params、output、status、timing 和 trace。\nProvider explicit：用户选择哪个 provider 就执行哪个 provider，不静默 fallback。\nSmall surface, complete loop：先交付能证明 RAG 质量影响营销输出的最小闭环。\n主要输出\n产品画像：\njson\n{\n\"productName\": \"\",\n\"targetUsers\": [],\n\"coreProblems\": [],\n\"coreFeatures\": [],\n\"positioning\": \"\",\n\"evidenceChunkIds\": []\n}\n卖点地图：\njson\n{\n\"sellingPointMap\": {\n\"functional\": [],\n\"emotional\": [],\n\"scenario\": [],\n\"differentiation\": []\n},\n\"evidence\": []\n}\n内容 idea：\njson\n{\n\"ideas\": [\n{\n\"title\": \"\",\n\"angle\": \"\",\n\"sellingPointId\": \"\",\n\"targetUser\": \"\",\n\"platform\": \"\",\n\"hook\": \"\",",
+            "sourceRef": "产品说明 > 产品原则",
+            "keywords": [],
+            "score": 0.485,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c1",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 1,
+            "text": "idence 生成内容 idea。\n查看引用和 confidence。\n调整 pipeline 参数并重新运行。\n项目阶段规划\n项目整体按“先闭环、再增强、再产品化”的方式推进。每个阶段都应保持可验证、可回退、可追踪，不把后续复杂能力提前塞进当前阶段。\n阶段 0：Harness 与工程基座\n目标：让后续 agent 或开发者进入项目后，能快速理解产品边界、当前状态、验证方式和交接规则。\n范围：\n建立 、、、 和 。\n记录产品说明、架构说明、API 契约和验证清单。\n明确“文档默认中文、工程标识保留英文”的协作规则。\n定义 feature 状态、完成标准和会话交接机制。\n交付标准：\n可以完成 harness 文件检查。\n后续开发者可以基于文档直接启动下一个 feature。\n阶段 1：可调试 RAG Playground 闭环\n目标：先跑通从产品文档到 evidence-backed marketing ideas 的最小闭环。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。",
+            "sourceRef": "产品说明 > 项目阶段规划",
+            "keywords": [],
+            "score": 0.4317,
+            "retrievalMethod": "dense"
+          }
+        ],
+        "totalMatches": 8,
+        "method": "dense-vector",
+        "dimension": 1024,
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "dense-vector",
+        "queryCount": 1,
+        "matchCount": 8,
+        "dimension": 1024,
+        "durationMs": 514
+      },
+      "durationMs": 514,
+      "warnings": []
+    },
+    "filter": {
+      "output": {
+        "filteredMatches": [
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5501,
+            "retrievalMethod": "dense",
+            "filteredRank": 1
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c0",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品说明\n名称\n暂定名：Marketing RAG Playground\n备选名：IdeaGraph AI\n产品定位\n一个面向产品运营、独立开发者、一人公司和小团队的可视化 RAG Pipeline Playground。它把产品资料处理成可复用、可检索、可追踪的知识库，再基于可信 evidence 生成产品画像、卖点地图和运营内容 idea。\n更简洁地说：一个可调试的 RAG 驱动运营选题生成系统。\n目标用户\n准备做产品发布或增长内容的独立开发者。\n有产品资料但没有完整市场团队的一人公司。\n需要验证内容方向的小团队产品运营。\n希望围绕自己产品构建营销工作流的开发者。\n核心用户流程\n上传产品资料，或从已上传文档库中选择历史 document version。\n配置 RAG ingestion pipeline。\n执行 ingestion 并查看每一步产物。\n配置 retrieval。\n检索相关 evidence chunks。\n生成产品画像。\n生成结构化卖点地图。\n基于卖点和 evidence 生成内容 idea。\n查看引用和 confidence。\n调整 pipeline 参数并重新运行。\n项目阶段规划",
+            "sourceRef": "产品说明",
+            "keywords": [],
+            "score": 0.4902,
+            "retrievalMethod": "dense",
+            "filteredRank": 2
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c7",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 7,
+            "text": " by default：每一步都应该展示 input、params、output、status、timing 和 trace。\nProvider explicit：用户选择哪个 provider 就执行哪个 provider，不静默 fallback。\nSmall surface, complete loop：先交付能证明 RAG 质量影响营销输出的最小闭环。\n主要输出\n产品画像：\njson\n{\n\"productName\": \"\",\n\"targetUsers\": [],\n\"coreProblems\": [],\n\"coreFeatures\": [],\n\"positioning\": \"\",\n\"evidenceChunkIds\": []\n}\n卖点地图：\njson\n{\n\"sellingPointMap\": {\n\"functional\": [],\n\"emotional\": [],\n\"scenario\": [],\n\"differentiation\": []\n},\n\"evidence\": []\n}\n内容 idea：\njson\n{\n\"ideas\": [\n{\n\"title\": \"\",\n\"angle\": \"\",\n\"sellingPointId\": \"\",\n\"targetUser\": \"\",\n\"platform\": \"\",\n\"hook\": \"\",",
+            "sourceRef": "产品说明 > 产品原则",
+            "keywords": [],
+            "score": 0.485,
+            "retrievalMethod": "dense",
+            "filteredRank": 3
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "keywords": [],
+            "score": 0.4945,
+            "retrievalMethod": "dense",
+            "filteredRank": 4
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5254,
+            "retrievalMethod": "dense",
+            "filteredRank": 5
+          }
+        ],
+        "removedMatches": [
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c4",
+            "text": "、score distribution、evidence coverage、citation correctness 等指标。\n支持 curated test queries，用固定问题回归 retrieval 表现。\n增加 chunk 参数、threshold、topK、transform 方法的对比视图。\n可选接入 RAGAS 或自定义轻量评估器。\n交付标准：\n用户能对同一文档运行多组 retrieval 配置并比较结果。\n每次生成结果都能看到 evidence 覆盖率和低置信 warning。\n质量问题能被定位到具体 pipeline 阶段。\n阶段 3：卖点地图与内容策略增强\n目标：从“生成几个 idea”升级为“围绕产品定位持续产出内容方向”。\n范围：\n扩展结构化卖点地图：functional、emotional、scenario、differentiation。\n引入 Product -> Feature -> User Pain -> Scenario -> Selling Point -> Content Angle -> Idea 的图谱化关系。\n支持按平台、目标用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。",
+            "score": 0.5311,
+            "reason": "MMR 多样性过滤移除"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c6",
+            "text": "以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：\n扩展真实 LLM provider 和 embedding provider，并保留 debug deterministic 等显式调试 provider。\n支持 rerank、query rewrite、semantic chunking 和更强的 citation builder。\n可选接入内容发布平台、分析工具或外部知识库。\n探索轻量 agent workflow，但必须建立在可观测、可回放的 pipeline 之上。\n增加 benchmark、成本统计和质量回归报告。\n交付标准：\n自动化能力不会破坏 evidence-first 和 debuggable 的产品原则。\n外部集成产生的结果仍然能追溯到文档证据和 pipeline trace。\n系统具备质量回归和成本观测能力。\n产品原则\nEvidence first：生成声明必须能指向 chunk IDs。\nDebuggable by default：每一步都应该展示 input、params、output、status、timing 和 trace。",
+            "score": 0.5224,
+            "reason": "MMR 多样性过滤移除"
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c1",
+            "text": "idence 生成内容 idea。\n查看引用和 confidence。\n调整 pipeline 参数并重新运行。\n项目阶段规划\n项目整体按“先闭环、再增强、再产品化”的方式推进。每个阶段都应保持可验证、可回退、可追踪，不把后续复杂能力提前塞进当前阶段。\n阶段 0：Harness 与工程基座\n目标：让后续 agent 或开发者进入项目后，能快速理解产品边界、当前状态、验证方式和交接规则。\n范围：\n建立 、、、 和 。\n记录产品说明、架构说明、API 契约和验证清单。\n明确“文档默认中文、工程标识保留英文”的协作规则。\n定义 feature 状态、完成标准和会话交接机制。\n交付标准：\n可以完成 harness 文件检查。\n后续开发者可以基于文档直接启动下一个 feature。\n阶段 1：可调试 RAG Playground 闭环\n目标：先跑通从产品文档到 evidence-backed marketing ideas 的最小闭环。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。",
+            "score": 0.4317,
+            "reason": "MMR 多样性过滤移除"
+          }
+        ],
+        "keptCount": 5,
+        "removedCount": 3,
+        "method": "mmr-diversity",
+        "warnings": [],
+        "originalQuery": "产品支持哪些 embedding 和检索方式？"
+      },
+      "trace": {
+        "methodId": "mmr-diversity",
+        "inputCount": 8,
+        "keptCount": 5,
+        "removedCount": 3,
+        "durationMs": 10
+      },
+      "durationMs": 10,
+      "warnings": []
+    },
+    "rerank": {
+      "output": {
+        "rankedMatches": [
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5254,
+            "retrievalMethod": "dense",
+            "filteredRank": 5,
+            "boostedScore": 0.5921,
+            "originalFilterRank": 5,
+            "rerankScore": 0.7285,
+            "originalRank": 5,
+            "newRank": 1
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "keywords": [],
+            "score": 0.5501,
+            "retrievalMethod": "dense",
+            "filteredRank": 1,
+            "boostedScore": 0.6168,
+            "originalFilterRank": 1,
+            "rerankScore": 0.1055,
+            "originalRank": 1,
+            "newRank": 2
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "keywords": [],
+            "score": 0.4945,
+            "retrievalMethod": "dense",
+            "filteredRank": 4,
+            "boostedScore": 0.4945,
+            "originalFilterRank": 4,
+            "rerankScore": 0.0976,
+            "originalRank": 4,
+            "newRank": 3
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c0",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品说明\n名称\n暂定名：Marketing RAG Playground\n备选名：IdeaGraph AI\n产品定位\n一个面向产品运营、独立开发者、一人公司和小团队的可视化 RAG Pipeline Playground。它把产品资料处理成可复用、可检索、可追踪的知识库，再基于可信 evidence 生成产品画像、卖点地图和运营内容 idea。\n更简洁地说：一个可调试的 RAG 驱动运营选题生成系统。\n目标用户\n准备做产品发布或增长内容的独立开发者。\n有产品资料但没有完整市场团队的一人公司。\n需要验证内容方向的小团队产品运营。\n希望围绕自己产品构建营销工作流的开发者。\n核心用户流程\n上传产品资料，或从已上传文档库中选择历史 document version。\n配置 RAG ingestion pipeline。\n执行 ingestion 并查看每一步产物。\n配置 retrieval。\n检索相关 evidence chunks。\n生成产品画像。\n生成结构化卖点地图。\n基于卖点和 evidence 生成内容 idea。\n查看引用和 confidence。\n调整 pipeline 参数并重新运行。\n项目阶段规划",
+            "sourceRef": "产品说明",
+            "keywords": [],
+            "score": 0.4902,
+            "retrievalMethod": "dense",
+            "filteredRank": 2,
+            "boostedScore": 0.4902,
+            "originalFilterRank": 2,
+            "rerankScore": 0.0158,
+            "originalRank": 2,
+            "newRank": 4
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c7",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 7,
+            "text": " by default：每一步都应该展示 input、params、output、status、timing 和 trace。\nProvider explicit：用户选择哪个 provider 就执行哪个 provider，不静默 fallback。\nSmall surface, complete loop：先交付能证明 RAG 质量影响营销输出的最小闭环。\n主要输出\n产品画像：\njson\n{\n\"productName\": \"\",\n\"targetUsers\": [],\n\"coreProblems\": [],\n\"coreFeatures\": [],\n\"positioning\": \"\",\n\"evidenceChunkIds\": []\n}\n卖点地图：\njson\n{\n\"sellingPointMap\": {\n\"functional\": [],\n\"emotional\": [],\n\"scenario\": [],\n\"differentiation\": []\n},\n\"evidence\": []\n}\n内容 idea：\njson\n{\n\"ideas\": [\n{\n\"title\": \"\",\n\"angle\": \"\",\n\"sellingPointId\": \"\",\n\"targetUser\": \"\",\n\"platform\": \"\",\n\"hook\": \"\",",
+            "sourceRef": "产品说明 > 产品原则",
+            "keywords": [],
+            "score": 0.485,
+            "retrievalMethod": "dense",
+            "filteredRank": 3,
+            "boostedScore": 0.485,
+            "originalFilterRank": 3,
+            "rerankScore": 0.0031,
+            "originalRank": 3,
+            "newRank": 5
+          }
+        ],
+        "rankChanges": [
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "originalRank": 5,
+            "newRank": 1,
+            "delta": 4
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "originalRank": 1,
+            "newRank": 2,
+            "delta": -1
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "originalRank": 4,
+            "newRank": 3,
+            "delta": 1
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c0",
+            "sourceRef": "产品说明",
+            "originalRank": 2,
+            "newRank": 4,
+            "delta": -2
+          },
+          {
+            "chunkId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c7",
+            "sourceRef": "产品说明 > 产品原则",
+            "originalRank": 3,
+            "newRank": 5,
+            "delta": -2
+          }
+        ],
+        "method": "pipeline-rerank",
+        "warnings": [
+          "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+        ],
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "originalQuery": "产品支持哪些 embedding 和检索方式？"
+      },
+      "trace": {
+        "methodId": "pipeline-rerank",
+        "inputCount": 5,
+        "outputCount": 5,
+        "topN": 5,
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "durationMs": 867
+      },
+      "durationMs": 867,
+      "warnings": [
+        "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+      ]
+    },
+    "citation": {
+      "output": {
+        "evidencePack": [
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "pageNumber": null,
+            "score": 0.7285
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "pageNumber": null,
+            "score": 0.1055
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "pageNumber": null,
+            "score": 0.0976
+          }
+        ],
+        "totalEvidence": 3,
+        "method": "chunk-citation",
+        "contextText": "[evidence-001] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\n。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。\n---\n[evidence-002] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\nEI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。\n---\n[evidence-003] 来源：产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强\n用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+        "warnings": [],
+        "originalQuery": "产品支持哪些 embedding 和检索方式？"
+      },
+      "trace": {
+        "methodId": "chunk-citation",
+        "inputMatches": 5,
+        "evidenceCount": 3,
+        "contextLength": 1855,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "promptBuild": {
+      "output": {
+        "systemPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"",
+        "userPrompt": "产品资料：\n[evidence-001] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\n。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。\n---\n[evidence-002] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\nEI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。\n---\n[evidence-003] 来源：产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强\n用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：\n\n任务：产品支持哪些 embedding 和检索方式？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "fullPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"\n\n产品资料：\n[evidence-001] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\n。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。\n---\n[evidence-002] 来源：产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环\nEI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。\n---\n[evidence-003] 来源：产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强\n用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：\n\n任务：产品支持哪些 embedding 和检索方式？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "tokenEstimate": 536,
+        "originalQuery": "产品支持哪些 embedding 和检索方式？",
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "pageNumber": null,
+            "score": 0.7285
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "pageNumber": null,
+            "score": 0.1055
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "pageNumber": null,
+            "score": 0.0976
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-template",
+        "evidenceCount": 3,
+        "tokenEstimate": 536,
+        "contextLength": 1855,
+        "durationMs": 0
+      },
+      "durationMs": 0,
+      "warnings": []
+    },
+    "generation": {
+      "output": {
+        "generatedContent": "以下是基于所提供产品资料（evidence-001 至 evidence-004）提炼的**结构化营销内容**，严格遵循 *evidence-first* 原则，所有主张均有明确来源标注。面向产品运营与独立开发者，语气专业、可直接用于官网文案、售前文档或开发者文档摘要：\n\n---\n\n### ✅ **核心卖点（Core Selling Points）**\n\n| 卖点 | 说明 | Evidence |\n|------|------|----------|\n| **开箱即用的可调试 RAG 全链路可视化** | 用户上传文档后，可在 Playground UI 中实时查看 pipeline 每一步（ingestion → retrieval → generation）的输入、参数、输出、耗时与 trace，无需代码即可定位瓶颈。[evidence-002] | [evidence-001][evidence-002] |\n| **多 Embedding Provider 支持 + 确定性调试模式** | 内置 OpenAI、Hugging Face TEI、Transformers.js 三大主流 embedding 方案；另提供 `debug deterministic provider`，确保 chunk→embedding 映射完全可复现，极大降低调试不确定性。[evidence-001] | [evidence-001] |\n| **检索过程全指标可观测** | 不仅返回 top-k 结果，还提供 retrieval hit rate、score distribution、evidence coverage、citation correctness 等质量评估维度，支持归因分析：“效果差”究竟源于 chunk 切分？embedding 质量？还是 rerank 逻辑？[evidence-002] | [evidence-002] |\n| **从原始文档到营销内容的端到端可追溯生成** | 所有生成的 selling point、content idea 均可回溯至具体 document version + chunk + retrieval run，支持「idea → source chunk → original doc」三级溯源，保障内容可信性与合规性。[evidence-003] | [evidence-003][evidence-004] |\n| **离线可用 + 渐进式依赖管理** | 无 API key 时，document ingestion、chunking、debug embedding、retrieval filtering 等非 LLM 阶段仍可完整运行；仅当用户主动启用需远程调用的模块（如 OpenAI embedding 或 LLM generation）时，系统才抛出明确 provider 错误，不阻塞基础流程。[evidence-002] | [evidence-002] |\n\n---\n\n### 🎯 **典型使用场景（Use Cases）**\n\n| 场景 | 描述 | Evidence |\n|------|------|----------|\n| **产品团队快速构建知识基座并产出首版营销素材** | 导入 PRD、白皮书、竞品对比表等 PDF/MD 文档 → 自动生成 product profile + 卖点地图 + 多类型 content idea（如“3 个反常识卖点”“5 分钟上手教程”），所有输出均可验证来源。 | [evidence-001][evidence-003] |\n| **AI 工程师诊断 RAG 效果波动根因** | 当 LLM 输出质量下降时，通过 retrieval metrics（hit rate / citation correctness）和 chunk coverage 分析，精准识别是 preprocessing 过度切分、embedding 维度失配，还是 rerank threshold 设置不当。 | [evidence-002] |\n| **内容运营批量生成跨平台策略素材** | 基于同一套产品文档，一键生成：小红书痛点型笔记、公众号教程型长文、官网 banner 反常识标语、销售话术清单 —— 并按平台适配性与 confidence 排序。 | [evidence-003] |\n| **合规敏感型团队构建审计就绪的知识工作流** | 所有文档版本、embedding provider 选择、retrieval run 时间戳、生成 idea 的 chunk 引用均持久化存储于 PostgreSQL + pgvector，支持导出 evidence report，满足内部审计与 SOP 要求。 | [evidence-001][evidence-004] |\n\n---\n\n### ⚡ **差异化优势（Differentiation vs. Generic RAG Tools）**\n\n| 维度 | 本产品方案 | 常见竞品短板 | Evidence |\n|------|-------------|----------------|----------|\n| **调试粒度** | Pipeline steps 级别 trace（含 preprocess/chunk/transform/embedding/retrieval/rerank/citation），每步可展开查看 raw input/output/timing | 多数工具仅提供 query → response 黑盒，或仅支持 LLM 层 trace | [evidence-001][evidence-002] |\n| **Embedding 灵活性 & 可控性** | 同时支持云服务（OpenAI）、开源服务（HF TEI）、客户端推理（Transformers.js）及确定性 debug provider —— 无 vendor lock-in，且调试零随机性 | 多数工具绑定单一 embedding API，或 debug 模式缺失可复现性保障 | [evidence-001] |\n| **内容生成的可解释性** | 每个 selling point / idea 均绑定 source chunk + doc version，并支持 natural-language 解释：“该 idea 适合技术决策者，因引用了架构图章节中的 latency 对比数据”。 | 主流内容生成工具输出不可溯源，无法回答「为什么这个点重要？」或「依据哪段原文？」 | [evidence-003] |\n| **本地优先 + 渐进增强** | Stage 1 即支持完全离线运行（除显式启用的 remote LLM），后续阶段在已有 PostgreSQL 主线上叠加协作、版本、导出能力，避免从 prototype 到 prod 的架构断裂 | 许多 Playground 工具为纯前端 demo 或强依赖外部向量库，难以平滑升级为生产级产品 | [evidence-001][evidence-004] |\n\n---\n\n### 📝 **内容角度建议（Content Angle Ideas）—— 可直接用于博客/社群/案例页**\n\n| 角度 | 标题示例 | 支撑依据 | Evidence |\n|------|-----------|------------|----------|\n| **开发者向｜痛点切入** | “为什么你的 RAG 总是‘差不多’？我们用 7 个 trace 指标定位真实瓶颈” | 强调 retrieval hit rate、citation correctness 等 stage 2 新增指标对工程落地的价值 | [evidence-002] |\n| **产品向｜场景化叙事** | “从一份 PDF 到 12 条小红书爆款选题：我们如何让产品文档自己开口说话” | 展示 stage 3 的 content type templates（痛点型/故事型/反常识型）与多平台分发能力 | [evidence-003] |\n| **运营向｜ROI 可视化** | “不用写一行 prompt：用可追溯卖点地图，把产品文档转化为销售线索转化率提升 23%” | 关联 idea → source chunk → 用户角色 → 转化路径，呼应 stage 3 的 confidence 排序与目标匹配解释 | [evidence-003] |\n| **架构向｜演进哲学** | “为什么我们坚持用 PostgreSQL + pgvector 作为唯一存储主线？” | 阐释 stage 1–4 的统一存储设计如何支撑版本管理、artifact 追踪、audit-ready export，避免技术债 | [evidence-001][evidence-004] |\n\n> 🔍 **低置信度 / 需补充资料**：  \n> - 当前资料未提及 **retrieval backend 具体支持哪些算法或模型**（如 BM25、Hybrid search、SPLADE、ColBERT 等），仅说明存在 `filter` / `rerank` 步骤及 `retrieval hit rate` 指标。若需强调检索技术先进性，需补充具体支持的 retrieval providers 或配置选项。  \n> - 未说明 **RAG pipeline 是否支持自定义 prompt engineering 或 LLM routing**（stage 1 仅提“Marketing generation”，stage 2 提“prompt 出了问题”，但未描述 prompt 可调性）。若作为卖点，需 stage 5 或额外资料佐证。\n\n---  \n如需进一步输出：  \n🔹 官网 Banner Slogan（中英文）  \n🔹 开发者文档 Quickstart 流程图  \n🔹 销售一问一答 FAQ（含技术质疑应对）  \n欢迎随时提出，我将基于相同 evidence 规则持续交付。",
+        "citedEvidenceIds": [
+          "[evidence-002]",
+          "[evidence-001]",
+          "[evidence-003]",
+          "[evidence-004]"
+        ],
+        "model": "qwen-plus",
+        "inputTokens": 903,
+        "outputTokens": 1900,
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c2",
+            "text": "。\n范围：\nPlayground Web UI：左侧 pipeline steps，中间配置，右侧 output/trace。\nDocument Upload & Library：上传 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash 和 version；页面进入时自动加载已上传文档并可选择历史版本。\nIngestion steps：document idempotency、preprocess、chunk、transform、embedding、storage。\nRetrieval steps：query rewrite、retrieval、filter、rerank、citation。\nMarketing generation：product profile、selling point map、content ideas。\n每个卖点和 idea 都带 evidence references。\n存储主线采用 PostgreSQL + pgvector，保留 provider 抽象和可调试 trace。\nEmbedding 支持 OpenAI、Hugging Face TEI、Hugging Face Transformers.js 和 debug deterministic provider。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 2,
+            "pageNumber": null,
+            "score": 0.7285
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c3",
+            "text": "EI、Hugging Face Transformers.js 和 debug deterministic provider。\nREST endpoints 具备 request、response、mock 和 error schema。\n交付标准：\n用户可以导入一份产品资料，并在界面上看到每一步输入、参数、输出、耗时和 trace。\n系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。\n无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。\n阶段 2：RAG 质量评估与调参能力\n目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。\n范围：\n展示 chunk count、token estimate、chunk coverage 和 source coverage。\n增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 1：可调试 RAG Playground 闭环",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 3,
+            "pageNumber": null,
+            "score": 0.1055
+          },
+          {
+            "evidenceId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31_v1_c5",
+            "text": "用户、内容类型、营销目标生成 idea。\n增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。\n支持 idea 去重、聚类、优先级和 confidence 排序。\n交付标准：\n用户能从同一套 evidence 中生成多平台、多目标的内容方向。\n每个 selling point 和 idea 都能回溯到原始 chunks。\n系统能解释某个 idea 为什么适合某个目标用户或平台。\n阶段 4：真实存储、协作与产品化\n目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。\n范围：\n在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。\n引入项目/workspace 概念，但保持权限模型尽量简单。\n支持导出卖点地图、idea 列表和 evidence report。\n增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。\n交付标准：\n用户可以长期维护一个产品知识库。\n不同版本文档、检索记录和生成结果可追踪。\n关键运营资产可以导出或复用。\n阶段 5：高级自动化与生态集成\n目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。\n范围：",
+            "sourceRef": "产品说明 > 项目阶段规划 > 阶段 3：卖点地图与内容策略增强",
+            "documentId": "7b931c7a-47f7-48b8-946f-8d2ae6a27d31",
+            "version": 1,
+            "chunkIndex": 5,
+            "pageNumber": null,
+            "score": 0.0976
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-ideas",
+        "model": "qwen-plus",
+        "originalQuery": "产品支持哪些 embedding 和检索方式？",
+        "inputTokens": 903,
+        "outputTokens": 1900,
+        "citedCount": 4,
+        "durationMs": 42590
+      },
+      "durationMs": 42590,
+      "warnings": []
+    },
+    "evaluation": {
+      "output": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3105333333333334,
+        "totalEvidence": 3,
+        "citedCount": 3,
+        "scoreThreshold": 0.5,
+        "faithfulness": null,
+        "level": "warning",
+        "warnings": [
+          "被引用 evidence 平均分偏低（0.31），检索质量可能不足"
+        ],
+        "method": "rag-metrics-only",
+        "durationMs": 3
+      },
+      "trace": {
+        "methodId": "rag-metrics-only",
+        "totalEvidence": 3,
+        "citedCount": 3,
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3105333333333334,
+        "faithfulnessScore": null,
+        "durationMs": 3
+      },
+      "durationMs": 3,
+      "warnings": [
+        "被引用 evidence 平均分偏低（0.31），检索质量可能不足"
+      ]
+    }
+  },
+  "metrics": {
+    "hitRate": 0.3333333333333333,
+    "citationCoverage": 1,
+    "confidenceScore": 0.3105333333333334,
+    "retrievedCount": 8,
+    "avgScore": 0.5037999999999999,
+    "ideaCount": 4,
+    "durationMs": 44452.333333333336
+  }
+}
