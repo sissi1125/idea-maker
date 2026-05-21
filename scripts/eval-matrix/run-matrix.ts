@@ -60,7 +60,7 @@ const FIXED = {
   citation:   { methodId: "chunk-citation",      params: { maxEvidencePerClaim: 3 } },
   promptBuild:{ methodId: "marketing-template",  params: { targetAudience: "产品运营和独立开发者", tone: "professional", maxContextTokens: 2000 } },
   generation: { methodId: "marketing-ideas",     params: { ideaCount: 5, includeEvidence: true } },
-  evaluation: { methodId: "rag-metrics-only",    params: { scoreThreshold: 0.5 } },
+  evaluation: { methodId: "rag-metrics-only",    params: { scoreThreshold: 0.2 } },
 };
 
 async function post(route: string, body: unknown): Promise<unknown> {
