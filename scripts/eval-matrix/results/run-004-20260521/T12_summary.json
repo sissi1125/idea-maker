@@ -1,0 +1,58 @@
+{
+  "testId": "T12",
+  "label": "全新特性叠加（最大变化配置）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "这个产品的目标用户是谁，解决什么问题？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.1139,
+        "retrievedCount": 4,
+        "avgScore": 0.032010000000000004,
+        "ideaCount": 3,
+        "durationMs": 48243.333333333336
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "产品支持哪些 embedding 和检索方式？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3931,
+        "retrievedCount": 4,
+        "avgScore": 0.032010000000000004,
+        "ideaCount": 4,
+        "durationMs": 49818.333333333336
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "如何用这个工具生成营销内容 idea？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.6263333333333333,
+        "retrievedCount": 4,
+        "avgScore": 0.032010000000000004,
+        "ideaCount": 5,
+        "durationMs": 53195.333333333336
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.6666666666666666,
+    "citationCoverage": 1,
+    "confidenceScore": 0.37777777777777777,
+    "retrievedCount": 4,
+    "avgScore": 0.032010000000000004,
+    "ideaCount": 4,
+    "totalDurationMs": 151257
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "testId": "T07",
+  "label": "summary-keywords + hybrid-bm25-rrf",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "这个产品的目标用户是谁，解决什么问题？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.0303,
+        "retrievedCount": 8,
+        "avgScore": 0.02920875,
+        "ideaCount": 6,
+        "durationMs": 48686
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "产品支持哪些 embedding 和检索方式？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3285333333333334,
+        "retrievedCount": 8,
+        "avgScore": 0.031046874999999998,
+        "ideaCount": 4,
+        "durationMs": 41579
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "如何用这个工具生成营销内容 idea？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8941666666666667,
+        "retrievedCount": 8,
+        "avgScore": 0.031047,
+        "ideaCount": 4,
+        "durationMs": 40574
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.5555555555555555,
+    "citationCoverage": 0.8888888888888888,
+    "confidenceScore": 0.4176666666666667,
+    "retrievedCount": 8,
+    "avgScore": 0.030434208333333334,
+    "ideaCount": 4.666666666666667,
+    "totalDurationMs": 130839
+  }
+}

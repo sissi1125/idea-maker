@@ -1,0 +1,58 @@
+{
+  "testId": "T10",
+  "label": "filter 对比：mmr-diversity",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "这个产品的目标用户是谁，解决什么问题？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.1444,
+        "retrievedCount": 8,
+        "avgScore": 0.42895,
+        "ideaCount": 3,
+        "durationMs": 45938.333333333336
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "产品支持哪些 embedding 和检索方式？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3105333333333334,
+        "retrievedCount": 8,
+        "avgScore": 0.5037999999999999,
+        "ideaCount": 6,
+        "durationMs": 46584.333333333336
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "如何用这个工具生成营销内容 idea？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8941666666666667,
+        "retrievedCount": 8,
+        "avgScore": 0.4927125,
+        "ideaCount": 4,
+        "durationMs": 44663.333333333336
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.5555555555555555,
+    "citationCoverage": 1,
+    "confidenceScore": 0.4497,
+    "retrievedCount": 8,
+    "avgScore": 0.4751541666666667,
+    "ideaCount": 4.333333333333333,
+    "totalDurationMs": 137186
+  }
+}

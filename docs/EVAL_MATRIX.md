@@ -280,3 +280,4 @@ scripts/eval-matrix/results/
 | run-001 | 2026-05-20 | 基础矩阵，score-only rerank | heading-context transform +11% hitRate；256 chunk -22%；最优配置 T06（hitRate=0.89）|
 | run-002 | 2026-05-20 | 数据丢失（worktree 删除前未提交）| — |
 | run-003 | 2026-05-20 | pipeline-rerank（TEI cross-encoder）+ hybrid-bm25-rrf + pipeline-filter + intent-recognition | reranker 主导质量信号，ingestion/retrieval 差异被抹平；scoreThreshold 需重新校准为 0.2 |
+| run-004 | 2026-05-21 | scoreThreshold 0.5 → 0.2 | markdown-heading 反超 recursive（0.67 vs 0.56）；有 reranker 时 transform/filter/retrieval 方法差异消失 |
