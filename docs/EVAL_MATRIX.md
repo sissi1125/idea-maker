@@ -282,3 +282,4 @@ scripts/eval-matrix/results/
 | run-003 | 2026-05-20 | pipeline-rerank（TEI cross-encoder）+ hybrid-bm25-rrf + pipeline-filter + intent-recognition | reranker 主导质量信号，ingestion/retrieval 差异被抹平；scoreThreshold 需重新校准为 0.2 |
 | run-004 | 2026-05-21 | scoreThreshold 0.5 → 0.2 | markdown-heading 反超 recursive（0.67 vs 0.56）；有 reranker 时 transform/filter/retrieval 方法差异消失 |
 | run-005 | 2026-05-22 | 聚焦 chunk 方法对比（3 cases × 6 queries）；新增 markdown-heading-recursive；queries 抽离为独立 queries.json | 三种方法平均 hitRate 相同（0.61）；大 chunk 利于单章节集中查询，小 chunk 利于跨章节综合查询；md-heading-recursive 在短章节文档等效于 recursive；不存在对所有查询类型均最优的单一 chunk 方法 |
+| run-006 | 2026-05-22 | 换用 Bloomnote PRD 文档（12,358 字符，30+章节）；新增文档预处理流程（doc-config.json + preprocess-doc.ts） | T01/T03=0.78 > T02=0.72；小 chunk 跨章节优势再次确认（Q5）；T03 仍等同 T01（章节均<512，递归降级未触发）；存在 chunk 策略无法解决的语义模糊查询（Q4/Q6 全方法 0.33）|
