@@ -71,11 +71,17 @@ cross-encoder 把"导航与信息架构"打了 0.901 的高分，但这个章节
 
 cross-encoder 把"业务规则与校验"排到第一（0.650），把直接包含后台行为信息的"通知与后台产品行为"降到 0.173，低于 threshold=0.2 而被计为未命中。
 
-**根本原因：模型选择问题**
+**根本原因：任务分布不匹配（Domain Mismatch）**
 
-bge-reranker-base 是以英文为主的训练数据，对中文产品文档的语义理解存在偏差。Qwen text-embedding-v4 是专门针对中文优化的模型，在中文内容上的余弦相似度更准确。
+需要纠正一个误解：bge-reranker-base 是 BAAI（北京智源人工智能研究院）出品的中英双语模型，不是英文专用模型。问题不在语言，而在**训练任务与当前文档类型的差距**：
 
-**结论**：在中文产品文档场景下，错误的 reranker 模型比不用 reranker 更糟糕。Reranker 的价值取决于模型质量和语言匹配度，不是引入 cross-encoder 就一定更好。
+- bge-reranker-base 的训练数据以 QA 检索任务为主（MSMARCO、DuReader 等），这类数据中 query 和 passage 的相关性通常比较明确
+- 产品文档查询（"整体设计风格是什么"）语义较模糊，query 中的关键词（"整体"、"风格"）在文档多个章节中都有弱相关，cross-encoder 难以准确区分
+- cross-encoder 的分数分布极度集中（top-1 得 0.9+，其余 <0.03），对产品文档这类"答案分散在多个章节"的场景不友好
+
+相比之下，Qwen text-embedding-v4 的余弦相似度分布更平滑（0.46-0.54），在多个相关章节上都能给出合理的分数，threshold=0.5 时能选出 2/3 的有效 evidence。
+
+**结论**：当前场景下 cross-encoder reranker 比 score-only 更差，根本原因是 domain mismatch，不是语言问题。Reranker 的价值取决于模型是否与目标文档类型和查询风格匹配，不是引入 cross-encoder 就一定更好。
 
 ---
 
