@@ -22,6 +22,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { extractQueryMetrics, averageQueryMetrics } from "./collect-metrics.js";
 import { generateReport } from "./report.js";
+import { preprocessDoc } from "./preprocess-doc.js";
 import type { TestCase, TestCaseResult, QueryResult } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -292,11 +293,25 @@ async function main() {
 
   if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
-  // 读取测试文档
-  const docPath = path.join(__dirname, "../../docs/PRODUCT.md");
-  if (!fs.existsSync(docPath)) throw new Error(`测试文档不存在: ${docPath}`);
-  const docText = fs.readFileSync(docPath, "utf-8");
-  console.log(`测试文档: docs/PRODUCT.md (${docText.length} 字符)`);
+  // 读取文档配置
+  const docConfigPath = path.join(__dirname, "doc-config.json");
+  const docConfig = JSON.parse(fs.readFileSync(docConfigPath, "utf-8")) as {
+    sourcePath: string;
+    preprocessing: Parameters<typeof preprocessDoc>[1];
+    description?: string;
+  };
+
+  // 读取并预处理测试文档
+  const docSourcePath = docConfig.sourcePath.startsWith("/")
+    ? docConfig.sourcePath
+    : path.resolve(__dirname, docConfig.sourcePath);
+  if (!fs.existsSync(docSourcePath)) throw new Error(`测试文档不存在: ${docSourcePath}`);
+  const rawText = fs.readFileSync(docSourcePath, "utf-8");
+  const { text: docText, log: preprocLog } = preprocessDoc(rawText, docConfig.preprocessing ?? {});
+
+  console.log(`测试文档: ${docConfig.description ?? docSourcePath}`);
+  console.log(`  原始长度: ${rawText.length} 字符`);
+  preprocLog.forEach((l) => console.log(`  ${l}`));
 
   // 读取测试矩阵
   const matrixPath = path.join(__dirname, "test-matrix.json");
