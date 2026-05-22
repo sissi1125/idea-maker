@@ -62,19 +62,33 @@ const FIXED = {
   evaluation: { methodId: "rag-metrics-only",    params: { scoreThreshold: 0.2 } },
 };
 
-async function post(route: string, body: unknown): Promise<unknown> {
+// connection error 时自动重试，最多 3 次，间隔 3s
+async function post(route: string, body: unknown, retries = 3): Promise<unknown> {
   const url = `${BASE_URL}/api/pipeline/${route}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json() as { error?: { code: string; message: string }; output?: unknown; trace?: unknown };
-  if (!res.ok || (json as { error?: unknown }).error) {
-    const err = (json as { error?: { code?: string; message?: string } }).error;
-    throw new Error(`${route} 失败 [${res.status}]: ${err?.code ?? "unknown"} — ${err?.message ?? JSON.stringify(json)}`);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json() as { error?: { code: string; message: string }; output?: unknown; trace?: unknown };
+      if (!res.ok || (json as { error?: unknown }).error) {
+        const err = (json as { error?: { code?: string; message?: string } }).error;
+        throw new Error(`${route} 失败 [${res.status}]: ${err?.code ?? "unknown"} — ${err?.message ?? JSON.stringify(json)}`);
+      }
+      return json;
+    } catch (err) {
+      const isConnectionError = err instanceof Error && err.message.includes("Connection error");
+      if (isConnectionError && attempt < retries) {
+        console.log(`    ⚠ ${route} 连接失败，${3}s 后重试 (${attempt}/${retries})...`);
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      throw err;
+    }
   }
-  return json;
+  throw new Error(`${route} 重试 ${retries} 次后仍然失败`);
 }
 
 async function uploadDocument(text: string): Promise<string> {
