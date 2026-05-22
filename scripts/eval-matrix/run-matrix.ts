@@ -43,11 +43,10 @@ function resolveResultsDir(): string {
 
 const RESULTS_DIR = resolveResultsDir();
 
-const QUERIES = [
-  { id: "Q1", text: "这个产品的目标用户是谁，解决什么问题？" },
-  { id: "Q2", text: "产品支持哪些 embedding 和检索方式？" },
-  { id: "Q3", text: "如何用这个工具生成营销内容 idea？" },
-];
+// queries 从独立文件读取，方便每次 run 单独配置
+const queriesPath = path.join(__dirname, "queries.json");
+const QUERIES: Array<{ id: string; text: string; type?: string; difficulty?: string }> =
+  JSON.parse(fs.readFileSync(queriesPath, "utf-8"));
 
 // 固定参数
 const FIXED = {
@@ -303,7 +302,9 @@ async function main() {
   // 读取测试矩阵
   const matrixPath = path.join(__dirname, "test-matrix.json");
   const testCases: TestCase[] = JSON.parse(fs.readFileSync(matrixPath, "utf-8"));
-  console.log(`测试矩阵: ${testCases.length} 个 test case × ${QUERIES.length} 个 query\n`);
+  console.log(`测试矩阵: ${testCases.length} 个 test case × ${QUERIES.length} 个 query`);
+  QUERIES.forEach((q) => console.log(`  ${q.id} [${q.difficulty ?? "-"}] ${q.text}`));
+  console.log();
 
   // 上传测试文档（每次运行上传一次，各 test case 共用）
   let documentId: string;
