@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
+    "@node-rs/jieba": "^2.0.1",
     "@types/pg": "^8.20.0",
     "@types/turndown": "^5.0.6",
     "mammoth": "^1.12.0",

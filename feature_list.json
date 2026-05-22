@@ -264,6 +264,16 @@
       ],
       "status": "todo",
       "evidence": ""
+    },
+    {
+      "id": "feat-009",
+      "name": "RAG Pipeline 库标准化（第一批）",
+      "description": "将 rerank/route.ts 中的手写中文分词替换为 @node-rs/jieba，修复 llm-relevance-rerank 静默失败（warnings 作用域错误），补全 test-matrix.json T04 的 model/baseUrl 参数，更新 AGENTS.md 新增交付前代码审查 Checklist。同次全局审计发现 9 处手写实现缺陷，记录于 docs/feat-009_lib-standardization.md，第二批待续（BM25/zod/tiktoken）。",
+      "dependencies": [
+        "feat-008"
+      ],
+      "status": "done",
+      "evidence": "docs/feat-009_lib-standardization.md; scripts/eval-matrix/results/feat-009-impact-assessment.md; AGENTS.md#交付前代码审查"
     }
   ]
 }

@@ -40,7 +40,7 @@
     "queryRewrite": { "methodId": "none",             "params": {} },
     "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "llm-relevance-rerank", "params": { "rerankTopN": 5 } },
+    "rerank":       { "methodId": "llm-relevance-rerank", "params": { "rerankTopN": 5, "model": "qwen-plus", "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1" } },
     "scoreThreshold": 0.5
   }
 ]

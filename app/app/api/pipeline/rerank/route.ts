@@ -31,6 +31,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
 import type { FilterOutput, FilteredChunk } from "../filter/route";
+import { Jieba } from "@node-rs/jieba";
+
+// ─── 中文分词单例 ──────────────────────────────────────────────────────────────
+// @node-rs/jieba：Rust binding，支持 ARM64/x64，无需 node-gyp 编译。
+// 在 module 级别初始化一次，避免每次 API 调用重复构造（jieba 词典加载有成本）。
+//
+// 为什么用 jieba 而不是手写 bigram？
+//   - 中文没有空格，简单的空格/标点切分会把整句话变成 1 个 token，关键词匹配完全失效
+//   - jieba 的 HMM 模式能识别"设计风格"、"主题色"等词组，比 bigram 更精准
+const jieba = new Jieba();
+
+// 中文停用词（高频但无实义的词，排除后避免干扰关键词匹配）
+const STOP_WORDS = new Set([
+  "的","了","和","是","在","有","与","或","等","如","用","可","为","都","也",
+  "其","但","到","又","还","以","就","被","让","把","从","对","向","这","那",
+  "个","一","不","什么","哪些","如何","怎么","哪个","是否",
+]);
+
+/**
+ * 提取 query 中的有效关键词 token 集合。
+ * 同时支持中文（jieba 分词）和英文/数字（空格切分），适用于混合文本。
+ *
+ * 面试考点：为什么 RAG 里的关键词抽取不能直接 split(" ")？
+ *   中文文本没有显式的词边界标记，必须通过统计/词典模型推断词的边界。
+ *   jieba 基于前缀词典 + HMM 进行最大概率路径切分，是 Node.js 中最成熟的开源方案。
+ */
+function extractQueryTokens(query: string): Set<string> {
+  const tokens = new Set<string>();
+  // jieba cut with HMM=true（启用未登录词识别，对产品文档中的新词更友好）
+  for (const word of jieba.cut(query, true)) {
+    const w = word.trim();
+    if (w.length >= 2 && !STOP_WORDS.has(w)) {
+      tokens.add(w.toLowerCase());
+    }
+  }
+  return tokens;
+}
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -71,18 +108,20 @@ function rerankScoreOnly(matches: FilteredChunk[], topN: number): RerankOutput {
  * 关键词提升：计算 chunk 的 sourceRef 和 text 中与 query 关键词的重叠度，
  * 加权叠加到原始分数上。
  * 参数：boostWeight 控制加权幅度（默认 0.2，即原分 + 0.2 * 关键词重叠比例）。
+ *
+ * ⚠️ 架构局限性（已知）：
+ *   此方法的 boost 基于分数偏移（score += weight * overlap），适合分数分布均匀的场景
+ *   （如余弦相似度 0.3-0.8）。若下游接 cross-encoder reranker（score 极度集中，
+ *   top-1 可能 0.9+，其余 <0.01），boost 的微小偏移无法翻转排名。
+ *   在 pipeline-rerank 中，boost 的核心价值在于预筛选（boostPassN 截断）而非分数混合。
  */
 function rerankMetadataBoost(
   matches: FilteredChunk[],
   query: string,
   topN: number
 ): RerankOutput {
-  // 提取 query 关键词（去停用词）
-  const qTokens = new Set(
-    query.toLowerCase()
-      .split(/[\s，。？！、；：\?!,.:;()\n]+/)
-      .filter((t) => t.length >= 2)
-  );
+  // 使用 jieba 分词提取关键词，支持中英文混合 query（见模块顶部 extractQueryTokens）
+  const qTokens = extractQueryTokens(query);
 
   const scored = matches.map((m, originalIdx) => {
     const source = m.sourceRef.toLowerCase();
@@ -172,6 +211,9 @@ async function rerankLLMRelevance(
 评分标准：1-3 完全不相关，4-6 部分相关，7-9 相关，10 完全匹配${criteriaContext}
 只输出 JSON，不要任何其他内容。`;
 
+  // 收集每个 LLM 调用的失败信息，供调用方感知（而非静默降级）
+  const llmFailures: string[] = [];
+
   const scored = await Promise.all(
     matches.map(async (m, idx) => {
       try {
@@ -186,7 +228,10 @@ async function rerankLLMRelevance(
         });
         const raw = JSON.parse(resp.choices[0].message.content ?? "{}") as { score?: number };
         return { ...m, rerankScore: (raw.score ?? 5) / 10, originalRank: idx + 1 };
-      } catch {
+      } catch (err) {
+        // LLM 调用失败时降级为原始分数，并记录具体错误（而非静默失败）
+        const msg = `llm-relevance-rerank chunk[${idx}] 失败，已降级为原始分数: ${err instanceof Error ? err.message.slice(0, 80) : String(err)}`;
+        llmFailures.push(msg);
         return { ...m, rerankScore: m.score, originalRank: idx + 1 };
       }
     })
@@ -199,7 +244,7 @@ async function rerankLLMRelevance(
     rankedMatches: ranked,
     rankChanges: ranked.map((r) => ({ chunkId: r.chunkId, sourceRef: r.sourceRef, originalRank: r.originalRank, newRank: r.newRank, delta: r.originalRank - r.newRank })),
     method: "llm-relevance-rerank",
-    warnings: [`llm-relevance-rerank 消耗 ${matches.length} 次 API 调用`],
+    warnings: [`llm-relevance-rerank 消耗 ${matches.length} 次 API 调用`, ...llmFailures],
   };
 }
 
@@ -226,11 +271,8 @@ async function rerankCombined(
   paramEndpoint?: string
 ): Promise<RerankOutput & { pipelineSteps: { afterBoost: number; sentToTEI: number } }> {
   // ── Step 1: Metadata Boost ────────────────────────────────────────────────
-  const qTokens = new Set(
-    query.toLowerCase()
-      .split(/[\s，。？！、；：\?!,.:;()\n]+/)
-      .filter((t) => t.length >= 2)
-  );
+  // 使用 jieba 分词（见模块顶部 extractQueryTokens），解决中文整句无法切分的问题
+  const qTokens = extractQueryTokens(query);
 
   const boosted = matches.map((m, idx) => {
     const source = m.sourceRef.toLowerCase();
