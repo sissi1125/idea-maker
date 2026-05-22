@@ -51,8 +51,7 @@ const QUERIES: Array<{ id: string; text: string; type?: string; difficulty?: str
 // 固定参数
 const FIXED = {
   preprocess: { methodId: "markdown-structure", params: { preserveHeadings: true, removeBoilerplate: false, maxChars: 0 } },
-  // baseUrl 和 apiKey 不传，由 dev server 的 EMBEDDING_API_KEY / LLM_API_KEY / EMBEDDING_BASE_URL 统一决定
-  embedding:  { methodId: "openai-3-small",     params: { model: "text-embedding-v4", dimension: 1024, batchSize: 10 } },
+  embedding:  { methodId: "openai-3-small",     params: { model: "text-embedding-v4", dimension: 1024, batchSize: 10, baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" } },
   storage:    { methodId: "pgvector-upsert-version", params: { truncateTable: true, conflictPolicy: "upsert", indexMode: "hnsw" } },
   intentRecognition: { methodId: "rule-based",   params: {} },
   rerank:     { methodId: "pipeline-rerank",     params: { boostPassN: 20, rerankTopN: 5 } },
