@@ -11,6 +11,9 @@ export interface TestCase {
   queryRewrite: StageConfig;
   retrieval: StageConfig;
   filter: StageConfig;
+  rerank?: StageConfig;                 // 不填则用 FIXED.rerank
+  /** evaluation scoreThreshold，不填则用 FIXED.evaluation 的默认值（0.2）*/
+  scoreThreshold?: number;
 }
 
 export interface QueryMetrics {

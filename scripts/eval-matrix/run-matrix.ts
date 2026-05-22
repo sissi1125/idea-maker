@@ -179,9 +179,11 @@ async function runRetrieval(
     upstreamOutput: outputs.retrieval.output,
   }) as { output: unknown };
 
+  // rerank：优先用 testCase.rerank，否则用 FIXED.rerank
+  const rerankConfig = testCase.rerank ?? FIXED.rerank;
   outputs.rerank = await post("rerank", {
-    methodId: FIXED.rerank.methodId,
-    params: FIXED.rerank.params,
+    methodId: rerankConfig.methodId,
+    params: rerankConfig.params,
     upstreamOutput: outputs.filter.output,
   }) as { output: unknown };
 
@@ -203,9 +205,11 @@ async function runRetrieval(
     upstreamOutput: outputs.promptBuild.output,
   }) as { output: unknown };
 
+  // scoreThreshold：优先用 testCase.scoreThreshold，否则用 FIXED 默认值
+  const scoreThreshold = testCase.scoreThreshold ?? FIXED.evaluation.params.scoreThreshold;
   outputs.evaluation = await post("evaluation", {
     methodId: FIXED.evaluation.methodId,
-    params: FIXED.evaluation.params,
+    params: { ...FIXED.evaluation.params, scoreThreshold },
     upstreamOutput: outputs.generation.output,
   }) as { output: unknown };
 
