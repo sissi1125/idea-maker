@@ -33,7 +33,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 import { createEmbeddingClient, embedSingleText } from "@/lib/providers";
 import type { QueryRewriteOutput } from "../query-rewrite/route";
-import { tokenize } from "@/lib/nlp";
+import { tokenizeForBM25 } from "@/lib/nlp";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -269,23 +269,8 @@ async function retrieveHybridRRF(
 
 // ─── bm25-chinese ─────────────────────────────────────────────────────────────
 
-/**
- * 中文分词器（BM25 用途）。
- *
- * 已从手写 bigram 迁移到 lib/nlp.ts 的 jieba 分词。
- *
- * bigram 的问题：
- *   "苹果手机" → ["苹果","果手","手机"]，"果手" 是噪声，会对无关文档产生假阳性匹配。
- * jieba 的改进：
- *   "苹果手机" → ["苹果","手机"]，词边界正确，BM25 匹配精度提升。
- *
- * BM25 中不需要过滤停用词（高频词的 IDF 自然接近 0），
- * 但去掉单字噪声词有助于减少计算量，因此 removeStop=false，minLength=2。
- */
-function tokenizeChinese(text: string): string[] {
-  // removeStop=false：BM25 靠 IDF 压制高频词，不需要额外过滤
-  return tokenize(text, false, 2);
-}
+// BM25 分词直接使用 lib/nlp.ts 的 tokenizeForBM25（jieba，不过滤停用词，minLength=2）
+// 删除原本的 tokenizeChinese 本地包装函数，统一由 nlp.ts 管理
 
 /**
  * 纯 JS BM25 计分。
@@ -308,7 +293,7 @@ function computeBM25(
   // 对候选 chunk 分词并计 TF
   const tokenized = chunks.map((c) => ({
     id: c.id,
-    terms: tokenizeChinese(c.text),
+    terms: tokenizeForBM25(c.text),
     len: c.text.length,
   }));
 
@@ -363,7 +348,7 @@ async function retrieveBM25Chinese(
   // 分词所有 query，合并去重
   const allTerms = new Set<string>();
   for (const q of queries) {
-    for (const t of tokenizeChinese(q)) allTerms.add(t);
+    for (const t of tokenizeForBM25(q)) allTerms.add(t);
   }
   const terms = [...allTerms].slice(0, 30); // 最多 30 个 term
 
@@ -395,7 +380,7 @@ async function retrieveBM25Chinese(
   // 多 query 各自计分，同一 chunk 取最高分
   const bestScores = new Map<string, number>();
   for (const q of queries) {
-    const qTerms = tokenizeChinese(q);
+    const qTerms = tokenizeForBM25(q);
     const scores = computeBM25(candidates, qTerms, N, avgdl, k1, b);
     for (const [id, score] of scores) {
       if ((bestScores.get(id) ?? 0) < score) bestScores.set(id, score);
@@ -429,7 +414,7 @@ async function retrieveBM25Chinese(
  * BM25 中文分词 + Dense Vector 混合检索（RRF 融合）。
  *
  * 与 hybrid-rrf 的区别：稀疏路从 pg tsvector（对中文无效）换成了
- * tokenizeChinese + computeBM25，真正支持中文关键词匹配。
+ * tokenizeForBM25（jieba）+ computeBM25，真正支持中文关键词匹配。
  *
  * 流程：
  * 1. 并行跑 dense-vector（topK*2，threshold=0）和 bm25-chinese（topK*2）

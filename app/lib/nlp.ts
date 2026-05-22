@@ -102,6 +102,22 @@ export function tokenizeToSet(
 }
 
 /**
+ * BM25 专用分词器：jieba 分词，**不过滤停用词**，保留最小词长 2。
+ *
+ * 为什么 BM25 不需要过滤停用词？
+ *   BM25 的 IDF 项会自动对高频词（"的"、"了"、"支持"）给予极低权重，
+ *   因为它们出现在几乎所有文档中，df 接近 N，IDF ≈ log(1) = 0。
+ *   人为过滤反而会导致 term 集合不完整，影响 IDF 计算准确性。
+ *
+ * 与 tokenize(text, removeStop=true) 的区别：
+ *   tokenize         → 用于关键词提取、Metadata Boost（需要有实义词）
+ *   tokenizeForBM25  → 用于 BM25 检索（保留全部词，让 IDF 自然压制无意义词）
+ */
+export function tokenizeForBM25(text: string): string[] {
+  return tokenize(text, false, 2);
+}
+
+/**
  * 基于 TF（词频）的关键词提取，使用 jieba 分词 + 停用词过滤。
  *
  * 局限：纯 TF 没有 IDF，高频词（"产品"）可能仍然排前。
