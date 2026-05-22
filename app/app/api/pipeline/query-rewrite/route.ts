@@ -89,22 +89,26 @@ function rewriteRuleExpansion(
 
   const variants: string[] = [query];
 
+  // 中文优先：中文 token 之间无需空格，英文 token 保留空格
+  const isChinese = (s: string) => /[一-鿿㐀-䶿]/.test(s);
+  const tokenSep = tokens.length > 0 && isChinese(tokens[0]) ? "" : " ";
+
   // 关键词直接拼接（更精确）
-  const keywordsOnly = tokens.slice(0, 4).join(" ");
+  const keywordsOnly = tokens.slice(0, 4).join(tokenSep);
   if (keywordsOnly !== query.trim() && variants.length < maxQueries) {
     variants.push(keywordsOnly);
   }
 
   // 功能/特点扩展
   if (variants.length < maxQueries) {
-    variants.push(`${tokens[0]} 功能特点优势`);
+    variants.push(`${tokens[0]}功能特点优势`);
   }
 
   // 受众视角扩展
   if (variants.length < maxQueries && targetAudience) {
     variants.push(`${targetAudience}使用${tokens.slice(0, 2).join("")}的场景`);
   } else if (variants.length < maxQueries && tokens.length > 1) {
-    variants.push(`如何使用 ${tokens.slice(0, 2).join(" ")}`);
+    variants.push(`如何使用${tokens.slice(0, 2).join(tokenSep)}`);
   }
 
   return {

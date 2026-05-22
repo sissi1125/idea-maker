@@ -86,9 +86,23 @@ function findSourceRef(charStart: number, sourceRefs: SourceRef[]): string {
   return best;
 }
 
-/** 近似 token 估算（chars / 4），对中英文混合文本误差在 ±20% 以内 */
+/**
+ * 近似 token 估算。
+ *
+ * ⚠️ 中文优先注意：
+ *   - 英文：~4 chars/token → chars/4
+ *   - 中文：1-2 chars/token（tiktoken cl100k_base）→ chars/1.5 更准确
+ *   - 中英混合：取折中 chars/2
+ *
+ * 检测文本中中文字符占比，自动选择估算比例。
+ * 最终解决方案：用 js-tiktoken 替代此函数（feat-009 待办项 #1）。
+ */
 function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+  const zhChars = (text.match(/[一-鿿㐀-䶿]/g) ?? []).length;
+  const zhRatio = zhChars / Math.max(text.length, 1);
+  // 中文占比 > 50%：按 chars/1.5；其余：按 chars/3（中英混合折中）
+  const divisor = zhRatio > 0.5 ? 1.5 : 3;
+  return Math.ceil(text.length / divisor);
 }
 
 function buildStats(chunks: Chunk[], warnings: string[]): ChunkOutput {
@@ -157,8 +171,10 @@ function chunkFixedSize(
  *   给定一组分隔符（优先级从高到低），找到当前 text 中第一个出现的高优先级分隔符，
  *   以它为边界切分；如果某段仍然 > chunkSize，继续用下一级分隔符递归切分。
  *
- * 默认分隔符顺序：["\n\n", "\n", " ", ""]（段落 → 换行 → 词 → 字符）。
- * 这样能尽量在语义边界（段落、句子）处断开，而非在词中间。
+ * 默认分隔符顺序：["\n\n", "\n", "。", "！", "？", "；", " ", ""]
+ *   段落 → 换行 → 中文句终标点 → 空格（英文词）→ 字符
+ *
+ * 中文优先：在 "\n" 之后加入 "。！？；"，避免中文段落因无空格而退化到字符级切分。
  *
  * overlap 通过在相邻 chunk 之间保留末尾片段实现。
  */
@@ -172,8 +188,9 @@ function chunkRecursive(
   // 支持 JSON array 或逗号分隔字符串两种来源
   let separators = params.separators;
   if (!Array.isArray(separators) || separators.length === 0) {
-    separators = ["\n\n", "\n", " ", ""];
-    warnings.push("separators 为空，使用默认值 [段落, 换行, 空格, 字符]");
+    // 中文优先：包含中文句终标点，避免中文文本退化到字符级切分
+    separators = ["\n\n", "\n", "。", "！", "？", "；", " ", ""];
+    warnings.push("separators 为空，使用默认值 [段落, 换行, 中文句终标点, 空格, 字符]");
   }
 
   // 将 JSON 转义的 \\n 还原为真实换行符
@@ -474,7 +491,7 @@ export async function POST(req: NextRequest) {
           headingDepth,
           chunkSize,
           overlap,
-          separators: (params?.separators as string[]) ?? ["\n\n", "\n", " ", ""],
+          separators: (params?.separators as string[]) ?? ["\n\n", "\n", "。", "！", "？", "；", " ", ""],
           minChunkSize,
         });
         break;
@@ -483,7 +500,7 @@ export async function POST(req: NextRequest) {
         result = chunkRecursive(cleanText, sourceRefs, {
           chunkSize,
           overlap,
-          separators: (params?.separators as string[]) ?? ["\n\n", "\n", " ", ""],
+          separators: (params?.separators as string[]) ?? ["\n\n", "\n", "。", "！", "？", "；", " ", ""],
           minChunkSize,
         });
         break;

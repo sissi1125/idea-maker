@@ -120,8 +120,10 @@ async function retrieveDense(
   const topK = Number(params.topK ?? 10);
   const threshold = Number(params.threshold ?? 0.5);
   const provider = String(params.embeddingProvider ?? "openai");
-  const model = String(params.embeddingModel ?? "text-embedding-3-small");
-  const dimension = Number(params.embeddingDimension ?? 1536);
+  // 中文优先：代码级默认与 stageRegistry / providers.ts 保持一致（Qwen text-embedding-v4，1024 维）
+  // ⚠️  query embedding 必须与 ingestion 时使用的模型完全一致，否则向量空间不匹配，相似度无意义
+  const model = String(params.embeddingModel ?? "text-embedding-v4");
+  const dimension = Number(params.embeddingDimension ?? 1024);
   const apiKey = typeof params.apiKey === "string" ? params.apiKey : undefined;
   const teiEndpoint = typeof params.teiEndpoint === "string" ? params.teiEndpoint : undefined;
 

@@ -170,7 +170,7 @@ const registry: StageDef[] = [
         params: [
           { key: "chunkSize", label: "Chunk 大小", type: "number", default: 512, min: 64, max: 4096 },
           { key: "overlap", label: "重叠字符数", type: "number", default: 64, min: 0, max: 512 },
-          { key: "separators", label: "分隔符 (JSON 数组)", type: "json", default: ["\\n\\n", "\\n", " ", ""], hint: "按优先级排列" },
+          { key: "separators", label: "分隔符 (JSON 数组)", type: "json", default: ["\\n\\n", "\\n", "。", "！", "？", "；", " ", ""], hint: "按优先级排列" },
           { key: "minChunkSize", label: "最小 Chunk 大小", type: "number", default: 64, min: 0 },
         ],
       },
@@ -198,7 +198,7 @@ const registry: StageDef[] = [
           { key: "headingDepth", label: "标题深度 (1-6)", type: "number", default: 2, min: 1, max: 6 },
           { key: "chunkSize", label: "最大 Chunk 大小", type: "number", default: 512, min: 64, max: 8192, hint: "短章节整章保留；超过此值时用 recursive 切分" },
           { key: "overlap", label: "重叠字符数（recursive 降级时生效）", type: "number", default: 64, min: 0, max: 512 },
-          { key: "separators", label: "分隔符 (JSON 数组)", type: "json", default: ["\\n\\n", "\\n", " ", ""], hint: "recursive 降级时的分隔符优先级" },
+          { key: "separators", label: "分隔符 (JSON 数组)", type: "json", default: ["\\n\\n", "\\n", "。", "！", "？", "；", " ", ""], hint: "recursive 降级时的分隔符优先级" },
           { key: "minChunkSize", label: "最小 Chunk 大小", type: "number", default: 64, min: 0, hint: "recursive 降级时过滤过小片段" },
         ],
       },
@@ -250,8 +250,8 @@ const registry: StageDef[] = [
         id: "hf-tei-embedding",
         label: "HuggingFace TEI Embedding",
         params: [
-          { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-small-en-v1.5", placeholder: "HF model ID" },
-          { key: "dimension", label: "向量维度", type: "number", default: 384, min: 64, max: 4096 },
+          { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-m3", placeholder: "中文推荐: BAAI/bge-m3（多语言）｜纯中文: BAAI/bge-small-zh-v1.5" },
+          { key: "dimension", label: "向量维度", type: "number", default: 1024, min: 64, max: 4096 },
           { key: "batchSize", label: "批大小", type: "number", default: 32, min: 1, max: 512 },
           {
             key: "endpoint",
@@ -266,7 +266,7 @@ const registry: StageDef[] = [
         id: "hf-transformers-js-embedding",
         label: "HF Transformers.js (本地)",
         params: [
-          { key: "model", label: "模型 ID", type: "text", default: "Xenova/all-MiniLM-L6-v2" },
+          { key: "model", label: "模型 ID", type: "text", default: "Xenova/multilingual-e5-small", placeholder: "中文推荐: Xenova/multilingual-e5-small｜多语言: Xenova/paraphrase-multilingual-MiniLM-L12-v2" },
           { key: "dimension", label: "向量维度", type: "number", default: 384, min: 64, max: 4096 },
           { key: "batchSize", label: "批大小", type: "number", default: 16, min: 1, max: 128 },
         ],
@@ -501,7 +501,7 @@ const registry: StageDef[] = [
         id: "hf-tei-rerank",
         label: "HF TEI Rerank",
         params: [
-          { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-reranker-base" },
+          { key: "model", label: "模型 ID", type: "text", default: "BAAI/bge-reranker-v2-m3", hint: "中文优先：使用多语言版 v2-m3；bge-reranker-base 为英文优先，中文产品文档会有 domain mismatch" },
           { key: "rerankTopN", label: "重排取 Top N", type: "number", default: 5, min: 1, max: 50 },
           { key: "endpoint", label: "TEI Endpoint（可选）", type: "text", default: "", placeholder: "留空则读取 HF_TEI_ENDPOINT 环境变量" },
         ],

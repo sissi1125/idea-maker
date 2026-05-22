@@ -16,7 +16,7 @@
  * 环境变量优先级（Embedding）：
  *   表单 apiKey → EMBEDDING_API_KEY → LLM_API_KEY → OPENAI_API_KEY
  *   表单 baseUrl → EMBEDDING_BASE_URL → LLM_BASE_URL → （无，使用 OpenAI 默认）
- *   EMBEDDING_MODEL → 默认 "text-embedding-3-small"
+ *   EMBEDDING_MODEL → 默认 "text-embedding-v4"（Qwen，中文优先）
  *   EMBEDDING_DIMENSION → 默认 1536
  *
  * 示例 .env.local（Qwen）：
@@ -117,8 +117,10 @@ export async function createEmbeddingClient(
     process.env.LLM_BASE_URL ||
     undefined;
 
-  const defaultModel = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
-  const defaultDimension = parseInt(process.env.EMBEDDING_DIMENSION || "1536", 10);
+  // 中文优先：默认使用 Qwen text-embedding-v4（中文优化，1024 维）
+  // 如需 OpenAI 请在 .env.local 显式设置 EMBEDDING_MODEL=text-embedding-3-small
+  const defaultModel = process.env.EMBEDDING_MODEL || "text-embedding-v4";
+  const defaultDimension = parseInt(process.env.EMBEDDING_DIMENSION || "1024", 10);
 
   const client = new OpenAIClass({
     apiKey,

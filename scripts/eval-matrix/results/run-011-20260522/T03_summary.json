@@ -1,0 +1,92 @@
+{
+  "testId": "T03",
+  "label": "pipeline-rerank / bge-reranker-v2-m3（组合重排）",
+  "status": "partial",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "块式编辑器支持哪些内容块类型？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5278666666666666,
+        "retrievedCount": 10,
+        "avgScore": 0.50525,
+        "ideaCount": 5,
+        "durationMs": 41854.666666666664
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.9725,
+        "retrievedCount": 10,
+        "avgScore": 0.69399,
+        "ideaCount": 3,
+        "durationMs": 39535.666666666664
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "用户可以通过哪些系统入口快速进入 Bloomnote？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8428,
+        "retrievedCount": 10,
+        "avgScore": 0.7313699999999999,
+        "ideaCount": 4,
+        "durationMs": 44416.666666666664
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的整体设计风格和主题色方案是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.28049999999999997,
+        "retrievedCount": 10,
+        "avgScore": 0.41086,
+        "ideaCount": 3,
+        "durationMs": 40480.666666666664
+      }
+    },
+    {
+      "queryId": "Q5",
+      "query": "免费用户和 Pro 用户在功能权益上有哪些区别？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.7139000000000001,
+        "retrievedCount": 10,
+        "avgScore": 0.53829,
+        "ideaCount": 3,
+        "durationMs": 56377.666666666664
+      }
+    },
+    {
+      "queryId": "Q6",
+      "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+      "status": "failed",
+      "error": "generation 失败 [500]: llm_failed — Connection error."
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.8,
+    "citationCoverage": 1,
+    "confidenceScore": 0.6675133333333334,
+    "retrievedCount": 10,
+    "avgScore": 0.575952,
+    "ideaCount": 3.6,
+    "totalDurationMs": 222665.3333333333
+  }
+}
