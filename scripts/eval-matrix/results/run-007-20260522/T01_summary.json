@@ -1,0 +1,100 @@
+{
+  "testId": "T01",
+  "label": "recursive/512（基准）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "这个产品的目标用户是谁，解决什么问题？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.1444,
+        "retrievedCount": 8,
+        "avgScore": 0.42895,
+        "ideaCount": 6,
+        "durationMs": 52842.166666666664
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "产品支持哪些 embedding 和检索方式？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.3285333333333334,
+        "retrievedCount": 8,
+        "avgScore": 0.5037999999999999,
+        "ideaCount": 3,
+        "durationMs": 46481.166666666664
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "如何用这个工具生成营销内容 idea？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8941666666666667,
+        "retrievedCount": 8,
+        "avgScore": 0.4927125,
+        "ideaCount": 3,
+        "durationMs": 37454.166666666664
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的核心设计原则是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.35873333333333335,
+        "retrievedCount": 8,
+        "avgScore": 0.3584125,
+        "ideaCount": 3,
+        "durationMs": 53659.166666666664
+      }
+    },
+    {
+      "queryId": "Q5",
+      "query": "支持哪些文档格式上传，如何处理重复导入？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5029,
+        "retrievedCount": 8,
+        "avgScore": 0.3823625,
+        "ideaCount": 5,
+        "durationMs": 42513.166666666664
+      }
+    },
+    {
+      "queryId": "Q6",
+      "query": "产品分哪些阶段演进，各阶段的核心目标是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.7468333333333333,
+        "retrievedCount": 8,
+        "avgScore": 0.5559,
+        "ideaCount": 4,
+        "durationMs": 54952.166666666664
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.611111111111111,
+    "citationCoverage": 1,
+    "confidenceScore": 0.4959277777777778,
+    "retrievedCount": 8,
+    "avgScore": 0.45368958333333337,
+    "ideaCount": 4,
+    "totalDurationMs": 287902
+  }
+}
