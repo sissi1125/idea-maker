@@ -27,6 +27,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import type { RetrievalOutput, MatchedChunk } from "../retrieval/route";
+import { tokenizeToSet } from "@/lib/nlp";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -125,11 +126,17 @@ function filterByMetadata(
  * Jaccard 词集重叠度：|A ∩ B| / |A ∪ B|
  * 替代向量余弦相似度，不需要原始 embedding。
  */
+/**
+ * Jaccard 词集重叠度：|A ∩ B| / |A ∪ B|
+ *
+ * 使用 lib/nlp.ts 的 jieba 分词（中文优先），替换原来的空格/标点切分。
+ * 修复前：中文无空格，整句变 1 个 token，两个语义相似的 chunk 往往 Jaccard=0，
+ *         MMR 误认为它们完全不同，无法有效去重。
+ * 修复后：jieba 切出词粒度 token，"设计风格"/"色彩方案"这类词组可被正确计算重叠度。
+ */
 function jaccardOverlap(a: string, b: string): number {
-  const tokenize = (s: string) =>
-    new Set(s.toLowerCase().split(/[\s，。？！、；：\?!,.:;()\n]+/).filter((t) => t.length > 1));
-  const setA = tokenize(a);
-  const setB = tokenize(b);
+  const setA = tokenizeToSet(a, false); // removeStop=false：保留所有词，相似度计算不需要去停用词
+  const setB = tokenizeToSet(b, false);
   const intersection = [...setA].filter((t) => setB.has(t)).length;
   const union = new Set([...setA, ...setB]).size;
   return union === 0 ? 0 : intersection / union;
@@ -230,11 +237,16 @@ function filterCombined(
   const maxScore = Math.max(...current.map((m) => m.score), 1e-9);
   const normalize = (s: number) => s / maxScore;
 
+  // 修复：filterCombined 之前缺少 maxPerDocument 检查（filterByMMR 有，这里漏了）
+  const perDocCount = new Map<string, number>();
+
   while (remaining.length > 0 && selected.length < finalTopK) {
     let bestIdx = -1;
     let bestMmr = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
       const m = remaining[i];
+      // maxPerDocument 约束：同一文档最多贡献 maxPerDocument 个 chunk
+      if ((perDocCount.get(m.documentId) ?? 0) >= maxPerDocument) continue;
       const relevance = normalize(m.score);
       const maxSim = selected.length === 0
         ? 0
@@ -244,6 +256,7 @@ function filterCombined(
     }
     if (bestIdx === -1) break;
     const chosen = remaining.splice(bestIdx, 1)[0];
+    perDocCount.set(chosen.documentId, (perDocCount.get(chosen.documentId) ?? 0) + 1);
     selected.push({ ...chosen, filteredRank: selected.length + 1 });
   }
 

@@ -31,42 +31,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
 import type { FilterOutput, FilteredChunk } from "../filter/route";
-import { Jieba } from "@node-rs/jieba";
+import { tokenizeToSet } from "@/lib/nlp";
 
-// ─── 中文分词单例 ──────────────────────────────────────────────────────────────
-// @node-rs/jieba：Rust binding，支持 ARM64/x64，无需 node-gyp 编译。
-// 在 module 级别初始化一次，避免每次 API 调用重复构造（jieba 词典加载有成本）。
-//
-// 为什么用 jieba 而不是手写 bigram？
-//   - 中文没有空格，简单的空格/标点切分会把整句话变成 1 个 token，关键词匹配完全失效
-//   - jieba 的 HMM 模式能识别"设计风格"、"主题色"等词组，比 bigram 更精准
-const jieba = new Jieba();
-
-// 中文停用词（高频但无实义的词，排除后避免干扰关键词匹配）
-const STOP_WORDS = new Set([
-  "的","了","和","是","在","有","与","或","等","如","用","可","为","都","也",
-  "其","但","到","又","还","以","就","被","让","把","从","对","向","这","那",
-  "个","一","不","什么","哪些","如何","怎么","哪个","是否",
-]);
+// jieba 单例、停用词表、分词逻辑统一在 lib/nlp.ts 管理，此处直接使用封装函数。
+// 不再本地维护副本，避免三份停用词表发散的历史问题。
 
 /**
- * 提取 query 中的有效关键词 token 集合。
- * 同时支持中文（jieba 分词）和英文/数字（空格切分），适用于混合文本。
- *
- * 面试考点：为什么 RAG 里的关键词抽取不能直接 split(" ")？
- *   中文文本没有显式的词边界标记，必须通过统计/词典模型推断词的边界。
- *   jieba 基于前缀词典 + HMM 进行最大概率路径切分，是 Node.js 中最成熟的开源方案。
+ * 提取 query 中的有效关键词 token 集合（用于 Metadata Boost 关键词匹配）。
+ * 委托给 lib/nlp.ts 的 tokenizeToSet，确保与其他 stage 使用相同的分词逻辑。
  */
 function extractQueryTokens(query: string): Set<string> {
-  const tokens = new Set<string>();
-  // jieba cut with HMM=true（启用未登录词识别，对产品文档中的新词更友好）
-  for (const word of jieba.cut(query, true)) {
-    const w = word.trim();
-    if (w.length >= 2 && !STOP_WORDS.has(w)) {
-      tokens.add(w.toLowerCase());
-    }
-  }
-  return tokens;
+  return tokenizeToSet(query);
 }
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────

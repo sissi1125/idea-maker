@@ -27,6 +27,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
+import { tokenize } from "@/lib/nlp";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -38,14 +39,7 @@ export interface QueryRewriteOutput {
   warnings: string[];
 }
 
-// ─── 中文停用词（用于关键词提取）────────────────────────────────────────────
-
-const STOP_WORDS = new Set([
-  "的","了","是","在","我","有","和","就","不","人","都","一","一个","上",
-  "也","很","到","说","要","去","你","会","着","没有","看","好","自己","这",
-  "那","它","他","她","们","什么","怎么","如何","哪些","哪个","有什么",
-  "介绍","请问","帮我","告诉",
-]);
+// 停用词统一由 lib/nlp.ts 管理，本文件不再维护本地副本。
 
 // ─── none ─────────────────────────────────────────────────────────────────────
 
@@ -76,11 +70,8 @@ function rewriteRuleExpansion(
 ): QueryRewriteOutput {
   const warnings: string[] = [];
 
-  // 分词：按标点、空格切分，过滤停用词
-  const tokens = query
-    .split(/[\s，。？！、；：""''【】（）\?!,.:;()\n]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
+  // 使用 jieba 分词 + 停用词过滤（lib/nlp.ts），正确处理中文词边界
+  const tokens = tokenize(query);
 
   if (tokens.length === 0) {
     warnings.push("未提取到有效关键词，返回原查询");

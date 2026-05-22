@@ -28,6 +28,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { extractKeywords as nlpExtractKeywords } from "@/lib/nlp";
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
 
@@ -145,50 +146,16 @@ function transformHeadingContext(
 
 // ─── summary-keywords ─────────────────────────────────────────────────────────
 
-/**
- * 停用词表（中英文常见高频词，不携带语义）。
- * 生产环境可替换为更完整的词库（jieba / stopwords-zh）。
- */
-const STOP_WORDS = new Set([
-  // 中文停用词
-  "的", "了", "在", "是", "我", "有", "和", "就", "不", "人", "都", "一", "一个",
-  "上", "也", "很", "到", "说", "要", "去", "你", "会", "着", "没有", "看", "好",
-  "自己", "这", "那", "他", "她", "它", "我们", "你们", "他们", "这个", "那个",
-  "可以", "但是", "因为", "所以", "如果", "虽然", "然后", "并且", "或者", "而且",
-  // 英文停用词
-  "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-  "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
-  "of", "in", "on", "at", "to", "for", "with", "by", "from", "as", "it",
-  "this", "that", "these", "those", "and", "or", "but", "not", "no",
-]);
+// 停用词统一由 lib/nlp.ts 管理（stopword 包 zho+eng + 产品文档领域词，共 500+ 词）。
+// 本文件不再维护本地副本，避免多处发散。
 
 /**
- * 基于词频的关键词提取（TF，无 IDF）。
- *
- * 步骤：
- *  1. 按空白/标点分词（不依赖 jieba 等外部分词器）
- *  2. 过滤停用词和短词（< 2 字符）
- *  3. 按词频降序取 topN
- *
- * 局限：中文分词不准（按字符/空格切分），关键词质量低于 jieba。
- * 生产环境应集成分词器；此处作为演示和测试用途。
+ * 关键词提取：委托给 lib/nlp.ts（jieba 分词 + 停用词过滤 + 词频排序）。
+ * 原手写版使用空格/标点切分，中文整句变 1 个 token，关键词质量极低。
+ * 现使用 jieba 后中文词组可被正确识别（"设计风格"、"主题色方案"）。
  */
 function extractKeywords(text: string, topN: number): string[] {
-  const freq: Map<string, number> = new Map();
-  // 用空白和标点分词（兼容中英文混合）
-  const tokens = text
-    .split(/[\s　，。！？、；：""''（）【】\[\],.!?;:()\-\/\\]+/)
-    .map((t) => t.trim().toLowerCase())
-    .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
-
-  for (const token of tokens) {
-    freq.set(token, (freq.get(token) ?? 0) + 1);
-  }
-
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topN)
-    .map(([word]) => word);
+  return nlpExtractKeywords(text, topN);
 }
 
 /**

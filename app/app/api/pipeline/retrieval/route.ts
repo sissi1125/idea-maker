@@ -33,6 +33,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 import { createEmbeddingClient, embedSingleText } from "@/lib/providers";
 import type { QueryRewriteOutput } from "../query-rewrite/route";
+import { tokenize } from "@/lib/nlp";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -269,32 +270,21 @@ async function retrieveHybridRRF(
 // ─── bm25-chinese ─────────────────────────────────────────────────────────────
 
 /**
- * 中文字符 bigram 分词器。
+ * 中文分词器（BM25 用途）。
  *
- * 原理：对连续中文字符序列做 2 字滑窗，对英文/数字做空格切词。
- * 例："北京天气怎么样" → ["北京","京天","天气","气怎","怎么","么样"]
+ * 已从手写 bigram 迁移到 lib/nlp.ts 的 jieba 分词。
  *
- * 生产场景建议换用 nodejieba 或 pg_jieba 以获得真正的词典分词。
- * 此实现零依赖，适合 playground 和教学演示。
+ * bigram 的问题：
+ *   "苹果手机" → ["苹果","果手","手机"]，"果手" 是噪声，会对无关文档产生假阳性匹配。
+ * jieba 的改进：
+ *   "苹果手机" → ["苹果","手机"]，词边界正确，BM25 匹配精度提升。
+ *
+ * BM25 中不需要过滤停用词（高频词的 IDF 自然接近 0），
+ * 但去掉单字噪声词有助于减少计算量，因此 removeStop=false，minLength=2。
  */
 function tokenizeChinese(text: string): string[] {
-  const terms = new Set<string>();
-  const lower = text.toLowerCase();
-  // 中文 bigram：提取连续汉字序列后滑窗取 2 字
-  const chineseSeqs = lower.match(/[一-鿿㐀-䶿]+/g) ?? [];
-  for (const seq of chineseSeqs) {
-    if (seq.length === 1) {
-      terms.add(seq);
-    } else {
-      for (let i = 0; i < seq.length - 1; i++) {
-        terms.add(seq.slice(i, i + 2));
-      }
-    }
-  }
-  // 英文/数字词（≥2 字符）
-  const words = lower.match(/[a-z0-9]{2,}/g) ?? [];
-  for (const w of words) terms.add(w);
-  return [...terms];
+  // removeStop=false：BM25 靠 IDF 压制高频词，不需要额外过滤
+  return tokenize(text, false, 2);
 }
 
 /**

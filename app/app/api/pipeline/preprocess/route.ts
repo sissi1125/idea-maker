@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDocument, getDocumentBuffer } from "@/lib/docStore";
+import isHtmlCheck from "is-html";
 // pdf-parse v1：纯 Node.js，无 web worker 依赖，直接 pdfParse(buffer) 返回 Promise
 // v2 在 Next.js server 端会找 pdfjs web worker 文件导致失败，故回退到 v1
 import pdfParse from "pdf-parse";
@@ -179,7 +180,8 @@ async function parseMarkitdownTs(
   const warnings: string[] = [];
   const isPdf = mimeType === "application/pdf" || mimeType === "application/x-pdf";
   const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || mimeType === "application/msword";
-  const isHtml = mimeType === "text/html" || (/<[a-z][\s\S]*>/i.test(rawContent) && !isPdf && !isDocx);
+  // is-html 包：专用 HTML 检测，避免 /<[a-z]/i 误判 TypeScript 泛型 Array<string> 等
+  const isHtml = mimeType === "text/html" || (!isPdf && !isDocx && isHtmlCheck(rawContent.slice(0, 2000)));
   const isMarkdown = mimeType === "text/markdown" || /^#{1,6}\s+.+/m.test(rawContent);
 
   // PDF：用 pdf-parse v1 提取文本（v1 纯 Node.js，无 web worker 依赖）
