@@ -1,6 +1,6 @@
 {
   "project": "Marketing RAG Playground",
-  "phase": "阶段 1：可调试 RAG Playground 闭环",
+  "phase": "阶段 2：RAG 质量评估与调参能力（收尾，feat-006 + feat-008）",
   "features": [
     {
       "id": "feat-001",

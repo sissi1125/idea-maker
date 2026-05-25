@@ -32,9 +32,22 @@
 
 ### 当前状态
 
-- 仍在工作树：`claude/plan-agent-roadmap`，基于 main HEAD `14c8778`。
+- 仍在工作树：`claude/plan-agent-roadmap`，已 rebase 到 main 最新（含 section-citation + experiment-4 数据）。
 - 仅文档变更，无代码改动。
 - 下一步：先收尾阶段 2（feat-006 + feat-008），再启动 feat-100 monorepo 骨架。
+
+### Harness 一致性检查（会话 17 末）
+
+执行了系统性一致性检查，已修复：
+
+- ✅ `feature_list.json` 顶层 `phase` 字段：`阶段 1` → `阶段 2：RAG 质量评估与调参能力（收尾）`
+- ✅ `AGENTS.md` 阶段范围引用：`feat-015 / feat-016~020` → 对齐实际编号 `feat-012.x / feat-013.x`，并新增阶段 2.5（feat-100~103）说明
+- ✅ 所有 50 个 feature 的 ID 唯一性、依赖完整性、status 合法性通过
+- ✅ AGENTS.md 列出的 12 个必需资产文件均存在
+
+**已知历史 debt（不是本次会话引入，留给后续 agent）**：
+- `.interview/` 缺面试题的 done feature：feat-002.1 / feat-002.2 / feat-002.3 / feat-002.4 / feat-009
+- 建议在启动下一个 feature 前补齐（AGENTS.md「面试题规则」要求每完成一个 feature 都要 3-5 道面试题）。
 
 ---
 
