@@ -1,0 +1,121 @@
+{
+  "testId": "T01",
+  "label": "chunk-citation 基线（仅命中 chunk 原文）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "块式编辑器支持哪些内容块类型？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5278666666666666,
+        "retrievedCount": 10,
+        "avgScore": 0.50525,
+        "ideaCount": 5,
+        "contextLength": 1732,
+        "avgEvidenceLength": 577,
+        "evidenceCount": 3,
+        "durationMs": 48407.5
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.9725,
+        "retrievedCount": 10,
+        "avgScore": 0.69399,
+        "ideaCount": 4,
+        "contextLength": 1783,
+        "avgEvidenceLength": 594,
+        "evidenceCount": 3,
+        "durationMs": 51790.5
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "用户可以通过哪些系统入口快速进入 Bloomnote？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8428,
+        "retrievedCount": 10,
+        "avgScore": 0.7313699999999999,
+        "ideaCount": 4,
+        "contextLength": 1749,
+        "avgEvidenceLength": 583,
+        "evidenceCount": 3,
+        "durationMs": 41073.5
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的整体设计风格和主题色方案是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.28049999999999997,
+        "retrievedCount": 10,
+        "avgScore": 0.41086,
+        "ideaCount": 3,
+        "contextLength": 1818,
+        "avgEvidenceLength": 606,
+        "evidenceCount": 3,
+        "durationMs": 46322.5
+      }
+    },
+    {
+      "queryId": "Q5",
+      "query": "免费用户和 Pro 用户在功能权益上有哪些区别？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.7139000000000001,
+        "retrievedCount": 10,
+        "avgScore": 0.53829,
+        "ideaCount": 4,
+        "contextLength": 1735,
+        "avgEvidenceLength": 578,
+        "evidenceCount": 3,
+        "durationMs": 53700.5
+      }
+    },
+    {
+      "queryId": "Q6",
+      "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.1564,
+        "retrievedCount": 10,
+        "avgScore": 0.47692999999999997,
+        "ideaCount": 3,
+        "contextLength": 1724,
+        "avgEvidenceLength": 575,
+        "evidenceCount": 3,
+        "durationMs": 50426.5
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.7222222222222222,
+    "citationCoverage": 1,
+    "confidenceScore": 0.5823277777777779,
+    "retrievedCount": 10,
+    "avgScore": 0.5594483333333333,
+    "ideaCount": 3.8333333333333335,
+    "contextLength": 1756.8333333333333,
+    "avgEvidenceLength": 585.5,
+    "evidenceCount": 3,
+    "totalDurationMs": 291721
+  }
+}
