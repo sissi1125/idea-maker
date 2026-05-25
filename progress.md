@@ -27,6 +27,10 @@
 
 feat-100.2 Wave 2：抽 `packages/rag-core` 纯库（把 ingestion / retrieval / generation 各 stage 的非 HTTP 部分从 `apps/web/app/api/pipeline/*/route.ts` 抽到 `packages/rag-core/src/`）。预计 1-2 周。**此阶段为冻结窗口起点**，需提前通知轨道 B 实验流仅调参不动算法核心代码。
 
+#### ⚠️ 轨道 B 同步提醒（重要）
+
+commit `83dfcbd` 已 fast-forward 合入 main。轨道 B（RAG 实验流）下次从 main rebase 时会面临 **`app/` → `apps/web/` 全量路径改动**——所有实验流分支上引用 `app/...` 的文件路径需手动改成 `apps/web/...`。建议轨道 B 在尽早完成一次 rebase（git mv 已保历史，`git log --follow` 仍可追溯），晚拖问题越大。
+
 ---
 
 ## 2026-05-25（会话 19 — Feature 编号约定调整：100+ 段位 = 架构/基础设施）
