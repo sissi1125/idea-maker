@@ -78,6 +78,32 @@
 
 目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。
 
+### 阶段 2.5：架构重构（基座升级，先于阶段 3）
+
+目标：把当前 Next.js 单体重构为「pnpm monorepo + 独立 NestJS 后端 + Next.js 前端 + 纯 RAG 库」清晰分层架构。**所有阶段 3-5 的开发都直接长在新架构上**，避免"在旧结构上写完再迁"的二次重写浪费。
+
+范围：
+
+- **RAG 作为独立模块**：抽到 `packages/rag-core` 纯 TS 库，无 HTTP/framework 依赖，可独立单元测试。
+- **Playground 降级为调试 UI**：从主入口降为 `/playground` 路由（仅作 RAG 阶段调试用途），与即将上线的 Marketing Studio（`/studio`）并列。
+- **前后端分离**：`apps/api`（NestJS）独立运行，`apps/web`（Next.js）只做 UI，二者通过 REST + zod 共享 schema 通信。
+- **pnpm monorepo**：`packages/rag-core` + `packages/shared-types` + `apps/web` + `apps/api`。
+- **渐进迁移策略**（4 个 Wave，每个 Wave 结束都保证现有 Playground 可用）：
+  - Wave 1: monorepo 骨架 + apps/web 迁移
+  - Wave 2: 抽 packages/rag-core 纯库 + shared-types
+  - Wave 3: 搭 NestJS 后端 + 5 端点迁移 + 双跑期（feature flag）
+  - Wave 4: 剩余端点迁完 + 清理 Next.js API 路由 + 部署调整
+
+交付标准：
+
+- `packages/rag-core` 有独立 vitest 单元测试可跑。
+- `apps/api` 启动后 `/api/swagger` 显示完整 OpenAPI 文档。
+- `apps/web` 完全不直接 import `apps/api` 的实现代码（只通过 fetch + shared-types）。
+- 完整 RAG pipeline 在分离架构下与重构前一致。
+- 关闭 `apps/api` 时，web 显示明确的 connection error（不静默 fallback）。
+
+
+
 范围：
 
 - 展示 chunk count、token estimate、chunk coverage 和 source coverage。

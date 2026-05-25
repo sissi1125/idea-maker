@@ -11,6 +11,12 @@
     ├─ feat-006  RAG Quality Evaluation        [todo]  ← 先收尾
     └─ feat-008  Eval Matrix CLI               [todo]  ← 先收尾
     ↓
+阶段 2.5：架构重构（基座升级，先于阶段 3）
+    ├─ feat-100  Wave 1: monorepo 骨架
+    ├─ feat-101  Wave 2: 抽 packages/rag-core 纯库
+    ├─ feat-102  Wave 3: 搭 NestJS 后端 + 5 端点迁移 + 双跑期
+    └─ feat-103  Wave 4: 迁完剩余 + 清理 + 部署调整
+    ↓
 阶段 3：Agent 自动化层
     ├─ feat-010  Pipeline Orchestration Agent  (Plan-and-Execute)
     │   ├─ 010.1 核心循环引擎
@@ -37,11 +43,104 @@
         └─ 013.5 Fly.io 部署
 ```
 
-**优先级原则**：先把阶段 2 的两个 todo 收尾，再进阶段 3。**不要把阶段 5 的 Auth 提前到阶段 3** —— Agent 层与 Auth 解耦能让两边都更聚焦。
+**优先级原则**：
+1. 先把阶段 2 的两个 todo 收尾。
+2. **再做阶段 2.5 架构重构**（feat-100~103）—— 后续所有代码都长在新结构上，避免二次重写浪费。
+3. **不要把阶段 5 的 Auth 提前到阶段 3** —— Agent 层与 Auth 解耦能让两边都更聚焦。
+
+---
+
+## 阶段 2.5：架构重构（基座升级）
+
+### 用户故事（开发者视角）
+> 作为长期维护这个项目的开发者，我希望 RAG 算法是独立纯库（可单测、可被 CLI/未来的 worker 复用），前后端有清晰分层（NestJS 后端 + Next.js 前端），Playground 降级为调试入口、Marketing Studio 成为主产品。这样后续 Agent / Studio / Auth 功能都能直接长在干净的架构上。
+
+### 目标结构
+
+```
+marketing-rag/                          ← repo root
+├── apps/
+│   ├── web/                            ← Next.js 前端（仅 UI + RSC pages）
+│   │   └── app/
+│   │       ├── (playground)/           ← 调试 UI（原 Playground）
+│   │       └── (studio)/               ← 主产品 UI（Marketing Studio，阶段 4 上线）
+│   └── api/                            ← NestJS 后端服务（独立部署）
+│       └── src/
+│           ├── pipeline/               ← RAG stage controllers（薄）
+│           ├── agent/                  ← Pipeline Agent / Content Agent（阶段 3）
+│           ├── studio/                 ← Marketing Studio 相关 API（阶段 4）
+│           └── auth/                   ← Lucia Auth（阶段 5）
+├── packages/
+│   ├── rag-core/                       ← 纯 TS RAG 库（无 HTTP/framework 依赖）
+│   └── shared-types/                   ← API DTOs（zod schema + 推导 TS 类型）
+├── services/
+│   └── pymupdf/                        ← 现有 Python sidecar，不动
+├── pnpm-workspace.yaml
+└── package.json
+```
+
+### 关键技术选型
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| Monorepo 工具 | **pnpm workspaces** | 比 npm/yarn workspaces 更省盘 + 严格 hoisting |
+| 后端框架 | **NestJS** | Module/Controller/Service 强结构化 + 内置 DI + Swagger 自动生成 + 企业级背书 |
+| 前端 | **Next.js**（保留） | App Router + RSC，studio 页面适合 SSR |
+| 共享类型 | **zod schema + 推导** | 一份 schema 同时做后端校验、前端表单、TS 类型 |
+| API 协议 | **REST + zod 校验** | 与 NestJS 内置 ValidationPipe 配合好 |
+| Pure RAG lib | **packages/rag-core** | 无 HTTP / 无 framework / 无 Next.js 依赖，可独立单测，可被 CLI / API / 未来 worker 复用 |
+
+### 渐进迁移策略：4 个 Wave
+
+**不要一次性重写**。每个 Wave 结束都保证现有 Playground 仍可用。
+
+#### Wave 1 (feat-100, ~1 周)：建 monorepo 骨架
+- 根目录加 `pnpm-workspace.yaml`，改造 `package.json`
+- 把现有 `app/` 移动到 `apps/web/`，调整 imports
+- 创建空 `apps/api/`（NestJS init）、`packages/rag-core/`、`packages/shared-types/`
+- **验收**：`pnpm dev` 启动 web，pipeline 一切如旧
+
+#### Wave 2 (feat-101, ~1-2 周)：抽 rag-core 纯库
+- 把 ingestion / retrieval / generation 各 stage 的核心逻辑（**非 HTTP 部分**）抽到 `packages/rag-core/src/`
+- 例如：`packages/rag-core/src/ingestion/chunk.ts` 导出 `chunkText(text, params): ChunkResult`
+- Next.js routes 改为**薄路由**：仅参数解析 + 调 rag-core + 包装 trace
+- `packages/shared-types` 同步定义所有 DTOs（zod schema）
+- **验收**：rag-core 有独立 vitest 单测可跑，Playground 行为零回归
+
+#### Wave 3 (feat-102, ~1-2 周)：搭 NestJS 后端 + 双跑
+- `apps/api` 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）
+- 先迁 **5 个最简单端点**（document upload / chunk / embed / retrieve / generate）到 NestJS
+- web 通过 `NEXT_PUBLIC_API_URL` fetch 调用 NestJS
+- **双跑期**：Next.js routes 暂留作 fallback，feature flag `USE_NEST_API` 切换
+- **验收**：迁移端点可通过 NestJS + Swagger UI 调通
+
+#### Wave 4 (feat-103, ~1 周)：迁完剩余 + 清理
+- 剩余 ~15 个端点全部迁完
+- **删除** `apps/web/app/api/*`（playground 完全通过 NestJS）
+- 部署架构：`apps/web` + `apps/api` + `pymupdf` + Fly Postgres 多服务并存
+- **验收**：完整 RAG 链路在分离架构下通过
+
+### 总验收标准（整个阶段 2.5）
+
+- [ ] `packages/rag-core` 有独立 vitest 单元测试可跑
+- [ ] `apps/api` 启动后 `/api/swagger` 显示完整 OpenAPI 文档
+- [ ] `apps/web` 完全不直接 import `apps/api` 的实现代码（只通过 fetch + shared-types）
+- [ ] 跑通完整 RAG pipeline 效果与重构前一致
+- [ ] 关闭 `apps/api` 时 web 显示明确 connection error（不静默 fallback）
+
+### 简历亮点
+
+- **"为什么 monorepo？"** — packages/rag-core 类型与 apps/api、apps/web 同 PR 内同步演进；workspace 协议避免发包
+- **"为什么 NestJS 而不是 Express/Hono？"** — 需要 Module/Controller/Service/DI 强分层（面试好讲），DI 容器自带 + OpenAPI 自动生成，企业项目背书
+- **"为什么把 RAG 抽成纯库？"** — 解耦 framework，便于独立测试、CLI 复用、未来 worker 进程；面试能讲清"业务库 vs 传输层"边界
+- **"如何渐进迁移而不破坏现有功能？"** — Wave 1-4 分批 + 双跑期 + feature flag，每步验证再推进
+- **共享 zod schema 的好处** — 同一 schema 同时做后端校验 + 前端表单 + TS 类型，杜绝前后端 schema drift
 
 ---
 
 ## 阶段 3：Agent 自动化层
+
+> ⚠️ **架构基础**：以下所有文件路径均基于阶段 2.5 完成后的 monorepo + NestJS 结构。如果阶段 2.5 尚未完成，请先完成 feat-100~103。
 
 ### feat-010 Pipeline Orchestration Agent
 
@@ -50,23 +149,25 @@
 
 #### 设计核心：Plan-and-Execute
 
-**为什么不用 ReAct**：pipeline 顺序已由 `app/lib/pipelineDeps.ts` 的 `STAGE_DEPS` 图静态确定，无需 LLM 动态推理「下一步做什么」。用 ReAct 只会增加 token 消耗和不可预测性，违背可调试原则。
+**为什么不用 ReAct**：pipeline 顺序已由 rag-core 中的 `STAGE_DEPS` 图静态确定，无需 LLM 动态推理「下一步做什么」。用 ReAct 只会增加 token 消耗和不可预测性，违背可调试原则。
 
-**为什么客户端循环而非服务端**：Vercel serverless 默认 30s 超时，整条 pipeline 可能超时；客户端循环无此限制，且 `handleRun`（`PlaygroundShell.tsx`）逻辑已验证可用。
+**为什么服务端 + SSE 而非客户端循环**：阶段 2.5 重构后已有独立 NestJS 后端，agent 改为服务端 NestJS Service 运行 + SSE 推送进度，不再受 serverless 超时限制，且更利于日志、追踪、复用。
 
-#### 关键文件
+#### 关键文件（阶段 2.5 后的新路径）
 | 文件 | 改动 |
 |------|------|
-| `app/lib/pipelineAgent.ts` | **新增**：核心循环引擎 |
-| `app/components/agent/AutoRunModal.tsx` | **新增**：预运行配置 |
-| `app/components/agent/AgentProgressPanel.tsx` | **新增**：进度时间线 |
-| `app/components/playground/PlaygroundShell.tsx` | 修改：Header 加按钮 + 切换 panel |
-| `app/lib/pipelineDeps.ts` | 复用：`resolveEffectiveUpstream` / `isStageActive` |
-| `app/lib/pipelineStages.ts` | 复用：`PIPELINE_STAGES` 顺序列表 |
+| `apps/api/src/agent/pipeline-agent.service.ts` | **新增**：runPipeline async iterable，注入 RagCoreService |
+| `apps/api/src/agent/pipeline-agent.controller.ts` | **新增**：POST /start + GET /:runId/events（@Sse） |
+| `packages/shared-types/src/agent.ts` | **新增**：AgentRunConfig + AgentProgressEvent zod schema |
+| `apps/web/components/agent/AutoRunModal.tsx` | **新增**：预运行配置 Modal |
+| `apps/web/components/agent/AgentProgressPanel.tsx` | **新增**：通过 EventSource 订阅 SSE 流的进度时间线 |
+| `apps/web/components/playground/PlaygroundShell.tsx` | 修改：Header 加按钮 + 切换 panel |
+| `packages/rag-core/src/pipeline/deps.ts` | 复用：`resolveEffectiveUpstream` / `isStageActive` |
+| `packages/rag-core/src/pipeline/stages.ts` | 复用：`PIPELINE_STAGES` 顺序列表 |
 
 #### 核心类型
 ```typescript
-// app/lib/pipelineAgent.ts
+// apps/api/src/agent/pipeline-agent.service.ts
 
 export interface AgentRunConfig {
   documentId: string;
@@ -115,7 +216,7 @@ export async function* runPipeline(
 #### 工具集（4 个）
 
 ```typescript
-// app/lib/contentAgentTools.ts
+// packages/rag-core/src/agent/content-tools/*.ts
 
 // Tool 1: 生成 ideas
 async function generate_ideas(
@@ -166,7 +267,7 @@ async function suggest_angle(
 #### ReAct 循环逻辑
 
 ```typescript
-// app/lib/contentAgent.ts
+// apps/api/src/agent/content-agent.service.ts
 
 export async function* runContentAgent(config: ContentAgentConfig) {
   let angle = config.initialAngle;
@@ -213,11 +314,12 @@ export async function* runContentAgent(config: ContentAgentConfig) {
 #### 关键文件
 | 文件 | 改动 |
 |------|------|
-| `app/lib/contentAgentTools.ts` | **新增**：4 个独立工具函数 |
-| `app/lib/contentAgent.ts` | **新增**：ReAct 循环 |
-| `app/components/agent/ContentAgentPanel.tsx` | **新增**：迭代卡片 + 接管按钮 |
-| `app/lib/providers.ts` | 复用：LLM client |
-| `app/app/api/pipeline/generation/route.ts` | 复用：作为 generate_ideas 的底层实现 |
+| `packages/rag-core/src/agent/content-tools/{generate-ideas,evaluate-hook,evaluate-evidence,suggest-angle}.ts` | **新增**：4 个纯函数工具（可独立单测）|
+| `apps/api/src/agent/content-agent.service.ts` | **新增**：ReAct 循环引擎（NestJS Service）|
+| `apps/api/src/agent/content-agent.controller.ts` | **新增**：start + SSE events + accept 端点 |
+| `apps/web/components/agent/ContentAgentPanel.tsx` | **新增**：迭代卡片 + 接管按钮（订阅 SSE）|
+| `apps/api/src/providers/` | 复用：LLM client（依赖注入）|
+| `apps/api/src/pipeline/generation/` | 复用：作为 generate_ideas 的底层实现 |
 
 #### 验收标准
 - [ ] 给定一个有水分的产品文档，agent 至少能跑出 2 次迭代且评分递增
@@ -303,18 +405,19 @@ CREATE TABLE idea_feedback (
 CREATE INDEX idx_idea_feedback_run ON idea_feedback(run_id);
 ```
 
-#### 关键文件
+#### 关键文件（阶段 2.5 后的新路径）
 | 文件 | 改动 |
 |------|------|
-| `app/app/studio/[runId]/page.tsx` | **新增**：路由入口 |
-| `app/components/studio/IdeaBoardColumn.tsx` | **新增**：通用看板列 |
-| `app/components/studio/IdeaCard.tsx` | **新增**：含踩赞 |
-| `app/components/studio/PostExpansionDrawer.tsx` | **新增**：抽屉 |
-| `app/components/studio/PlatformMockup.tsx` | **新增**：CSS 手机框 |
-| `app/app/api/marketing/regenerate-idea/route.ts` | **新增** |
-| `app/app/api/marketing/expand-idea/route.ts` | **新增** |
-| `app/app/api/pipeline/generation/route.ts` | 修改：新增 `content-directions` method |
-| `app/lib/snapshotDb.ts` | 修改：加 `idea_feedback` 表 |
+| `apps/web/app/(studio)/studio/[runId]/page.tsx` | **新增**：路由入口（RSC 拉取 run 数据）|
+| `apps/web/components/studio/IdeaBoardColumn.tsx` | **新增**：通用看板列 |
+| `apps/web/components/studio/IdeaCard.tsx` | **新增**：含踩赞 |
+| `apps/web/components/studio/PostExpansionDrawer.tsx` | **新增**：抽屉 |
+| `apps/web/components/studio/PlatformMockup.tsx` | **新增**：纯 Tailwind 手机框 |
+| `apps/api/src/studio/regenerate-idea.controller.ts` | **新增**：POST /api/studio/regenerate-idea |
+| `apps/api/src/studio/expand-idea.controller.ts` | **新增**：POST /api/studio/expand-idea |
+| `apps/api/src/pipeline/generation/` | 修改：新增 `content-directions` method |
+| `apps/api/src/snapshot/` + `apps/api/src/db/schema.ts` | 修改：加 `idea_feedback` 表 |
+| `packages/shared-types/src/studio.ts` | **新增**：PostTemplate / ContentDirection / FeedbackSignal zod schema |
 
 #### 验收标准
 - [ ] Pipeline Agent 完成后能跳转到 `/studio/[runId]` 看到看板
@@ -349,12 +452,14 @@ CREATE INDEX idx_idea_feedback_run ON idea_feedback(run_id);
 - Refresh token：7 天，存 `user_sessions` 表
 - 防 XSS：禁用 localStorage 存 token
 
-**关键文件**：
+**关键文件（阶段 2.5 后的新路径）**：
 ```
-app/lib/auth.ts                    # Lucia 实例
-app/middleware.ts                  # validateRequest 注入
-app/app/auth/(login|signup)/page.tsx
-app/app/api/auth/{login,logout,signup,refresh}/route.ts
+apps/api/src/auth/auth.module.ts                # NestJS Auth Module
+apps/api/src/auth/auth.service.ts               # Lucia 实例 + session 管理
+apps/api/src/auth/auth.guard.ts                 # NestJS Guard
+apps/api/src/auth/auth.controller.ts            # login/logout/signup/refresh
+apps/web/middleware.ts                          # 仅做跳转保护（实际鉴权在 NestJS Guard）
+apps/web/app/(auth)/(login|signup)/page.tsx     # 前端表单
 ```
 
 #### feat-013.2 Workspace 多租户
@@ -377,7 +482,7 @@ app/app/api/auth/{login,logout,signup,refresh}/route.ts
 
 **加密存储**：
 ```typescript
-// app/lib/cryptoVault.ts
+// apps/api/src/crypto/vault.service.ts
 import crypto from "crypto";
 
 const VAULT_KEY = process.env.VAULT_KEY!;  // 32 字节 base64
@@ -394,7 +499,7 @@ export function encrypt(plaintext: string): { ciphertext: string; iv: string } {
 }
 ```
 
-**Provider 读取顺序**（修改 `providers.ts`）：
+**Provider 读取顺序**（修改 `apps/api/src/providers/`）：
 1. 用户在 form 里临时填入 → 优先（不持久化）
 2. 用户在 Settings 里保存的 DB key → 次之
 3. 系统 env var → fallback
@@ -466,10 +571,11 @@ app = "marketing-rag-playground"
 | 阶段 | feature | 周数（一人 part-time） |
 |------|---------|----------------------|
 | 收尾 | feat-006 + feat-008 | 1-2 周 |
+| 阶段 2.5 | feat-100~103 架构重构 | 4-5 周 |
 | 阶段 3 | feat-010 (Pipeline Agent) | 2-3 周 |
 | 阶段 3 | feat-011 (Content Agent) | 3-4 周 |
 | 阶段 4 | feat-012 (Marketing Studio) | 4-5 周 |
 | 阶段 5 | feat-013 (工程化) | 5-7 周 |
-| **合计** | | **~4 个月** |
+| **合计** | | **~5-6 个月** |
 
-按这个节奏推，3-4 个月后能拿到一个完整、可上线、可演示的简历项目。
+按这个节奏推，5-6 个月后能拿到一个完整、可上线、可演示的简历项目（含架构重构）。

@@ -2,7 +2,7 @@
 
 ## 最后更新
 
-2026-05-25（会话 16 — 阶段 3-5 路线图规划）
+2026-05-25（会话 17 — 架构重构作为阶段 2.5 插入）
 
 ## 项目
 
@@ -10,14 +10,25 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ## 本会话变更摘要
 
-工作树 `claude/plan-agent-roadmap`（从 main HEAD `14c8778` 切出）仅做规划与文档：
+仍在工作树 `claude/plan-agent-roadmap`（从 main HEAD `14c8778` 切出）。在会话 16 的路线图基础上**新增阶段 2.5：架构重构**：
 
-- 更新 `docs/PRODUCT.md` 阶段 2-5（重构合并）。
-- 更新 `AGENTS.md` 移除阶段硬约束、改为阶段感知。
-- `feature_list.json` 新增 19 条（feat-010 / 011 / 012 / 013 系列）。
-- 新建 `docs/ROADMAP_PHASE2_PLUS.md`（执行级实施计划）。
+- **`docs/PRODUCT.md`**：在阶段 2 和阶段 3 之间插入阶段 2.5 章节。
+- **`feature_list.json`**：新增 feat-100~103（架构重构 4 个 Wave）；更新 feat-010~013 系列描述与文件路径以引用新架构。feat-010 dependencies 增加 feat-103。
+- **`docs/ROADMAP_PHASE2_PLUS.md`**：新增阶段 2.5 完整章节；修订阶段 3-5 所有关键文件路径为新 monorepo 结构（apps/api/src/, apps/web/, packages/rag-core/）。
+- **架构关键决策**：
+  - pnpm monorepo（apps/web + apps/api + packages/rag-core + packages/shared-types）
+  - 后端：NestJS（Module/Controller/Service + DI + Swagger）
+  - Playground 降级为调试 UI（`apps/web/app/(playground)/`），与 Marketing Studio（`apps/web/app/(studio)/`）并列
+  - 渐进迁移：4 个 Wave + 双跑期 + feature flag
 
-**新阶段定位**：阶段 2 收尾（feat-006 / feat-008）→ 阶段 3（Agent 自动化层）→ 阶段 4（Marketing Studio UX）→ 阶段 5（工程化与生产部署）。详见 `docs/ROADMAP_PHASE2_PLUS.md`。
+**新阶段定位**：
+1. 阶段 2 收尾（feat-006 + feat-008）
+2. **阶段 2.5 架构重构（feat-100~103，~4-5 周）**
+3. 阶段 3 Agent 自动化（feat-010 + feat-011，基于 NestJS + SSE）
+4. 阶段 4 Marketing Studio（feat-012）
+5. 阶段 5 工程化（feat-013，Lucia Auth + 多租户 + BYOK + Drizzle + Fly.io）
+
+详见 `docs/ROADMAP_PHASE2_PLUS.md`。
 
 ## 当前状态
 

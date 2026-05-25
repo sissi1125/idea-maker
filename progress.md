@@ -1,5 +1,43 @@
 # 进度记录
 
+## 2026-05-25（会话 17 — 架构重构作为阶段 2.5 插入）
+
+### 已完成
+
+本会话基于会话 16 的路线图，新增**阶段 2.5：架构重构**作为基座升级，先于阶段 3 执行。
+
+#### 三个关键架构决策
+
+1. **RAG 作为独立模块** → 抽到 `packages/rag-core` 纯 TS 库（无 HTTP/framework 依赖，可独立单测）
+2. **前后端分离** → 独立 NestJS 后端（`apps/api`）+ Next.js 前端（`apps/web`），通过 REST + 共享 zod schema 通信
+3. **Playground 降级为调试 UI** → 与 Marketing Studio 并列存在于 `apps/web/app/(playground)/` 路由组
+
+#### 技术选型
+
+- Monorepo 工具：**pnpm workspaces**
+- 后端框架：**NestJS**（Module/Controller/Service 强分层 + 内置 DI + Swagger）
+- 共享类型：**zod schema + 推导**（一份 schema 同时做后端校验/前端表单/TS 类型）
+- 渐进迁移：**4 个 Wave** + 双跑期 + feature flag，避免一次性重写
+
+#### 变更
+
+- 更新 `docs/PRODUCT.md`：在阶段 2 和阶段 3 之间插入阶段 2.5 架构重构章节。
+- 扩展 `feature_list.json`：新增 4 条 feature（feat-100~103，4 个 Wave）。
+- 更新 `feature_list.json` 中 feat-010 / 011 / 012 / 013 系列的 description 和 dependencies，引用新架构路径（apps/api/src/, apps/web/, packages/rag-core/）。feat-010 dependencies 加入 feat-103。
+- 大幅更新 `docs/ROADMAP_PHASE2_PLUS.md`：
+  - 新增阶段 2.5 完整章节（目标结构图 / 技术选型 / 4 个 Wave 详细步骤 / 验收标准 / 简历亮点）
+  - 修订阶段 3-5 所有关键文件路径，从 `app/lib/*` `app/components/*` `app/app/api/*` 改为 `apps/api/src/*` `apps/web/components/*` `packages/rag-core/src/*`
+  - 更新排期估算：合计从 4 个月调整为 5-6 个月
+- 关键架构调整：阶段 3 Pipeline Agent 从「客户端循环」改为「服务端 NestJS Service + SSE」（NestJS 后端无 serverless 超时限制）。
+
+### 当前状态
+
+- 仍在工作树：`claude/plan-agent-roadmap`，基于 main HEAD `14c8778`。
+- 仅文档变更，无代码改动。
+- 下一步：先收尾阶段 2（feat-006 + feat-008），再启动 feat-100 monorepo 骨架。
+
+---
+
 ## 2026-05-25（会话 16 — 阶段 3-5 路线图规划）
 
 ### 已完成

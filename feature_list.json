@@ -278,19 +278,20 @@
     {
       "id": "feat-010",
       "name": "Pipeline Orchestration Agent",
-      "description": "把 12+ 个 stage 的手动操作自动化为一键运行。采用 Plan-and-Execute 模式，计划由 STAGE_DEPS 依赖图静态决定（非 LLM 推理）。客户端循环调用现有 handleRun，规避 Vercel 30s 超时。支持失败暂停 + 断点续跑 + Ingestion 后可选暂停检查点。",
+      "description": "把 12+ 个 stage 的手动操作自动化为一键运行。采用 Plan-and-Execute 模式，计划由 STAGE_DEPS 依赖图静态决定（非 LLM 推理）。**架构调整**：在 Phase 1.5 重构完成后，agent 改为服务端 NestJS Service 运行 + SSE 推送进度（不再走客户端循环），位于 apps/api/src/agent/。",
       "dependencies": [
         "feat-002.4",
         "feat-003.7",
-        "feat-005"
+        "feat-005",
+        "feat-103"
       ],
       "status": "epic",
       "evidence": "父级聚合 feat-010.1~010.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-010"
     },
     {
       "id": "feat-010.1",
-      "name": "Pipeline Agent 核心循环引擎",
-      "description": "新增 app/lib/pipelineAgent.ts：runPipeline(config, onProgress) async 生成器，按 PIPELINE_STAGES 顺序调用 resolveEffectiveUpstream + handleRun，每步 yield AgentProgressEvent { type, stageId, output, error, durationMs }。失败时进入 paused 态，提供 resume 钩子。",
+      "name": "Pipeline Agent 核心（NestJS Service + SSE）",
+      "description": "在 apps/api/src/agent/ 新增 pipeline-agent.service.ts（runPipeline(config): AsyncIterable<AgentProgressEvent>，注入 RagCoreService）和 pipeline-agent.controller.ts（POST /api/agent/pipeline/start 启动 run 返回 runId；GET /api/agent/pipeline/:runId/events 使用 NestJS @Sse() 装饰器推送事件流）。AgentRunConfig + AgentProgressEvent zod schema 定义在 packages/shared-types/src/agent.ts。",
       "dependencies": [
         "feat-010"
       ],
@@ -300,7 +301,7 @@
     {
       "id": "feat-010.2",
       "name": "AutoRun 入口与预运行配置 Modal",
-      "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（app/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
+      "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（apps/web/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
       "dependencies": [
         "feat-010.1"
       ],
@@ -309,8 +310,8 @@
     },
     {
       "id": "feat-010.3",
-      "name": "AgentProgressPanel 时间线",
-      "description": "新组件 app/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
+      "name": "AgentProgressPanel 时间线（SSE 订阅）",
+      "description": "新组件 apps/web/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。通过 EventSource 订阅后端 SSE 流（GET /api/agent/pipeline/:runId/events）。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
       "dependencies": [
         "feat-010.1"
       ],
@@ -330,8 +331,8 @@
     },
     {
       "id": "feat-011.1",
-      "name": "Content Agent 工具集（4 个工具）",
-      "description": "在 app/lib/contentAgentTools.ts 实现 4 个独立工具：(1) generate_ideas(angle, evidence, platform, format) → ContentIdea[]；(2) evaluate_hook(idea) → { score, dimensions, feedback }，双层评估（规则预检 + LLM 精评，prompt 扮演挑剔小红书用户）；(3) evaluate_evidence(idea, evidence) → { coverage, uncited_claims }；(4) suggest_angle(feedback, tried_angles[]) → { new_angle, rationale }，从角度库选未尝试角度。",
+      "name": "Content Agent 工具集（4 个纯函数工具）",
+      "description": "在 packages/rag-core/src/agent/content-tools/ 实现 4 个纯函数工具（无 HTTP / 可独立单测）：generate-ideas.ts / evaluate-hook.ts / evaluate-evidence.ts / suggest-angle.ts。evaluate-hook 双层评估：规则预检（0 token 过滤）+ LLM 精评（prompt 扮演挑剔小红书用户）。suggest-angle 从角度库选未尝试角度。",
       "dependencies": [
         "feat-011"
       ],
@@ -340,8 +341,8 @@
     },
     {
       "id": "feat-011.2",
-      "name": "Content Agent ReAct 循环引擎",
-      "description": "新增 app/lib/contentAgent.ts：runContentAgent(config, onProgress) async 生成器，循环上限 max_iterations=3，质量阈值 threshold=7。每次迭代 yield ContentAgentEvent。三重终止：score ≥ 7 / 达到 max / 用户接管。支持中途注入用户指定角度（manual_angle override）。",
+      "name": "Content Agent ReAct 循环引擎（NestJS Service）",
+      "description": "在 apps/api/src/agent/content-agent.service.ts 实现 runContentAgent(config): AsyncIterable<ContentAgentEvent>。注入 rag-core 工具函数。max_iterations=3，threshold=7。三重终止：score ≥ 7 / 达到 max / 用户 abort。POST /api/agent/content/start + GET /api/agent/content/:runId/events SSE + POST /api/agent/content/:runId/accept 接管端点。",
       "dependencies": [
         "feat-011.1"
       ],
@@ -351,7 +352,7 @@
     {
       "id": "feat-011.3",
       "name": "ContentAgentPanel UI",
-      "description": "新组件 app/components/agent/ContentAgentPanel.tsx：每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮 + 「手动指定角度」输入框。完成后跳转到 Marketing Studio（feat-012）。",
+      "description": "新组件 apps/web/components/agent/ContentAgentPanel.tsx：通过 EventSource 订阅 SSE 流，每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮（调 /accept 端点）+ 「手动指定角度」输入框。完成后跳转到 Marketing Studio。",
       "dependencies": [
         "feat-011.2"
       ],
@@ -371,7 +372,7 @@
     {
       "id": "feat-012.1",
       "name": "Studio 路由与四列看板布局",
-      "description": "新增 app/app/studio/[runId]/page.tsx：从 pipeline_run_history 加载 run 数据，渲染 IdeaBoardColumn 四列（卖点 / 方向 / Ideas / 扩展）。响应式布局（< 1280px 横向滚动）。复用现有 GenerationOutputPanel 的数据结构。",
+      "description": "新增 apps/web/app/(studio)/studio/[runId]/page.tsx：从 NestJS 端点拉取 run 数据，渲染 IdeaBoardColumn 四列（卖点 / 方向 / Ideas / 扩展）。响应式布局（< 1280px 横向滚动）。复用 packages/shared-types 定义的数据 schema。",
       "dependencies": [
         "feat-012"
       ],
@@ -381,7 +382,7 @@
     {
       "id": "feat-012.2",
       "name": "IdeaCard 踩赞反馈与重生成 API",
-      "description": "IdeaCard 组件支持踩 / 赞 + 可选「换角度」文本输入。新增 idea_feedback 表（run_id, idea_index, signal, angle_override, created_at）。新 API POST /api/marketing/regenerate-idea：复用 stage snapshot 的 evidence pack，仅重调 generation 端点，传入 excludeAngles + 用户角度提示，不重跑整条 pipeline。",
+      "description": "IdeaCard 组件支持踩 / 赞 + 可选「换角度」文本输入。新增 idea_feedback 表（run_id, idea_index, signal, angle_override, created_at）。新 NestJS 端点 POST /api/studio/regenerate-idea（apps/api/src/studio/）：复用 stage snapshot 的 evidence pack，仅重调 generation，传入 excludeAngles + 用户角度提示，不重跑整条 pipeline。",
       "dependencies": [
         "feat-012.1"
       ],
@@ -391,7 +392,7 @@
     {
       "id": "feat-012.3",
       "name": "Content Directions 中间层",
-      "description": "在卖点（what）和 idea（具体）之间增加战略角度层（how）。新增 generation method content-directions，输出 ContentDirection { directionName, description, targetPlatforms, exampleHook, sellingPointId, evidenceIds }。Studio 第二列展示，选中后过滤第三列 ideas。",
+      "description": "在卖点（what）和 idea（具体）之间增加战略角度层（how）。新增 generation method content-directions（在 apps/api/src/pipeline/generation/ 下扩展），输出 ContentDirection { directionName, description, targetPlatforms, exampleHook, sellingPointId, evidenceIds }。Studio 第二列展示，选中后过滤第三列 ideas。",
       "dependencies": [
         "feat-012.1"
       ],
@@ -401,7 +402,7 @@
     {
       "id": "feat-012.4",
       "name": "帖子扩展 API 与 PostTemplate 展示",
-      "description": "新 API POST /api/marketing/expand-idea：把单个 idea 扩展为完整 PostTemplate { hook, body[], cta, hashtags[], imagePrompt, evidenceIds, characterCount }。新组件 PostExpansionDrawer + PlatformMockup（纯 CSS 手机框，支持小红书 / Twitter / LinkedIn / 公众号四个平台模板），底部一键复制按钮。",
+      "description": "新 NestJS 端点 POST /api/studio/expand-idea（apps/api/src/studio/expand-idea.controller.ts）：把单个 idea 扩展为完整 PostTemplate { hook, body[], cta, hashtags[], imagePrompt, evidenceIds, characterCount }。前端新组件 PostExpansionDrawer + PlatformMockup（纯 Tailwind CSS 手机框，支持小红书 / Twitter / LinkedIn / 公众号四个平台模板），底部一键复制按钮。",
       "dependencies": [
         "feat-012.1"
       ],
@@ -420,8 +421,8 @@
     },
     {
       "id": "feat-013.1",
-      "name": "Lucia Auth 鉴权",
-      "description": "Lucia Auth v3 + PostgreSQL adapter（不用 NextAuth，因其在 App Router 配置复杂）。httpOnly cookie 存 session token，禁用 localStorage 防 XSS。新增 users / user_sessions 表。新增 app/lib/auth.ts、app/middleware.ts、app/app/auth/(login|signup)/page.tsx、app/app/api/auth/* 端点。",
+      "name": "Lucia Auth 鉴权（NestJS Module + 前端表单）",
+      "description": "Lucia Auth v3 + PostgreSQL adapter（不用 NextAuth）。httpOnly cookie 存 session token，禁用 localStorage 防 XSS。新增 users / user_sessions 表。后端：apps/api/src/auth/（auth.module.ts + auth.service.ts + auth.guard.ts + auth.controller.ts）。前端：apps/web/app/(auth)/(login|signup)/page.tsx + apps/web/middleware.ts（仅做跳转保护）。",
       "dependencies": [
         "feat-013"
       ],
@@ -431,7 +432,7 @@
     {
       "id": "feat-013.2",
       "name": "Workspace 多租户数据隔离",
-      "description": "应用层 Row-level isolation（不用 PostgreSQL RLS，减少复杂度）。新增 workspaces 表，在 rag_documents / rag_chunks / stage_snapshots / pipeline_run_history / idea_feedback 全部加 workspace_id NOT NULL 列。所有 API route 从 session 解析 workspace_id 注入查询。",
+      "description": "应用层 Row-level isolation（不用 PostgreSQL RLS）。新增 workspaces 表，在 rag_documents / rag_chunks / stage_snapshots / pipeline_run_history / idea_feedback 全部加 workspace_id NOT NULL 列。用 NestJS Interceptor 统一从 session 解析 workspace_id 注入到所有 Service 的查询上下文。",
       "dependencies": [
         "feat-013.1"
       ],
@@ -441,7 +442,7 @@
     {
       "id": "feat-013.3",
       "name": "BYOK 用户自带 API Key 管理",
-      "description": "用户自己填 Qwen / OpenAI key，不做按量计费（最适合独立开发者目标用户）。新增 user_api_keys 表（AES-256 服务端加密存储）。修改 providers.ts，优先读 DB key fallback env var。新增 Settings 页面填写 key + 加密/脱敏展示。",
+      "description": "用户自己填 Qwen / OpenAI key，不做按量计费。新增 user_api_keys 表（AES-256 服务端加密存储）。后端：apps/api/src/crypto/vault.service.ts（加密 service）+ apps/api/src/providers/ 改为优先读 DB key fallback env var。前端：apps/web/app/(studio)/settings/page.tsx 填写 key 表单 + 脱敏展示。",
       "dependencies": [
         "feat-013.1"
       ],
@@ -451,7 +452,7 @@
     {
       "id": "feat-013.4",
       "name": "Drizzle ORM 迁移",
-      "description": "Drizzle ORM 替换当前 raw pg 查询。渐进迁移：先迁 snapshotDb.ts（surface 最小），再迁 docStore.ts，最后清理 raw SQL。新增 app/lib/db/schema.ts + drizzle/migrations/ + drizzle.config.ts。功能开关 USE_DRIZZLE=true 切换实现，保证可回滚。",
+      "description": "Drizzle ORM 替换 NestJS Service 中的 raw pg 查询。Schema 集中在 apps/api/src/db/schema.ts + drizzle/migrations/ + drizzle.config.ts。渐进迁移：先迁 snapshot 相关查询，再迁 doc store，最后清理 raw SQL。功能开关 USE_DRIZZLE=true 切换实现，保证可回滚。",
       "dependencies": [
         "feat-013.2"
       ],
@@ -460,10 +461,50 @@
     },
     {
       "id": "feat-013.5",
-      "name": "Fly.io 生产部署",
-      "description": "Dockerfile（多阶段构建 Next.js）+ fly.toml（含 pymupdf sidecar service 定义）+ Fly Postgres（内置 pgvector）。GitHub Actions CI：PR 时跑 typecheck + lint + build。不用 Vercel 因为 pymupdf Python sidecar 需要 Docker 环境。备选 Railway.app（更简单，auto-detect Next.js）。",
+      "name": "Fly.io 多服务生产部署",
+      "description": "Fly.io 多服务部署：apps/web (Next.js Dockerfile) + apps/api (NestJS Dockerfile) + services/pymupdf (Python) + Fly Postgres（内置 pgvector）。根 fly.toml 定义多 service。GitHub Actions CI：PR 时跑 monorepo 全量 typecheck + lint + 各 app 独立 build。备选混合部署：apps/web 上 Vercel + apps/api + pymupdf 上 Fly。",
       "dependencies": [
         "feat-013.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-100",
+      "name": "架构重构：pnpm monorepo 骨架（Wave 1）",
+      "description": "把当前 Next.js 单体重构为 pnpm monorepo。根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。Phase 1.5 的第一波，先建立工程基座。",
+      "dependencies": [
+        "feat-008"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-101",
+      "name": "架构重构：抽 packages/rag-core 纯库（Wave 2）",
+      "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。",
+      "dependencies": [
+        "feat-100"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-102",
+      "name": "架构重构：搭 NestJS 后端 + 5 端点迁移 + 双跑期（Wave 3）",
+      "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
+      "dependencies": [
+        "feat-101"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-103",
+      "name": "架构重构：迁完剩余端点 + 清理 + 部署调整（Wave 4）",
+      "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。",
+      "dependencies": [
+        "feat-102"
       ],
       "status": "todo",
       "evidence": ""
