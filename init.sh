@@ -33,8 +33,22 @@ node -e "const data = JSON.parse(require('fs').readFileSync('feature_list.json',
 echo "=== Harness 一致性校验（track / phase / 依赖闭包）==="
 node scripts/check-harness.mjs
 
-if [ -f "app/package.json" ]; then
-  echo "=== 应用验证 (app/) ==="
+if [ -f "pnpm-workspace.yaml" ]; then
+  echo "=== Monorepo 验证（pnpm workspace）==="
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "未找到 pnpm，请先 'corepack enable' 或全局安装 pnpm"
+    exit 1
+  fi
+  if [ ! -d "node_modules" ] || [ ! -d "apps/web/node_modules" ]; then
+    echo "安装依赖（pnpm install）..."
+    pnpm install --silent
+  fi
+  echo "--- workspace typecheck ---"
+  pnpm -r typecheck
+  echo "--- workspace lint ---"
+  pnpm -r lint
+elif [ -f "app/package.json" ]; then
+  echo "=== 应用验证（app/，pre-monorepo 兼容路径）==="
   cd app
   if [ ! -d "node_modules" ]; then
     echo "安装依赖..."
@@ -46,7 +60,7 @@ if [ -f "app/package.json" ]; then
   npm run lint
   cd ..
 else
-  echo "尚未发现 app/package.json；跳过应用验证。"
+  echo "尚未发现 pnpm-workspace.yaml 或 app/package.json；跳过应用验证。"
 fi
 
 echo "=== session-handoff.md HEAD 一致性检查 ==="

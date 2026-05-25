@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：架构重构 + Agent + Studio + 工程化",
-      "current": "feat-100.1（pnpm monorepo 骨架，待启动）",
+      "current": "feat-100.2（抽 packages/rag-core 纯库，待启动）",
       "scope": [
         "feat-100.x",
         "feat-010.x",
@@ -621,8 +621,8 @@
       "dependencies": [
         "feat-100"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-25 完成：根 pnpm-workspace.yaml + package.json + .npmrc；git mv app → apps/web 保留历史；删除 npm package-lock.json 切换 pnpm；apps/web/package.json name → @harness/web；apps/api 最小 NestJS 骨架（main + AppModule + HealthController + eslint.config.mjs）；packages/rag-core + packages/shared-types 占位（仅 package.json + tsconfig + index.ts version 常量）；init.sh 改为 pnpm -r typecheck / lint。验收：pnpm install 通过；pnpm -r typecheck 4 包全过；pnpm -r lint 4 包全过；pnpm dev 启 web 后 GET / → 200、GET /api/documents 返回历史文档列表、POST /api/pipeline/idempotency 返回正确 error envelope。"
     },
     {
       "id": "feat-100.2",

@@ -1,5 +1,34 @@
 # 进度记录
 
+## 2026-05-25（会话 20 — feat-100.1 完成：pnpm monorepo 骨架）
+
+### 已完成
+
+阶段 2.5 架构重构 Wave 1 落地。把 Next.js 单体改造为 pnpm workspace 骨架，不动算法、不删功能、保持端到端 pipeline 可用。
+
+#### 变更
+
+- 根新增：`pnpm-workspace.yaml`、`package.json`（workspace 级 scripts：dev / build / typecheck / lint / check:harness）、`.npmrc`（禁 hoist）
+- 迁移：`git mv app apps/web`（保留全部文件历史）；删除 `apps/web/package-lock.json`（切 pnpm 用 pnpm-lock.yaml）；`apps/web/package.json` name `app` → `@harness/web`
+- 新建 `apps/api/`（NestJS 最小骨架）：`package.json` (@harness/api) / `tsconfig.json` / `nest-cli.json` / `eslint.config.mjs` / `src/main.ts` / `src/app.module.ts` / `src/health.controller.ts`（GET /health 占位端点）
+- 新建 `packages/rag-core/` 和 `packages/shared-types/`：各自 `package.json` / `tsconfig.json` / `src/index.ts`（仅 VERSION 常量占位，feat-100.2 起填实）
+- `init.sh`：app/ npm 路径替换为 pnpm-workspace 路径，运行 `pnpm -r typecheck && pnpm -r lint`
+
+#### 验收
+
+- `pnpm install` 通过（13 分钟，含 NestJS + Sharp + onnxruntime 等原生模块）
+- `pnpm -r typecheck`：4 个工作区包全过（apps/web / apps/api / packages/rag-core / packages/shared-types）
+- `pnpm -r lint`：4 个包全过
+- `pnpm dev` 启 web，浏览器 GET / → 200 OK，Next.js 16.2.6 Turbopack 411ms ready
+- API 烟测：GET /api/documents 返回历史文档列表（包含 PRODUCT.md v10）；POST /api/pipeline/idempotency 返回正确 error envelope `{error:{code:"missing_document"...}}`
+- `bash init.sh` 整体跑通，仅 session-handoff HEAD 滞后属预期
+
+#### 下一步
+
+feat-100.2 Wave 2：抽 `packages/rag-core` 纯库（把 ingestion / retrieval / generation 各 stage 的非 HTTP 部分从 `apps/web/app/api/pipeline/*/route.ts` 抽到 `packages/rag-core/src/`）。预计 1-2 周。**此阶段为冻结窗口起点**，需提前通知轨道 B 实验流仅调参不动算法核心代码。
+
+---
+
 ## 2026-05-25（会话 19 — Feature 编号约定调整：100+ 段位 = 架构/基础设施）
 
 ### 已完成

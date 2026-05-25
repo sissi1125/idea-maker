@@ -1,0 +1,19 @@
+{
+  "name": "@harness/rag-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "纯 RAG 算法库：无 HTTP / 无 framework 依赖。feat-100.2 起从 apps/web 抽取核心逻辑",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^2.1.0"
+  }
+}

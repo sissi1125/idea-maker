@@ -2,7 +2,31 @@
 
 ## 最后更新
 
-2026-05-25（会话 19 — Feature 编号约定调整：100+ = 架构）
+2026-05-25（会话 20 — feat-100.1 完成：pnpm monorepo 骨架）
+
+## 本会话变更摘要
+
+阶段 2.5 架构重构 Wave 1 落地。把 Next.js 单体（`app/`）转成 pnpm workspace：
+- `app/` → `apps/web/`（git mv 保历史）
+- 新建占位：`apps/api/`（NestJS + HealthController）、`packages/rag-core/`、`packages/shared-types/`
+- 包管理由 npm 切到 pnpm（`pnpm-workspace.yaml`、根级 scripts、`.npmrc`）
+- `init.sh` 改走 `pnpm -r typecheck/lint`
+- 全量验收：4 包 typecheck/lint 全过；`pnpm dev` 起 web 后 API 烟测正常；`bash init.sh` 跑通
+- feature_list.json：feat-100.1 status → done；tracks.A-main.current → feat-100.2
+
+**下一步（feat-100.2 Wave 2）**：抽 `packages/rag-core` 纯库。该 wave **开启冻结窗口**，需提前通知轨道 B 实验流仅调参不动算法核心代码。
+
+**worktree**：`.claude/worktrees/refactor-monorepo/` on `claude/refactor-monorepo`，需手动 fast-forward 合到 main。
+
+## 技术状态变更
+
+- `pnpm dev` 取代 `cd app && npm run dev`
+- `apps/web/data/documents.json` 取代 `app/data/documents.json`
+- 路径：`apps/web/lib/providers.ts` 取代 `app/lib/providers.ts`（其他 imports 通过 git mv 自动跟随）
+
+---
+
+## 历史交接记录（会话 19 — Feature 编号约定调整：100+ = 架构）
 
 ## 本会话变更摘要
 
@@ -93,7 +117,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`81915be`（fix: move citation stage before prompt-build in UI order and retrieval group）
+- **主分支**：`main`，当前 HEAD：`53fa467`（chore(harness): 把 track / phase / 段位约定落到 feature_list 结构 + 加一致性校验脚本）。本会话提交将使其前进 1 步。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
