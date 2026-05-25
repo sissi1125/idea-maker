@@ -283,7 +283,7 @@
         "feat-002.4",
         "feat-003.7",
         "feat-005",
-        "feat-103"
+        "feat-100.4"
       ],
       "status": "epic",
       "evidence": "父级聚合 feat-010.1~010.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-010"
@@ -471,18 +471,18 @@
     },
     {
       "id": "feat-100",
-      "name": "架构重构：pnpm monorepo 骨架（Wave 1）",
-      "description": "把当前 Next.js 单体重构为 pnpm monorepo。根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。Phase 1.5 的第一波，先建立工程基座。",
+      "name": "架构重构（pnpm monorepo + NestJS 前后端分离）",
+      "description": "把当前 Next.js 单体重构为「pnpm monorepo + 独立 NestJS 后端 + Next.js 前端 + 纯 RAG 库」清晰分层架构。所有后续 feature（feat-010~013）都在新架构下开发。**编号约定**：采用 100+ 段位标识此类跨阶段的架构/基础设施重构（与 001~099 业务功能区分），便于一眼区分「业务开发」vs「架构调整」。分 4 个 Wave 渐进迁移。",
       "dependencies": [
         "feat-008"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "epic",
+      "evidence": "父级聚合 feat-100.1~100.4；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-25-架构重构"
     },
     {
-      "id": "feat-101",
-      "name": "架构重构：抽 packages/rag-core 纯库（Wave 2）",
-      "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。",
+      "id": "feat-100.1",
+      "name": "架构重构 Wave 1：pnpm monorepo 骨架",
+      "description": "根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。先建立工程基座，不动算法。",
       "dependencies": [
         "feat-100"
       ],
@@ -490,21 +490,31 @@
       "evidence": ""
     },
     {
-      "id": "feat-102",
-      "name": "架构重构：搭 NestJS 后端 + 5 端点迁移 + 双跑期（Wave 3）",
-      "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
+      "id": "feat-100.2",
+      "name": "架构重构 Wave 2：抽 packages/rag-core 纯库",
+      "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。**冲突高风险窗口**（1-2 周）：实验流（轨道 B）应冻结算法改动只调参。",
       "dependencies": [
-        "feat-101"
+        "feat-100.1"
       ],
       "status": "todo",
       "evidence": ""
     },
     {
-      "id": "feat-103",
-      "name": "架构重构：迁完剩余端点 + 清理 + 部署调整（Wave 4）",
-      "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。",
+      "id": "feat-100.3",
+      "name": "架构重构 Wave 3：搭 NestJS 后端 + 5 端点迁移 + 双跑期",
+      "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
       "dependencies": [
-        "feat-102"
+        "feat-100.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-100.4",
+      "name": "架构重构 Wave 4：迁完剩余端点 + 清理 + 部署调整",
+      "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。完成后 feat-010 起所有主流程业务 feature 才可启动。",
+      "dependencies": [
+        "feat-100.3"
       ],
       "status": "todo",
       "evidence": ""

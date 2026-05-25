@@ -12,10 +12,11 @@
     └─ feat-008  Eval Matrix CLI               [todo]  ← 先收尾
     ↓
 阶段 2.5：架构重构（基座升级，先于阶段 3）
-    ├─ feat-100  Wave 1: monorepo 骨架
-    ├─ feat-101  Wave 2: 抽 packages/rag-core 纯库
-    ├─ feat-102  Wave 3: 搭 NestJS 后端 + 5 端点迁移 + 双跑期
-    └─ feat-103  Wave 4: 迁完剩余 + 清理 + 部署调整
+    ├─ feat-100    （epic）架构重构（pnpm monorepo + NestJS 前后端分离）
+    ├─ feat-100.1  Wave 1: monorepo 骨架
+    ├─ feat-100.2  Wave 2: 抽 packages/rag-core 纯库
+    ├─ feat-100.3  Wave 3: 搭 NestJS 后端 + 5 端点迁移 + 双跑期
+    └─ feat-100.4  Wave 4: 迁完剩余 + 清理 + 部署调整
     ↓
 阶段 3：Agent 自动化层
     ├─ feat-010  Pipeline Orchestration Agent  (Plan-and-Execute)
@@ -45,7 +46,7 @@
 
 **优先级原则**：
 1. 先把阶段 2 的两个 todo 收尾。
-2. **再做阶段 2.5 架构重构**（feat-100~103）—— 后续所有代码都长在新结构上，避免二次重写浪费。
+2. **再做阶段 2.5 架构重构**（feat-100 epic + feat-100.1~100.4）—— 后续所有代码都长在新结构上，避免二次重写浪费。
 3. **不要把阶段 5 的 Auth 提前到阶段 3** —— Agent 层与 Auth 解耦能让两边都更聚焦。
 
 ---
@@ -94,27 +95,27 @@ marketing-rag/                          ← repo root
 
 **不要一次性重写**。每个 Wave 结束都保证现有 Playground 仍可用。
 
-#### Wave 1 (feat-100, ~1 周)：建 monorepo 骨架
+#### Wave 1 (feat-100.1, ~1 周)：建 monorepo 骨架
 - 根目录加 `pnpm-workspace.yaml`，改造 `package.json`
 - 把现有 `app/` 移动到 `apps/web/`，调整 imports
 - 创建空 `apps/api/`（NestJS init）、`packages/rag-core/`、`packages/shared-types/`
 - **验收**：`pnpm dev` 启动 web，pipeline 一切如旧
 
-#### Wave 2 (feat-101, ~1-2 周)：抽 rag-core 纯库
+#### Wave 2 (feat-100.2, ~1-2 周)：抽 rag-core 纯库
 - 把 ingestion / retrieval / generation 各 stage 的核心逻辑（**非 HTTP 部分**）抽到 `packages/rag-core/src/`
 - 例如：`packages/rag-core/src/ingestion/chunk.ts` 导出 `chunkText(text, params): ChunkResult`
 - Next.js routes 改为**薄路由**：仅参数解析 + 调 rag-core + 包装 trace
 - `packages/shared-types` 同步定义所有 DTOs（zod schema）
 - **验收**：rag-core 有独立 vitest 单测可跑，Playground 行为零回归
 
-#### Wave 3 (feat-102, ~1-2 周)：搭 NestJS 后端 + 双跑
+#### Wave 3 (feat-100.3, ~1-2 周)：搭 NestJS 后端 + 双跑
 - `apps/api` 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）
 - 先迁 **5 个最简单端点**（document upload / chunk / embed / retrieve / generate）到 NestJS
 - web 通过 `NEXT_PUBLIC_API_URL` fetch 调用 NestJS
 - **双跑期**：Next.js routes 暂留作 fallback，feature flag `USE_NEST_API` 切换
 - **验收**：迁移端点可通过 NestJS + Swagger UI 调通
 
-#### Wave 4 (feat-103, ~1 周)：迁完剩余 + 清理
+#### Wave 4 (feat-100.4, ~1 周)：迁完剩余 + 清理
 - 剩余 ~15 个端点全部迁完
 - **删除** `apps/web/app/api/*`（playground 完全通过 NestJS）
 - 部署架构：`apps/web` + `apps/api` + `pymupdf` + Fly Postgres 多服务并存
@@ -140,7 +141,7 @@ marketing-rag/                          ← repo root
 
 ## 阶段 3：Agent 自动化层
 
-> ⚠️ **架构基础**：以下所有文件路径均基于阶段 2.5 完成后的 monorepo + NestJS 结构。如果阶段 2.5 尚未完成，请先完成 feat-100~103。
+> ⚠️ **架构基础**：以下所有文件路径均基于阶段 2.5 完成后的 monorepo + NestJS 结构。如果阶段 2.5 尚未完成，请先完成 feat-100 epic（含 feat-100.1~100.4）。
 
 ### feat-010 Pipeline Orchestration Agent
 
@@ -571,7 +572,7 @@ app = "marketing-rag-playground"
 | 阶段 | feature | 周数（一人 part-time） |
 |------|---------|----------------------|
 | 收尾 | feat-006 + feat-008 | 1-2 周 |
-| 阶段 2.5 | feat-100~103 架构重构 | 4-5 周 |
+| 阶段 2.5 | feat-100 epic + feat-100.1~100.4 架构重构 | 4-5 周 |
 | 阶段 3 | feat-010 (Pipeline Agent) | 2-3 周 |
 | 阶段 3 | feat-011 (Content Agent) | 3-4 周 |
 | 阶段 4 | feat-012 (Marketing Studio) | 4-5 周 |
@@ -593,7 +594,7 @@ app = "marketing-rag-playground"
 ┌─────────────────────────────────────────────────────────────────┐
 │  轨道 A：主流程（一个 session / worktree）                      │
 │                                                                  │
-│  阶段 2.5 架构重构 (feat-100~103, 4-5 周)                       │
+│  阶段 2.5 架构重构 (feat-100 epic + feat-100.1~100.4, 4-5 周)   │
 │      → 阶段 3 Agent (feat-010 + feat-011)                       │
 │      → 阶段 4 Studio (feat-012)                                 │
 │      → 阶段 5 工程化 (feat-013)                                 │
@@ -620,17 +621,17 @@ app = "marketing-rag-playground"
 | 决策 | 规则 |
 |------|------|
 | **实验代码合入策略** | **选择性合入**：实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main |
-| **Wave 2 冻结窗口** | 主流程做 Wave 2（feat-101，抽 rag-core，~1-2 周）期间，**实验流只调参不动算法核心代码**。可以做：跑新 query 组合 / 调 chunk size / threshold / topK / 生成报告。不可以做：改 chunk.ts、rerank.ts 等算法实现 |
+| **Wave 2 冻结窗口** | 主流程做 Wave 2（feat-100.2，抽 rag-core，~1-2 周）期间，**实验流只调参不动算法核心代码**。可以做：跑新 query 组合 / 调 chunk size / threshold / topK / 生成报告。不可以做：改 chunk.ts、rerank.ts 等算法实现 |
 | **主流程 rebase 节奏** | 每个 Wave 开始前 rebase main，把实验流合入的最新算法拉进来 |
 | **实验流 base** | 实验流持续在 **main 顶端**（即重构期间也是 monolithic 结构）跑，保证实验环境稳定 |
-| **实验迁移到新结构** | Wave 4 完成（feat-103，旧 Next.js API routes 删除）后，实验流才必须迁到 packages/rag-core；之前可选 |
+| **实验迁移到新结构** | Wave 4 完成（feat-100.4，旧 Next.js API routes 删除）后，实验流才必须迁到 packages/rag-core；之前可选 |
 
 ### 分支约定
 
 | 分支 | 用途 | 基于 |
 |------|------|------|
 | `main` | 唯一合并入口（实验 PR + 主流程 PR 都合入这里） | - |
-| `claude/refactor-monorepo`（或类似名） | 主流程：feat-100 起所有架构 + 产品 feature | main 顶端，每 Wave 开始 rebase |
+| `claude/refactor-monorepo`（或类似名） | 主流程：feat-100.x 架构 + feat-010~013 产品 feature | main 顶端，每 Wave 开始 rebase |
 | `claude/experiments/<topic>` | 实验流（每个实验主题一个短命分支） | main 顶端 |
 
 ### Feature 编号约定（避免冲突）
@@ -638,7 +639,7 @@ app = "marketing-rag-playground"
 | 编号段 | 归属 | 示例 |
 |--------|------|------|
 | `feat-006.x` / `feat-008.x` / `feat-009.x` | 轨道 B 实验流 | feat-006.1 评估指标补充、feat-008.1 新增 query 维度 |
-| `feat-010 ~ feat-013` 与 `feat-100+` | 轨道 A 主流程 | feat-010.1 Pipeline Agent 核心、feat-100 monorepo 骨架 |
+| `feat-010 ~ feat-013`（业务段位）与 `feat-100.x`（100+ 架构段位）| 轨道 A 主流程 | feat-010.1 Pipeline Agent 核心、feat-100.1 monorepo 骨架 |
 
 ### 风险与缓解
 
