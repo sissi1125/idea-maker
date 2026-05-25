@@ -1,5 +1,30 @@
 # 进度记录
 
+## 2026-05-25（会话 16 — 阶段 3-5 路线图规划）
+
+### 已完成
+
+本会话仅做规划与文档更新，不涉及代码实现。
+
+- 规划阶段 3-5 完整路线图：Agent 自动化层 → Marketing Studio UX → 工程化与生产部署。
+- 关键架构决策：**两种 Agent 模式共存**
+  - Pipeline Orchestration Agent（feat-010）：Plan-and-Execute，复用 STAGE_DEPS 静态依赖图
+  - Content Generation Agent（feat-011）：ReAct + 4 个工具，动态迭代直到 hook 评分达标
+- 更新 `docs/PRODUCT.md`：阶段 2-5 章节重写以匹配新路线图（原阶段 3/4/5 已合并重构）。
+- 更新 `AGENTS.md`：
+  - 移除"阶段 1 不做 Auth/多租户"的硬约束，改为按阶段感知。
+  - 在「必需资产」加入 `docs/ROADMAP_PHASE2_PLUS.md`。
+- 扩展 `feature_list.json`：新增 19 条 feature 条目（feat-010 / 011 / 012 / 013 系列，含 epic 父项与子任务），全部 status=todo。
+- 新建 `docs/ROADMAP_PHASE2_PLUS.md`：每个 feature 含用户故事 / 关键文件 / API 设计 / 验收标准 / 简历亮点。
+
+### 当前状态
+
+- 工作树：`claude/plan-agent-roadmap`（路径：`.claude/worktrees/plan-agent-roadmap`），从 `main` HEAD `14c8778` 切出。
+- 仅文档变更，无代码改动；typecheck/lint 无需运行。
+- 下一步：先收尾阶段 2（feat-006 + feat-008），再启动 feat-010 Pipeline Agent。
+
+---
+
 ## 2026-05-20（会话 15）
 
 ### 已完成

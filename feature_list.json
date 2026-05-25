@@ -274,6 +274,199 @@
       ],
       "status": "done",
       "evidence": "docs/feat-009_lib-standardization.md; scripts/eval-matrix/results/feat-009-impact-assessment.md; AGENTS.md#交付前代码审查"
+    },
+    {
+      "id": "feat-010",
+      "name": "Pipeline Orchestration Agent",
+      "description": "把 12+ 个 stage 的手动操作自动化为一键运行。采用 Plan-and-Execute 模式，计划由 STAGE_DEPS 依赖图静态决定（非 LLM 推理）。客户端循环调用现有 handleRun，规避 Vercel 30s 超时。支持失败暂停 + 断点续跑 + Ingestion 后可选暂停检查点。",
+      "dependencies": [
+        "feat-002.4",
+        "feat-003.7",
+        "feat-005"
+      ],
+      "status": "epic",
+      "evidence": "父级聚合 feat-010.1~010.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-010"
+    },
+    {
+      "id": "feat-010.1",
+      "name": "Pipeline Agent 核心循环引擎",
+      "description": "新增 app/lib/pipelineAgent.ts：runPipeline(config, onProgress) async 生成器，按 PIPELINE_STAGES 顺序调用 resolveEffectiveUpstream + handleRun，每步 yield AgentProgressEvent { type, stageId, output, error, durationMs }。失败时进入 paused 态，提供 resume 钩子。",
+      "dependencies": [
+        "feat-010"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-010.2",
+      "name": "AutoRun 入口与预运行配置 Modal",
+      "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（app/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
+      "dependencies": [
+        "feat-010.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-010.3",
+      "name": "AgentProgressPanel 时间线",
+      "description": "新组件 app/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
+      "dependencies": [
+        "feat-010.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-011",
+      "name": "Content Generation ReAct Agent",
+      "description": "在 RAG 完成后接管内容生成质量迭代。ReAct 模式（推理 + 工具 + 观察），自动迭代「生成 → 评估 → 换角度 → 重生成」直到 hook 评分 ≥7 或达到最大迭代次数。区别于 feat-010 的 Plan-and-Execute（顺序固定），这里迭代次数不确定，体现动态决策循环。",
+      "dependencies": [
+        "feat-005",
+        "feat-006"
+      ],
+      "status": "epic",
+      "evidence": "父级聚合 feat-011.1~011.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-011"
+    },
+    {
+      "id": "feat-011.1",
+      "name": "Content Agent 工具集（4 个工具）",
+      "description": "在 app/lib/contentAgentTools.ts 实现 4 个独立工具：(1) generate_ideas(angle, evidence, platform, format) → ContentIdea[]；(2) evaluate_hook(idea) → { score, dimensions, feedback }，双层评估（规则预检 + LLM 精评，prompt 扮演挑剔小红书用户）；(3) evaluate_evidence(idea, evidence) → { coverage, uncited_claims }；(4) suggest_angle(feedback, tried_angles[]) → { new_angle, rationale }，从角度库选未尝试角度。",
+      "dependencies": [
+        "feat-011"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-011.2",
+      "name": "Content Agent ReAct 循环引擎",
+      "description": "新增 app/lib/contentAgent.ts：runContentAgent(config, onProgress) async 生成器，循环上限 max_iterations=3，质量阈值 threshold=7。每次迭代 yield ContentAgentEvent。三重终止：score ≥ 7 / 达到 max / 用户接管。支持中途注入用户指定角度（manual_angle override）。",
+      "dependencies": [
+        "feat-011.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-011.3",
+      "name": "ContentAgentPanel UI",
+      "description": "新组件 app/components/agent/ContentAgentPanel.tsx：每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮 + 「手动指定角度」输入框。完成后跳转到 Marketing Studio（feat-012）。",
+      "dependencies": [
+        "feat-011.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-012",
+      "name": "Marketing Studio UX",
+      "description": "独立 /studio/[runId] 路由，从「展示 JSON 列表」升级为符合营销师工作习惯的内容创作工作流。四列看板：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。包含踩赞反馈、Content Directions 中间层、PostTemplate 帖子扩展。",
+      "dependencies": [
+        "feat-011"
+      ],
+      "status": "epic",
+      "evidence": "父级聚合 feat-012.1~012.4；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-012"
+    },
+    {
+      "id": "feat-012.1",
+      "name": "Studio 路由与四列看板布局",
+      "description": "新增 app/app/studio/[runId]/page.tsx：从 pipeline_run_history 加载 run 数据，渲染 IdeaBoardColumn 四列（卖点 / 方向 / Ideas / 扩展）。响应式布局（< 1280px 横向滚动）。复用现有 GenerationOutputPanel 的数据结构。",
+      "dependencies": [
+        "feat-012"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-012.2",
+      "name": "IdeaCard 踩赞反馈与重生成 API",
+      "description": "IdeaCard 组件支持踩 / 赞 + 可选「换角度」文本输入。新增 idea_feedback 表（run_id, idea_index, signal, angle_override, created_at）。新 API POST /api/marketing/regenerate-idea：复用 stage snapshot 的 evidence pack，仅重调 generation 端点，传入 excludeAngles + 用户角度提示，不重跑整条 pipeline。",
+      "dependencies": [
+        "feat-012.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-012.3",
+      "name": "Content Directions 中间层",
+      "description": "在卖点（what）和 idea（具体）之间增加战略角度层（how）。新增 generation method content-directions，输出 ContentDirection { directionName, description, targetPlatforms, exampleHook, sellingPointId, evidenceIds }。Studio 第二列展示，选中后过滤第三列 ideas。",
+      "dependencies": [
+        "feat-012.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-012.4",
+      "name": "帖子扩展 API 与 PostTemplate 展示",
+      "description": "新 API POST /api/marketing/expand-idea：把单个 idea 扩展为完整 PostTemplate { hook, body[], cta, hashtags[], imagePrompt, evidenceIds, characterCount }。新组件 PostExpansionDrawer + PlatformMockup（纯 CSS 手机框，支持小红书 / Twitter / LinkedIn / 公众号四个平台模板），底部一键复制按钮。",
+      "dependencies": [
+        "feat-012.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-013",
+      "name": "工程化与生产部署",
+      "description": "把 Playground 推进到可上线、多用户、可演示给雇主的产品形态。包含 Auth、多租户隔离、用户自带 API Key、ORM 迁移、Docker 部署。各子项相对独立可分批落地。",
+      "dependencies": [
+        "feat-012"
+      ],
+      "status": "epic",
+      "evidence": "父级聚合 feat-013.1~013.5；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-013"
+    },
+    {
+      "id": "feat-013.1",
+      "name": "Lucia Auth 鉴权",
+      "description": "Lucia Auth v3 + PostgreSQL adapter（不用 NextAuth，因其在 App Router 配置复杂）。httpOnly cookie 存 session token，禁用 localStorage 防 XSS。新增 users / user_sessions 表。新增 app/lib/auth.ts、app/middleware.ts、app/app/auth/(login|signup)/page.tsx、app/app/api/auth/* 端点。",
+      "dependencies": [
+        "feat-013"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-013.2",
+      "name": "Workspace 多租户数据隔离",
+      "description": "应用层 Row-level isolation（不用 PostgreSQL RLS，减少复杂度）。新增 workspaces 表，在 rag_documents / rag_chunks / stage_snapshots / pipeline_run_history / idea_feedback 全部加 workspace_id NOT NULL 列。所有 API route 从 session 解析 workspace_id 注入查询。",
+      "dependencies": [
+        "feat-013.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-013.3",
+      "name": "BYOK 用户自带 API Key 管理",
+      "description": "用户自己填 Qwen / OpenAI key，不做按量计费（最适合独立开发者目标用户）。新增 user_api_keys 表（AES-256 服务端加密存储）。修改 providers.ts，优先读 DB key fallback env var。新增 Settings 页面填写 key + 加密/脱敏展示。",
+      "dependencies": [
+        "feat-013.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-013.4",
+      "name": "Drizzle ORM 迁移",
+      "description": "Drizzle ORM 替换当前 raw pg 查询。渐进迁移：先迁 snapshotDb.ts（surface 最小），再迁 docStore.ts，最后清理 raw SQL。新增 app/lib/db/schema.ts + drizzle/migrations/ + drizzle.config.ts。功能开关 USE_DRIZZLE=true 切换实现，保证可回滚。",
+      "dependencies": [
+        "feat-013.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-013.5",
+      "name": "Fly.io 生产部署",
+      "description": "Dockerfile（多阶段构建 Next.js）+ fly.toml（含 pymupdf sidecar service 定义）+ Fly Postgres（内置 pgvector）。GitHub Actions CI：PR 时跑 typecheck + lint + build。不用 Vercel 因为 pymupdf Python sidecar 需要 Docker 环境。备选 Railway.app（更简单，auto-detect Next.js）。",
+      "dependencies": [
+        "feat-013.4"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

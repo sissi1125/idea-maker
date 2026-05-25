@@ -74,17 +74,16 @@
 - 系统能基于 retrieval evidence 生成产品画像、卖点地图和内容 idea。
 - 无远程 API key 时，非 LLM 阶段和 debug embedding 仍可运行；用户选择需要真实 provider 的方法时，系统必须返回明确 provider 错误。
 
-### 阶段 2：RAG 质量评估与调参能力
+### 阶段 2：RAG 质量评估与调参能力（收尾）
 
 目标：让用户能判断生成效果不好时，到底是文档处理、chunk、embedding、retrieval、rerank 还是 prompt 出了问题。
 
 范围：
 
 - 展示 chunk count、token estimate、chunk coverage 和 source coverage。
-- 增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标。
+- 增加 retrieval hit rate、score distribution、evidence coverage、citation correctness 等指标（feat-006）。
+- 自动化评估矩阵 CLI：12 个配置组合 × 3 个 query 的离线对比报告（feat-008）。
 - 支持 curated test queries，用固定问题回归 retrieval 表现。
-- 增加 chunk 参数、threshold、topK、transform 方法的对比视图。
-- 可选接入 RAGAS 或自定义轻量评估器。
 
 交付标准：
 
@@ -92,58 +91,66 @@
 - 每次生成结果都能看到 evidence 覆盖率和低置信 warning。
 - 质量问题能被定位到具体 pipeline 阶段。
 
-### 阶段 3：卖点地图与内容策略增强
+### 阶段 3：Agent 自动化层（核心升级）
 
-目标：从“生成几个 idea”升级为“围绕产品定位持续产出内容方向”。
+目标：把"用户手动点 12 次 stage"变成"选文档 → 点一下 → 看进度 → 拿结果"。两种 Agent 模式共存，各司其职。
 
-范围：
+#### 3A：Pipeline Orchestration Agent（Plan-and-Execute）
 
-- 扩展结构化卖点地图：functional、emotional、scenario、differentiation。
-- 引入 Product -> Feature -> User Pain -> Scenario -> Selling Point -> Content Angle -> Idea 的图谱化关系。
-- 支持按平台、目标用户、内容类型、营销目标生成 idea。
-- 增加内容方向模板：教程型、痛点型、场景型、故事型、对比型、更新型、反常识型、清单型。
-- 支持 idea 去重、聚类、优先级和 confidence 排序。
+- 自动顺序执行 ingestion + retrieval + generation 全链路。
+- 复用 `STAGE_DEPS` 依赖图作为静态执行计划，无需 LLM 动态推理。
+- 客户端循环调用现有 `handleRun`，实时推送进度时间线到 UI。
+- 失败可暂停，用户修复参数后从断点继续。
 
-交付标准：
+#### 3B：Content Generation ReAct Agent（with Tools）
 
-- 用户能从同一套 evidence 中生成多平台、多目标的内容方向。
-- 每个 selling point 和 idea 都能回溯到原始 chunks。
-- 系统能解释某个 idea 为什么适合某个目标用户或平台。
-
-### 阶段 4：真实存储、协作与产品化
-
-目标：把 Playground 从本地验证工具推进到可持续使用的产品形态。
-
-范围：
-
-- 在 PostgreSQL + pgvector 主线之上完善文档版本管理、重复导入处理、历史 retrieval runs 和 artifact 保存。
-- 引入项目/workspace 概念，但保持权限模型尽量简单。
-- 支持导出卖点地图、idea 列表和 evidence report。
-- 增加基础内容管理能力，例如收藏、标记、状态流转和批量导出。
+- 工具集（4 个）：`generate_ideas` / `evaluate_hook` / `evaluate_evidence` / `suggest_angle`。
+- 角度库：痛点故事型 / 教程型 / 对比型 / 悬念开头型 / 数据佐证型 / 场景代入型。
+- 循环：生成 → 评估 → 不达标则换角度 → 重新生成，最多 3 次迭代。
+- `evaluate_hook` 双层评估：规则预检（0 token 快速过滤）+ LLM 精评（扮演挑剔用户）。
+- 三重终止：质量门槛（≥7 分）+ 最大迭代数 + 用户随时可接管。
 
 交付标准：
 
-- 用户可以长期维护一个产品知识库。
-- 不同版本文档、检索记录和生成结果可追踪。
-- 关键运营资产可以导出或复用。
+- 用户从选文档到拿到 evidence-backed idea，全程 ≤ 3 次主动操作。
+- 两种 Agent 的迭代过程对用户可见、可中止、可干预。
+- 内容质量稳定通过质量门槛（hook ≥ 7 分）或明确告知用户为何未达标。
 
-### 阶段 5：高级自动化与生态集成
+### 阶段 4：Marketing Studio UX（营销工作流）
 
-目标：在可信 RAG 和可调试链路稳定后，再扩展自动化和外部系统集成。
+目标：从"展示 JSON 列表"升级为"符合营销师使用习惯的内容创作工作流"。
 
 范围：
 
-- 扩展真实 LLM provider 和 embedding provider，并保留 debug deterministic 等显式调试 provider。
-- 支持 rerank、query rewrite、semantic chunking 和更强的 citation builder。
-- 可选接入内容发布平台、分析工具或外部知识库。
-- 探索轻量 agent workflow，但必须建立在可观测、可回放的 pipeline 之上。
-- 增加 benchmark、成本统计和质量回归报告。
+- 独立 `/studio/[runId]` 路由，四列看板布局：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。
+- Content Directions 中间层：在卖点和具体 idea 之间增加战略角度层。
+- 踩赞反馈机制：用户对 idea 踩 / 赞，触发"换角度重生"而非重跑整条 pipeline（复用 snapshot 的 evidence pack）。
+- 帖子扩展：把单个 idea 扩展为完整 PostTemplate（hook / body / CTA / hashtags / imagePrompt），含手机框 mockup 预览。
+- 多平台适配：小红书 / Twitter / LinkedIn / 微信公众号。
 
 交付标准：
 
-- 自动化能力不会破坏 evidence-first 和 debuggable 的产品原则。
-- 外部集成产生的结果仍然能追溯到文档证据和 pipeline trace。
-- 系统具备质量回归和成本观测能力。
+- 用户能在 Studio 内完成"从 idea 选择到帖子草稿"的完整工作流。
+- 反馈迭代不重跑 pipeline，只重调 generation 端点（耗时 < 5s）。
+- 所有 PostTemplate 仍保留 evidence chunk IDs 溯源。
+
+### 阶段 5：工程化与生产部署
+
+目标：把 Playground 推进到可上线、可多用户使用、可演示给雇主的产品形态。
+
+范围：
+
+- **认证**：Lucia Auth v3 + PostgreSQL adapter（httpOnly cookie + access/refresh token 双 token 模式）。
+- **多租户**：应用层 `workspace_id` Row-level isolation（所有相关表加 workspace_id 字段，所有查询带 workspace 过滤）。
+- **BYOK API Key 管理**：用户自带 LLM/Embedding key，AES-256 服务端加密存储，不做按量计费。
+- **数据库迁移**：Drizzle ORM 替换 raw `pg` 查询，渐进迁移（先 snapshotDb.ts）。
+- **部署**：Fly.io 或 Railway（含 PostgreSQL + pgvector + pymupdf sidecar），CI/CD via GitHub Actions。
+
+交付标准：
+
+- 多用户可独立使用，数据不互相串扰。
+- 用户的 API Key 加密存储，日志和错误信息不泄露。
+- 可通过公网 URL 演示给雇主或潜在用户。
 
 ## 产品原则
 
