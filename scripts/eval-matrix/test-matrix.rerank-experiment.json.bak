@@ -1,38 +1,46 @@
 [
   {
     "id": "T01",
-    "label": "chunk-citation 基线（仅命中 chunk 原文）",
+    "label": "score-only（基准）",
     "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none",             "params": {} },
     "queryRewrite": { "methodId": "none",             "params": {} },
     "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
-    "citation":     { "methodId": "chunk-citation",   "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.2
+    "rerank":       { "methodId": "score-only",       "params": {} },
+    "scoreThreshold": 0.5
   },
   {
     "id": "T02",
-    "label": "section-citation / adjacent（chunkIndex ±1）",
+    "label": "hf-tei-rerank / bge-v2-m3（纯 bge 参考）",
     "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none",             "params": {} },
     "queryRewrite": { "methodId": "none",             "params": {} },
     "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
-    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "adjacent", "maxEvidencePerClaim": 3 } },
+    "rerank":       { "methodId": "hf-tei-rerank",    "params": { "rerankTopN": 5 } },
     "scoreThreshold": 0.2
   },
   {
     "id": "T03",
-    "label": "section-citation / section（同 sourceRef 全章节）",
+    "label": "pipeline-rerank / boostPassN=20（jieba 修复，无有效截断）",
     "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none",             "params": {} },
     "queryRewrite": { "methodId": "none",             "params": {} },
     "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
     "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
-    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T04",
+    "label": "pipeline-rerank / boostPassN=3（紧截断，Q4 导航排除验证）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 3, "rerankTopN": 3 } },
     "scoreThreshold": 0.2
   }
 ]
