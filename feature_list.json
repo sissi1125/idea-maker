@@ -1,10 +1,51 @@
 {
   "project": "Marketing RAG Playground",
-  "phase": "阶段 2：RAG 质量评估与调参能力（收尾，feat-006 + feat-008）",
+  "phase": "阶段 2 收尾（feat-006 + feat-008）+ 阶段 2.5 架构重构（feat-100.x）并行推进",
+  "tracks": {
+    "A-main": {
+      "description": "主流程：架构重构 + Agent + Studio + 工程化",
+      "current": "feat-100.1（pnpm monorepo 骨架，待启动）",
+      "scope": [
+        "feat-100.x",
+        "feat-010.x",
+        "feat-011.x",
+        "feat-012.x",
+        "feat-013.x"
+      ],
+      "branch_hint": "claude/refactor-monorepo 或类似"
+    },
+    "B-experiment": {
+      "description": "RAG 实验流：阶段 2 收尾 + 持续算法实验，默认只产报告",
+      "current": "feat-006 / feat-008 收尾",
+      "scope": [
+        "feat-006",
+        "feat-006.x",
+        "feat-008",
+        "feat-008.x",
+        "feat-009.x（如有第二批）"
+      ],
+      "branch_hint": "claude/experiments/<topic>",
+      "report_path": "scripts/eval-matrix/results/run-XXX/"
+    }
+  },
+  "numbering_convention": {
+    "001-099": "业务功能 feature，按时间顺序连续编号",
+    "100+": "架构 / 基础设施 / 跨阶段重构（执行顺序可能在编号之前，如 feat-100 执行先于 feat-010）"
+  },
+  "phases": {
+    "1": "RAG Playground 可调试闭环（已完成）",
+    "2": "RAG 质量评估与调参能力（收尾）",
+    "3": "Agent 自动化层（Pipeline Agent + Content Agent）",
+    "4": "Marketing Studio UX",
+    "5": "工程化：Auth / 多租户 / BYOK / Drizzle / 部署",
+    "2.5": "架构重构：pnpm monorepo + NestJS 前后端分离"
+  },
   "features": [
     {
       "id": "feat-001",
       "name": "Harness 基座",
+      "phase": "1",
+      "track": "historical",
       "description": "创建 agent 说明、产品文档、功能追踪、进度追踪、交接模板和验证入口。",
       "dependencies": [],
       "status": "done",
@@ -13,6 +54,8 @@
     {
       "id": "feat-002",
       "name": "Playground 应用基座",
+      "phase": "1",
+      "track": "historical",
       "description": "创建 Next.js Web 应用基座、三栏 Playground 外壳、文档上传入口和文档库，为逐阶段执行 RAG pipeline 做 UI 承载。",
       "dependencies": [
         "feat-001"
@@ -23,6 +66,8 @@
     {
       "id": "feat-002.1",
       "name": "Playground Shell Scaffold",
+      "phase": "1",
+      "track": "historical",
       "description": "脚手架 Next.js + TypeScript + Tailwind/shadcn 基础应用，首页直接进入 Playground，不做 landing page。",
       "dependencies": [
         "feat-001"
@@ -33,6 +78,8 @@
     {
       "id": "feat-002.2",
       "name": "三栏工作台布局",
+      "phase": "1",
+      "track": "historical",
       "description": "实现左侧 pipeline steps、中间 stage 配置区、右侧 output/trace 区，并支持选中 stage 切换。",
       "dependencies": [
         "feat-002.1"
@@ -43,6 +90,8 @@
     {
       "id": "feat-002.3",
       "name": "Stage 配置表单渲染器",
+      "phase": "1",
+      "track": "historical",
       "description": "基于 stage/method/params schema 动态渲染 method selector、参数输入、默认值、校验提示和 reset 行为。",
       "dependencies": [
         "feat-002.2"
@@ -53,6 +102,8 @@
     {
       "id": "feat-002.4",
       "name": "Stage 执行与状态面板",
+      "phase": "1",
+      "track": "historical",
       "description": "为每个 stage 提供 run button、running/success/error 状态、耗时、warnings、error 和 trace JSON 展示。",
       "dependencies": [
         "feat-002.3"
@@ -63,6 +114,8 @@
     {
       "id": "feat-002.5",
       "name": "Document Upload & Library",
+      "phase": "1",
+      "track": "historical",
       "description": "实现文档上传、入库保存和历史文档选择：支持 MD/TXT/PDF 或粘贴文本，保存原始内容、metadata、hash、version；页面进入时自动加载已上传文档，用户选择 document version 作为 pipeline inputRef。",
       "dependencies": [
         "feat-002.4"
@@ -73,6 +126,8 @@
     {
       "id": "feat-002.6",
       "name": "Pipeline 上下文与产物传递",
+      "phase": "1",
+      "track": "historical",
       "description": "在前端维护 pipeline run context，使 selected document version 和上一步产物成为下一步 inputRef，并在 UI 中展示可用输入和阻塞原因。",
       "dependencies": [
         "feat-002.5"
@@ -83,6 +138,8 @@
     {
       "id": "feat-003",
       "name": "RAG Pipeline 分阶段执行",
+      "phase": "1",
+      "track": "historical",
       "description": "按 stage 逐个实现 RAG pipeline 的 API、方法参数、产物 schema、trace envelope 和对应 Playground 功能。",
       "dependencies": [
         "feat-002.6"
@@ -93,6 +150,8 @@
     {
       "id": "feat-003.1",
       "name": "Document Idempotency Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现文档幂等性检查及对应 Playground：上传/输入文档内容，选择 hash method，展示 fileName、fileSize、hash、exists、documentId、version 和 recommendedAction。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-002.6"
@@ -103,6 +162,8 @@
     {
       "id": "feat-003.2",
       "name": "Preprocess Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 MD/TXT/PDF 预处理及对应 Playground：选择 parser method，配置保留标题/页码/清洗参数，展示 rawText、cleanText、metadata、warnings 和 source refs。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.1"
@@ -113,6 +174,8 @@
     {
       "id": "feat-003.3",
       "name": "Chunk Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 fixed-size、recursive、markdown-heading chunk 方法及对应 Playground：配置 chunkSize、overlap、separator、headingDepth，展示 chunk list、chunk count、token estimate 和每个 chunk metadata。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.2"
@@ -123,6 +186,8 @@
     {
       "id": "feat-003.4",
       "name": "Transform Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 none、heading-context、summary/keywords transform 及对应 Playground：配置 title、heading path、keywordCount、summaryMaxTokens，展示 original/enhanced chunk diff 和 transform metadata。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.3"
@@ -133,6 +198,8 @@
     {
       "id": "feat-003.5",
       "name": "Embedding Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现多 provider embedding 及对应 Playground：选择 OpenAI、HF TEI、HF Transformers.js 或 debug deterministic，配置 model、dimension、batchSize，展示 embedding dimension、provider trace、cost/latency 和错误码。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.4"
@@ -143,6 +210,8 @@
     {
       "id": "feat-003.6",
       "name": "Storage Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 PostgreSQL + pgvector storage 及对应 Playground：配置 upsert/new-version/replace-version，展示 stored document、chunks、embeddings、index config、dimension guard 和 storage trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.5"
@@ -153,6 +222,8 @@
     {
       "id": "feat-003.7",
       "name": "Pipeline Step Orchestration Infrastructure",
+      "phase": "1",
+      "track": "historical",
       "description": "重构为可配置步骤编排系统：(1) 新建 lib/pipelineStages.ts，扩展 PipelineStage 类型（category/module/conditionKey/defaultEnabled），补全所有步骤（intent-recognition/context-management/multi-recall-merge/fallback/prompt-build/output-validation）；(2) lib/types.ts 扩展 PipelineRun（enabledSteps/runtimeContext）；(3) lib/pipelineDeps.ts 补全 STAGE_DEPS + 新增 resolveEffectiveUpstream/isStageActive；(4) stageRegistry.ts 补充新步骤 StageDef stub；(5) PipelineStepList 加可选步骤 toggle switch；(6) PlaygroundShell 接入新依赖解析 + toggle 状态管理；(7) StageConfigPanel 处理禁用/条件/未实现状态。设计原则：不破坏现有代码，全量 enabled 时行为与重构前完全一致。详见 docs/ORCHESTRATION.md。",
       "dependencies": [
         "feat-003.6"
@@ -163,6 +234,8 @@
     {
       "id": "feat-004",
       "name": "Retrieval Pipeline 分阶段执行",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 query rewrite、retrieval、filter、rerank、citation stages，并为每个阶段提供 Playground 配置、执行、输出和 trace。包含新增步骤：intent-recognition、context-management、multi-recall-merge、fallback、prompt-build、output-validation。",
       "dependencies": [
         "feat-003.7"
@@ -173,6 +246,8 @@
     {
       "id": "feat-004.1",
       "name": "Query Rewrite Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 none、rule-keyword-expansion、llm-marketing-rewrite 及对应 Playground：配置 provider、model、targetAudience、rewriteGoal、maxQueries，展示 rewritten queries 和 provider trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-003.7"
@@ -183,6 +258,8 @@
     {
       "id": "feat-004.2",
       "name": "Retrieval Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 dense-vector、postgres-fulltext、hybrid-rrf retrieval 及对应 Playground：配置 topK、threshold、vectorWeight、textWeight、filters，展示 matched chunks、score、sourceRef 和 retrieval trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-004.1"
@@ -193,6 +270,8 @@
     {
       "id": "feat-004.3",
       "name": "Filter Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 score-threshold、metadata-filter、mmr-diversity 及对应 Playground：配置 minScore、maxPerDocument、requiredSourceTypes、mmrLambda，展示 filtered matches 和过滤原因。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-004.2"
@@ -203,6 +282,8 @@
     {
       "id": "feat-004.4",
       "name": "Rerank Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 score-only、metadata-boost、hf-tei-rerank、llm-relevance-rerank 及对应 Playground：配置 provider、model、rerankTopN、criteria，展示排序前后对比、rerank score 和 provider trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-004.3"
@@ -213,6 +294,8 @@
     {
       "id": "feat-004.5",
       "name": "Citation Stage",
+      "phase": "1",
+      "track": "historical",
       "description": "实现 chunk-citation、page-aware-citation、snippet-citation 及对应 Playground：配置 snippetLength、includePage、maxEvidencePerClaim，展示 evidence pack、source refs 和 citation trace。 交付前必须验证 Playground 可用，并在 evidence 中记录验证结果。",
       "dependencies": [
         "feat-004.4"
@@ -223,6 +306,8 @@
     {
       "id": "feat-005",
       "name": "Marketing Generation",
+      "phase": "1",
+      "track": "historical",
       "description": "生成产品画像、卖点地图和内容 idea，并携带 evidence chunk references。",
       "dependencies": [
         "feat-004.5"
@@ -231,18 +316,10 @@
       "evidence": "2026-05-20 实现：generation/route.ts 新增 product-persona（产品画像）/ selling-points（卖点地图）/ content-ideas（内容 idea）三个 JSON-mode 方法，保留 marketing-ideas 向后兼容；stageRegistry.ts 补充三种方法 params 定义；新建 GenerationOutputPanel.tsx（卡片式专属展示面板，按 methodId 路由不同内容）；PlaygroundShell.tsx 条件渲染。typecheck + lint + init.sh 全部通过。"
     },
     {
-      "id": "feat-007",
-      "name": "Stage 快照持久化与 Pipeline 全链路追踪",
-      "description": "每个 stage 成功运行后自动保存快照到 PostgreSQL（stage_snapshots 表），用户可注入历史快照作为上游输入无需重跑。新增 PipelineTraceDrawer 底部抽屉面板（当前运行 Tab + 历史记录 Tab），可内联展开 output/trace。手动保存完整 pipeline run 历史到 pipeline_run_history 表。",
-      "dependencies": [
-        "feat-004.5"
-      ],
-      "status": "done",
-      "evidence": "2026-05-20 实现：stage_snapshots + pipeline_run_history 两张 PostgreSQL 表；4 个 API 路由（/api/snapshots、/api/pipeline-runs）；PlaygroundShell 快照注入逻辑；StageConfigPanel 快照栏；PipelineTraceDrawer 底部抽屉（当前运行 Tab + 历史记录 Tab）。typecheck + lint 全部通过。"
-    },
-    {
       "id": "feat-006",
       "name": "RAG Quality Evaluation",
+      "phase": "2",
+      "track": "B-experiment",
       "description": "添加基础 retrieval 和 evidence 质量指标，例如 hit rate、citation coverage、confidence 和 warnings。",
       "dependencies": [
         "feat-004.5",
@@ -252,8 +329,22 @@
       "evidence": ""
     },
     {
+      "id": "feat-007",
+      "name": "Stage 快照持久化与 Pipeline 全链路追踪",
+      "phase": "1",
+      "track": "historical",
+      "description": "每个 stage 成功运行后自动保存快照到 PostgreSQL（stage_snapshots 表），用户可注入历史快照作为上游输入无需重跑。新增 PipelineTraceDrawer 底部抽屉面板（当前运行 Tab + 历史记录 Tab），可内联展开 output/trace。手动保存完整 pipeline run 历史到 pipeline_run_history 表。",
+      "dependencies": [
+        "feat-004.5"
+      ],
+      "status": "done",
+      "evidence": "2026-05-20 实现：stage_snapshots + pipeline_run_history 两张 PostgreSQL 表；4 个 API 路由（/api/snapshots、/api/pipeline-runs）；PlaygroundShell 快照注入逻辑；StageConfigPanel 快照栏；PipelineTraceDrawer 底部抽屉（当前运行 Tab + 历史记录 Tab）。typecheck + lint 全部通过。"
+    },
+    {
       "id": "feat-008",
       "name": "自动化评估矩阵（Eval Matrix Runner）",
+      "phase": "2",
+      "track": "B-experiment",
       "description": "离线 CLI 脚本，对 RAG pipeline 的 12 个预定义配置组合（Chunk × Retrieval × Transform × Filter × Query Rewrite）进行系统性自动化对比评估。每个 test case 串行运行完整 ingestion + retrieval × 3 query pipeline，从 evaluation stage 收集 hitRate / citationCoverage / confidenceScore / avgScore / totalDurationMs 等第二类指标（无需 ground truth），输出终端对比表和 results/summary.json。测试文档：docs/PRODUCT.md；测试 query：Q1（目标用户）/ Q2（embedding 和检索方式）/ Q3（生成营销 idea）。详见 docs/EVAL_MATRIX.md。",
       "dependencies": [
         "feat-006",
@@ -268,9 +359,11 @@
     {
       "id": "feat-009",
       "name": "RAG Pipeline 库标准化（第一批）",
-      "description": "将 rerank/route.ts 中的手写中文分词替换为 @node-rs/jieba，修复 llm-relevance-rerank 静默失败（warnings 作用域错误），补全 test-matrix.json T04 的 model/baseUrl 参数，更新 AGENTS.md 新增交付前代码审查 Checklist。同次全局审计发现 9 处手写实现缺陷，记录于 docs/feat-009_lib-standardization.md，第二批待续（BM25/zod/tiktoken）。",
+      "phase": "1",
+      "track": "historical",
+      "description": "将 rerank/route.ts 中的手写中文分词替换为 @node-rs/jieba，修复 llm-relevance-rerank 静默失败（warnings 作用域错误），补全 test-matrix.json T04 的 model/baseUrl 参数，更新 AGENTS.md 新增交付前代码审查 Checklist。同次全局审计发现 9 处手写实现缺陷，记录于 docs/feat-009_lib-standardization.md，第二批待续（BM25/zod/tiktoken）。起源于 feat-008 eval matrix 设计期的代码审计。",
       "dependencies": [
-        "feat-008"
+        "feat-007"
       ],
       "status": "done",
       "evidence": "docs/feat-009_lib-standardization.md; scripts/eval-matrix/results/feat-009-impact-assessment.md; AGENTS.md#交付前代码审查"
@@ -278,6 +371,8 @@
     {
       "id": "feat-010",
       "name": "Pipeline Orchestration Agent",
+      "phase": "3",
+      "track": "A-main",
       "description": "把 12+ 个 stage 的手动操作自动化为一键运行。采用 Plan-and-Execute 模式，计划由 STAGE_DEPS 依赖图静态决定（非 LLM 推理）。**架构调整**：在 Phase 1.5 重构完成后，agent 改为服务端 NestJS Service 运行 + SSE 推送进度（不再走客户端循环），位于 apps/api/src/agent/。",
       "dependencies": [
         "feat-002.4",
@@ -291,6 +386,8 @@
     {
       "id": "feat-010.1",
       "name": "Pipeline Agent 核心（NestJS Service + SSE）",
+      "phase": "3",
+      "track": "A-main",
       "description": "在 apps/api/src/agent/ 新增 pipeline-agent.service.ts（runPipeline(config): AsyncIterable<AgentProgressEvent>，注入 RagCoreService）和 pipeline-agent.controller.ts（POST /api/agent/pipeline/start 启动 run 返回 runId；GET /api/agent/pipeline/:runId/events 使用 NestJS @Sse() 装饰器推送事件流）。AgentRunConfig + AgentProgressEvent zod schema 定义在 packages/shared-types/src/agent.ts。",
       "dependencies": [
         "feat-010"
@@ -301,6 +398,8 @@
     {
       "id": "feat-010.2",
       "name": "AutoRun 入口与预运行配置 Modal",
+      "phase": "3",
+      "track": "A-main",
       "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（apps/web/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
       "dependencies": [
         "feat-010.1"
@@ -311,6 +410,8 @@
     {
       "id": "feat-010.3",
       "name": "AgentProgressPanel 时间线（SSE 订阅）",
+      "phase": "3",
+      "track": "A-main",
       "description": "新组件 apps/web/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。通过 EventSource 订阅后端 SSE 流（GET /api/agent/pipeline/:runId/events）。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
       "dependencies": [
         "feat-010.1"
@@ -321,6 +422,8 @@
     {
       "id": "feat-011",
       "name": "Content Generation ReAct Agent",
+      "phase": "3",
+      "track": "A-main",
       "description": "在 RAG 完成后接管内容生成质量迭代。ReAct 模式（推理 + 工具 + 观察），自动迭代「生成 → 评估 → 换角度 → 重生成」直到 hook 评分 ≥7 或达到最大迭代次数。区别于 feat-010 的 Plan-and-Execute（顺序固定），这里迭代次数不确定，体现动态决策循环。",
       "dependencies": [
         "feat-005",
@@ -332,6 +435,8 @@
     {
       "id": "feat-011.1",
       "name": "Content Agent 工具集（4 个纯函数工具）",
+      "phase": "3",
+      "track": "A-main",
       "description": "在 packages/rag-core/src/agent/content-tools/ 实现 4 个纯函数工具（无 HTTP / 可独立单测）：generate-ideas.ts / evaluate-hook.ts / evaluate-evidence.ts / suggest-angle.ts。evaluate-hook 双层评估：规则预检（0 token 过滤）+ LLM 精评（prompt 扮演挑剔小红书用户）。suggest-angle 从角度库选未尝试角度。",
       "dependencies": [
         "feat-011"
@@ -342,6 +447,8 @@
     {
       "id": "feat-011.2",
       "name": "Content Agent ReAct 循环引擎（NestJS Service）",
+      "phase": "3",
+      "track": "A-main",
       "description": "在 apps/api/src/agent/content-agent.service.ts 实现 runContentAgent(config): AsyncIterable<ContentAgentEvent>。注入 rag-core 工具函数。max_iterations=3，threshold=7。三重终止：score ≥ 7 / 达到 max / 用户 abort。POST /api/agent/content/start + GET /api/agent/content/:runId/events SSE + POST /api/agent/content/:runId/accept 接管端点。",
       "dependencies": [
         "feat-011.1"
@@ -352,6 +459,8 @@
     {
       "id": "feat-011.3",
       "name": "ContentAgentPanel UI",
+      "phase": "3",
+      "track": "A-main",
       "description": "新组件 apps/web/components/agent/ContentAgentPanel.tsx：通过 EventSource 订阅 SSE 流，每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮（调 /accept 端点）+ 「手动指定角度」输入框。完成后跳转到 Marketing Studio。",
       "dependencies": [
         "feat-011.2"
@@ -362,6 +471,8 @@
     {
       "id": "feat-012",
       "name": "Marketing Studio UX",
+      "phase": "4",
+      "track": "A-main",
       "description": "独立 /studio/[runId] 路由，从「展示 JSON 列表」升级为符合营销师工作习惯的内容创作工作流。四列看板：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。包含踩赞反馈、Content Directions 中间层、PostTemplate 帖子扩展。",
       "dependencies": [
         "feat-011"
@@ -372,6 +483,8 @@
     {
       "id": "feat-012.1",
       "name": "Studio 路由与四列看板布局",
+      "phase": "4",
+      "track": "A-main",
       "description": "新增 apps/web/app/(studio)/studio/[runId]/page.tsx：从 NestJS 端点拉取 run 数据，渲染 IdeaBoardColumn 四列（卖点 / 方向 / Ideas / 扩展）。响应式布局（< 1280px 横向滚动）。复用 packages/shared-types 定义的数据 schema。",
       "dependencies": [
         "feat-012"
@@ -382,6 +495,8 @@
     {
       "id": "feat-012.2",
       "name": "IdeaCard 踩赞反馈与重生成 API",
+      "phase": "4",
+      "track": "A-main",
       "description": "IdeaCard 组件支持踩 / 赞 + 可选「换角度」文本输入。新增 idea_feedback 表（run_id, idea_index, signal, angle_override, created_at）。新 NestJS 端点 POST /api/studio/regenerate-idea（apps/api/src/studio/）：复用 stage snapshot 的 evidence pack，仅重调 generation，传入 excludeAngles + 用户角度提示，不重跑整条 pipeline。",
       "dependencies": [
         "feat-012.1"
@@ -392,6 +507,8 @@
     {
       "id": "feat-012.3",
       "name": "Content Directions 中间层",
+      "phase": "4",
+      "track": "A-main",
       "description": "在卖点（what）和 idea（具体）之间增加战略角度层（how）。新增 generation method content-directions（在 apps/api/src/pipeline/generation/ 下扩展），输出 ContentDirection { directionName, description, targetPlatforms, exampleHook, sellingPointId, evidenceIds }。Studio 第二列展示，选中后过滤第三列 ideas。",
       "dependencies": [
         "feat-012.1"
@@ -402,6 +519,8 @@
     {
       "id": "feat-012.4",
       "name": "帖子扩展 API 与 PostTemplate 展示",
+      "phase": "4",
+      "track": "A-main",
       "description": "新 NestJS 端点 POST /api/studio/expand-idea（apps/api/src/studio/expand-idea.controller.ts）：把单个 idea 扩展为完整 PostTemplate { hook, body[], cta, hashtags[], imagePrompt, evidenceIds, characterCount }。前端新组件 PostExpansionDrawer + PlatformMockup（纯 Tailwind CSS 手机框，支持小红书 / Twitter / LinkedIn / 公众号四个平台模板），底部一键复制按钮。",
       "dependencies": [
         "feat-012.1"
@@ -412,6 +531,8 @@
     {
       "id": "feat-013",
       "name": "工程化与生产部署",
+      "phase": "5",
+      "track": "A-main",
       "description": "把 Playground 推进到可上线、多用户、可演示给雇主的产品形态。包含 Auth、多租户隔离、用户自带 API Key、ORM 迁移、Docker 部署。各子项相对独立可分批落地。",
       "dependencies": [
         "feat-012"
@@ -422,6 +543,8 @@
     {
       "id": "feat-013.1",
       "name": "Lucia Auth 鉴权（NestJS Module + 前端表单）",
+      "phase": "5",
+      "track": "A-main",
       "description": "Lucia Auth v3 + PostgreSQL adapter（不用 NextAuth）。httpOnly cookie 存 session token，禁用 localStorage 防 XSS。新增 users / user_sessions 表。后端：apps/api/src/auth/（auth.module.ts + auth.service.ts + auth.guard.ts + auth.controller.ts）。前端：apps/web/app/(auth)/(login|signup)/page.tsx + apps/web/middleware.ts（仅做跳转保护）。",
       "dependencies": [
         "feat-013"
@@ -432,6 +555,8 @@
     {
       "id": "feat-013.2",
       "name": "Workspace 多租户数据隔离",
+      "phase": "5",
+      "track": "A-main",
       "description": "应用层 Row-level isolation（不用 PostgreSQL RLS）。新增 workspaces 表，在 rag_documents / rag_chunks / stage_snapshots / pipeline_run_history / idea_feedback 全部加 workspace_id NOT NULL 列。用 NestJS Interceptor 统一从 session 解析 workspace_id 注入到所有 Service 的查询上下文。",
       "dependencies": [
         "feat-013.1"
@@ -442,6 +567,8 @@
     {
       "id": "feat-013.3",
       "name": "BYOK 用户自带 API Key 管理",
+      "phase": "5",
+      "track": "A-main",
       "description": "用户自己填 Qwen / OpenAI key，不做按量计费。新增 user_api_keys 表（AES-256 服务端加密存储）。后端：apps/api/src/crypto/vault.service.ts（加密 service）+ apps/api/src/providers/ 改为优先读 DB key fallback env var。前端：apps/web/app/(studio)/settings/page.tsx 填写 key 表单 + 脱敏展示。",
       "dependencies": [
         "feat-013.1"
@@ -452,6 +579,8 @@
     {
       "id": "feat-013.4",
       "name": "Drizzle ORM 迁移",
+      "phase": "5",
+      "track": "A-main",
       "description": "Drizzle ORM 替换 NestJS Service 中的 raw pg 查询。Schema 集中在 apps/api/src/db/schema.ts + drizzle/migrations/ + drizzle.config.ts。渐进迁移：先迁 snapshot 相关查询，再迁 doc store，最后清理 raw SQL。功能开关 USE_DRIZZLE=true 切换实现，保证可回滚。",
       "dependencies": [
         "feat-013.2"
@@ -462,6 +591,8 @@
     {
       "id": "feat-013.5",
       "name": "Fly.io 多服务生产部署",
+      "phase": "5",
+      "track": "A-main",
       "description": "Fly.io 多服务部署：apps/web (Next.js Dockerfile) + apps/api (NestJS Dockerfile) + services/pymupdf (Python) + Fly Postgres（内置 pgvector）。根 fly.toml 定义多 service。GitHub Actions CI：PR 时跑 monorepo 全量 typecheck + lint + 各 app 独立 build。备选混合部署：apps/web 上 Vercel + apps/api + pymupdf 上 Fly。",
       "dependencies": [
         "feat-013.4"
@@ -472,6 +603,8 @@
     {
       "id": "feat-100",
       "name": "架构重构（pnpm monorepo + NestJS 前后端分离）",
+      "phase": "2.5",
+      "track": "A-main",
       "description": "把当前 Next.js 单体重构为「pnpm monorepo + 独立 NestJS 后端 + Next.js 前端 + 纯 RAG 库」清晰分层架构。所有后续 feature（feat-010~013）都在新架构下开发。**编号约定**：采用 100+ 段位标识此类跨阶段的架构/基础设施重构（与 001~099 业务功能区分），便于一眼区分「业务开发」vs「架构调整」。分 4 个 Wave 渐进迁移。",
       "dependencies": [
         "feat-008"
@@ -482,6 +615,8 @@
     {
       "id": "feat-100.1",
       "name": "架构重构 Wave 1：pnpm monorepo 骨架",
+      "phase": "2.5",
+      "track": "A-main",
       "description": "根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。先建立工程基座，不动算法。",
       "dependencies": [
         "feat-100"
@@ -492,6 +627,8 @@
     {
       "id": "feat-100.2",
       "name": "架构重构 Wave 2：抽 packages/rag-core 纯库",
+      "phase": "2.5",
+      "track": "A-main",
       "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。**冲突高风险窗口**（1-2 周）：实验流（轨道 B）应冻结算法改动只调参。",
       "dependencies": [
         "feat-100.1"
@@ -502,6 +639,8 @@
     {
       "id": "feat-100.3",
       "name": "架构重构 Wave 3：搭 NestJS 后端 + 5 端点迁移 + 双跑期",
+      "phase": "2.5",
+      "track": "A-main",
       "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
       "dependencies": [
         "feat-100.2"
@@ -512,6 +651,8 @@
     {
       "id": "feat-100.4",
       "name": "架构重构 Wave 4：迁完剩余端点 + 清理 + 部署调整",
+      "phase": "2.5",
+      "track": "A-main",
       "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。完成后 feat-010 起所有主流程业务 feature 才可启动。",
       "dependencies": [
         "feat-100.3"

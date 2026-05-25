@@ -30,6 +30,9 @@ node -e "JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); co
 echo "=== Feature 状态校验 ==="
 node -e "const data = JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); const allowed = new Set(['done', 'todo', 'in-progress', 'blocked', 'epic']); const bad = data.features.filter((feature) => !allowed.has(feature.status)); if (bad.length) { console.error('非法 feature status:', bad.map((feature) => feature.id + ':' + feature.status).join(', ')); process.exit(1); } console.log('feature statuses OK')"
 
+echo "=== Harness 一致性校验（track / phase / 依赖闭包）==="
+node scripts/check-harness.mjs
+
 if [ -f "app/package.json" ]; then
   echo "=== 应用验证 (app/) ==="
   cd app
