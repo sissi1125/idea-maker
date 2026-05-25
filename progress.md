@@ -1,5 +1,44 @@
 # 进度记录
 
+## 2026-05-25（会话 18 — 双轨并行执行模型）
+
+### 已完成
+
+引入**双轨并行执行模型**，把 RAG 实验调优与主流程开发拆为两条独立轨道：
+
+- **轨道 A 主流程**：架构重构 + Agent + Studio + 工程化（feat-100~103, feat-010~013）—— 在一个 session/worktree 推进
+- **轨道 B RAG 实验**：feat-006/008 收尾 + 持续算法实验 —— 用户在另一个 session 推进
+
+#### 关键决策
+
+1. **实验代码合入策略：选择性合入**
+   - 实验默认只产 `scripts/eval-matrix/results/run-XXX/` 报告
+   - 确认指标提升（hitRate / citationCoverage / confidenceScore 不退化）的算法/参数改动才单独提小 PR 合入 main
+2. **Wave 2 冻结窗口**
+   - 主流程做 Wave 2（feat-101 抽 rag-core）期间约定 1-2 周
+   - 实验流仅调参（chunk size / threshold / topK / 新 query 组合），不动算法核心代码
+3. **分支约定**
+   - main 唯一合并入口
+   - 主流程：`claude/refactor-monorepo` 或类似
+   - 实验流：`claude/experiments/<topic>`
+4. **Feature 编号约定**
+   - 实验流：feat-006.x / feat-008.x / feat-009.x
+   - 主流程：feat-010~013 + feat-100+
+
+#### 变更
+
+- 更新 `AGENTS.md` 工作规则：新增双轨并行约定（轨道分工、Wave 2 冻结、rebase 节奏、编号约定）
+- 新增 `docs/ROADMAP_PHASE2_PLUS.md` 末尾「双轨并行执行模型」章节（背景 / 模型图 / 同步规则 / 分支约定 / 编号约定 / 风险与缓解 / 同步触发点 / 实验流默认工作流）
+- 同步 progress.md 和 session-handoff.md
+
+### 当前状态
+
+- 工作树：`claude/plan-agent-roadmap`，干净。
+- 仅文档变更，无代码改动。
+- 下一步：用户可在另一个 session 开启实验流分支（建议从 feat-006 / feat-008 收尾开始）；主流程可在当前 worktree 或新开 worktree 启动 feat-100。
+
+---
+
 ## 2026-05-25（会话 17 — 架构重构作为阶段 2.5 插入）
 
 ### 已完成

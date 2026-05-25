@@ -579,3 +579,91 @@ app = "marketing-rag-playground"
 | **合计** | | **~5-6 个月** |
 
 按这个节奏推，5-6 个月后能拿到一个完整、可上线、可演示的简历项目（含架构重构）。
+
+---
+
+## 双轨并行执行模型
+
+### 背景
+原计划是串行（先做 feat-006/008 收尾 → 再做架构重构 → 再做 agent）。但 RAG 实验调优是**长期、不确定**的工作（query 跑一轮要几小时、参数组合多），与架构重构、产品功能开发并不冲突。把它们拆成两条并行轨道更高效。
+
+### 双轨模型
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  轨道 A：主流程（一个 session / worktree）                      │
+│                                                                  │
+│  阶段 2.5 架构重构 (feat-100~103, 4-5 周)                       │
+│      → 阶段 3 Agent (feat-010 + feat-011)                       │
+│      → 阶段 4 Studio (feat-012)                                 │
+│      → 阶段 5 工程化 (feat-013)                                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+                            ↑
+                            │ 选择性 PR 合入
+                            │ （仅确认有效的优化）
+                            │
+┌─────────────────────────────────────────────────────────────────┐
+│  轨道 B：RAG 实验调优（用户在另一个 session）                   │
+│                                                                  │
+│  feat-006 / feat-008 收尾                                       │
+│      + 持续 RAG 算法实验（新方法 / 调参 / prompt 优化）          │
+│      + section-citation 已上 main，可继续扩展                   │
+│                                                                  │
+│  默认产出：scripts/eval-matrix/results/run-XXX/ 报告            │
+│           + .interview/ 面试题                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 同步规则
+
+| 决策 | 规则 |
+|------|------|
+| **实验代码合入策略** | **选择性合入**：实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main |
+| **Wave 2 冻结窗口** | 主流程做 Wave 2（feat-101，抽 rag-core，~1-2 周）期间，**实验流只调参不动算法核心代码**。可以做：跑新 query 组合 / 调 chunk size / threshold / topK / 生成报告。不可以做：改 chunk.ts、rerank.ts 等算法实现 |
+| **主流程 rebase 节奏** | 每个 Wave 开始前 rebase main，把实验流合入的最新算法拉进来 |
+| **实验流 base** | 实验流持续在 **main 顶端**（即重构期间也是 monolithic 结构）跑，保证实验环境稳定 |
+| **实验迁移到新结构** | Wave 4 完成（feat-103，旧 Next.js API routes 删除）后，实验流才必须迁到 packages/rag-core；之前可选 |
+
+### 分支约定
+
+| 分支 | 用途 | 基于 |
+|------|------|------|
+| `main` | 唯一合并入口（实验 PR + 主流程 PR 都合入这里） | - |
+| `claude/refactor-monorepo`（或类似名） | 主流程：feat-100 起所有架构 + 产品 feature | main 顶端，每 Wave 开始 rebase |
+| `claude/experiments/<topic>` | 实验流（每个实验主题一个短命分支） | main 顶端 |
+
+### Feature 编号约定（避免冲突）
+
+| 编号段 | 归属 | 示例 |
+|--------|------|------|
+| `feat-006.x` / `feat-008.x` / `feat-009.x` | 轨道 B 实验流 | feat-006.1 评估指标补充、feat-008.1 新增 query 维度 |
+| `feat-010 ~ feat-013` 与 `feat-100+` | 轨道 A 主流程 | feat-010.1 Pipeline Agent 核心、feat-100 monorepo 骨架 |
+
+### 风险与缓解
+
+| 风险 | 缓解 |
+|------|------|
+| 实验改了算法导致 Playground evidence drift | 实验流 PR 必须附带 eval 指标对比（hitRate / citationCoverage / confidenceScore 不退化）|
+| 主流程 Wave 2 期间冲突 | 1-2 周内实验冻结算法改动，只调参；冻结开始/结束在 session-handoff.md 明确写明 |
+| 实验流在旧结构上跑、主流程在新结构上写 | Wave 4 完成前两套并存（旧 monolith 作为「实验沙盒」保留）；Wave 4 后实验流统一迁到 packages/rag-core |
+| 实验流 PR 与主流程 rebase 时序混乱 | 主流程在每个 Wave 开始前 rebase main，避免实验 PR 堆积 |
+
+### 同步触发点（关键节点通知）
+
+| 时机 | 实验流应感知（写入 session-handoff.md） |
+|------|------------|
+| Wave 1 完成 | apps/web/ 路径已就绪，但 app/api/* 暂未迁；实验流继续在 apps/web/app/api/ 跑 |
+| Wave 2 开始 | **冻结算法改动**通知；实验流仅调参 |
+| Wave 2 完成 | rag-core 已抽离；实验流可选迁移 |
+| Wave 4 完成 | 旧 Next.js API routes 删除；实验流必须迁到 packages/rag-core |
+
+### 实验流默认工作流
+
+1. 用户在另一个 session 启动 worktree：`git worktree add .claude/worktrees/exp-<topic> -b claude/experiments/<topic> main`
+2. 修改算法 / 调参 / 跑实验
+3. 输出 `scripts/eval-matrix/results/run-XXX/` 报告 + `.interview/` 面试题（如适用）
+4. 评估指标对比基线：通过则提小 PR 合入 main；不通过则归档报告，分支可删
+5. 主流程下次 Wave 开始时 rebase main 拉取已合入的优化
+
+> **重要原则**：RAG 算法的进化（实验流）独立于结构演进（主流程），二者通过 main 分支异步同步。Wave 2 是唯一的高冲突窗口，需要明确的冻结约定。
