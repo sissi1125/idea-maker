@@ -1,0 +1,100 @@
+{
+  "testId": "T02",
+  "label": "hf-tei-rerank / bge-v2-m3（纯 bge 参考）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "块式编辑器支持哪些内容块类型？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5278666666666666,
+        "retrievedCount": 10,
+        "avgScore": 0.50525,
+        "ideaCount": 5,
+        "durationMs": 46979.5
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.9725,
+        "retrievedCount": 10,
+        "avgScore": 0.69399,
+        "ideaCount": 4,
+        "durationMs": 40989.5
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "用户可以通过哪些系统入口快速进入 Bloomnote？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.8428,
+        "retrievedCount": 10,
+        "avgScore": 0.7313699999999999,
+        "ideaCount": 4,
+        "durationMs": 51393.5
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的整体设计风格和主题色方案是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.28049999999999997,
+        "retrievedCount": 10,
+        "avgScore": 0.41086,
+        "ideaCount": 3,
+        "durationMs": 45738.5
+      }
+    },
+    {
+      "queryId": "Q5",
+      "query": "免费用户和 Pro 用户在功能权益上有哪些区别？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.7139000000000001,
+        "retrievedCount": 10,
+        "avgScore": 0.53829,
+        "ideaCount": 6,
+        "durationMs": 63936.5
+      }
+    },
+    {
+      "queryId": "Q6",
+      "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 0.3333333333333333,
+        "citationCoverage": 1,
+        "confidenceScore": 0.1564,
+        "retrievedCount": 10,
+        "avgScore": 0.47692999999999997,
+        "ideaCount": 3,
+        "durationMs": 52290.5
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 0.7222222222222222,
+    "citationCoverage": 1,
+    "confidenceScore": 0.5823277777777779,
+    "retrievedCount": 10,
+    "avgScore": 0.5594483333333333,
+    "ideaCount": 4.166666666666667,
+    "totalDurationMs": 301328
+  }
+}
