@@ -555,6 +555,25 @@ const registry: StageDef[] = [
           { key: "maxEvidencePerClaim", label: "每 claim 最多证据", type: "number", default: 3, min: 1, max: 10 },
         ],
       },
+      {
+        id: "section-citation",
+        label: "章节扩展引用（Parent-Child 等价）",
+        params: [
+          {
+            key: "expansionMode",
+            label: "扩展模式",
+            type: "select",
+            default: "section",
+            options: [
+              { value: "section", label: "section — 取同 sourceRef 全部 chunk（完整章节，推荐）" },
+              { value: "adjacent", label: "adjacent — 取 chunkIndex ±1 共 3 个 chunk（折中）" },
+            ],
+            hint: "用 sourceRef 反查兄弟 chunk 拼成完整上下文，等价于 parent-child chunking 但无需改 schema",
+          },
+          { key: "maxEvidencePerClaim", label: "每 claim 最多证据", type: "number", default: 3, min: 1, max: 10, hint: "section 模式按章节去重后取 top-N" },
+          { key: "connectionString", label: "数据库连接串（可选）", type: "text", default: "", placeholder: "留空则读取 DATABASE_URL 环境变量" },
+        ],
+      },
     ],
   },
   {
