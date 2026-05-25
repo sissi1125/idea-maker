@@ -12,9 +12,15 @@
  *   - HF_TEI_ENDPOINT 已设置（pipeline-rerank 需要 TEI 服务）
  *
  * 可选环境变量：
- *   BASE_URL=http://localhost:3000   （默认）
- *   START_FROM=T04                   （跳过前面的 test case，用于断点续跑）
- *   RUN_ID=run-002-20260521          （指定结果目录名，默认按日期自动生成）
+ *   BASE_URL=http://localhost:3000              （默认）
+ *   START_FROM=T04                              （跳过前面的 test case，用于断点续跑）
+ *   RUN_ID=run-002-20260521                     （指定结果目录名，默认按日期自动生成）
+ *   EXPERIMENT=experiment-4-citation            （实验系列名，决定结果落到 current/<EXPERIMENT>/）
+ *                                               不设则落到 results/ 根（兼容旧行为）
+ *
+ * 结果目录结构（按实验系列组织）：
+ *   results/legacy/             — 历史 run-001~016 等
+ *   results/current/<EXPERIMENT>/run-NNN/ — 当前进行中的实验系列
  */
 
 import fs from "fs";
@@ -29,17 +35,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const START_FROM = process.env.START_FROM ?? null;
 
-// 结果目录：每次运行独立文件夹，格式 run-XXX-YYYYMMDD
+// 结果目录解析：
+//   优先级 1：RUN_ID 显式指定（绝对覆盖，相对 results/ 根）
+//   优先级 2：EXPERIMENT 指定实验系列 → results/current/<EXPERIMENT>/run-NNN/
+//   优先级 3：兼容旧行为，落到 results/ 根 → results/run-NNN-YYYYMMDD/
+// run 编号在所属目录内自动递增（不受其他系列影响）
 function resolveResultsDir(): string {
-  if (process.env.RUN_ID) return path.join(__dirname, "results", process.env.RUN_ID);
+  const resultsBase = path.join(__dirname, "results");
+  if (process.env.RUN_ID) return path.join(resultsBase, process.env.RUN_ID);
+
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  // 自动递增 run 编号
-  const base = path.join(__dirname, "results");
-  if (!fs.existsSync(base)) fs.mkdirSync(base, { recursive: true });
-  const existing = fs.readdirSync(base).filter((d) => /^run-\d{3}-/.test(d)).sort();
+  const experiment = process.env.EXPERIMENT?.trim();
+  const seriesDir = experiment
+    ? path.join(resultsBase, "current", experiment)
+    : resultsBase;
+
+  if (!fs.existsSync(seriesDir)) fs.mkdirSync(seriesDir, { recursive: true });
+  // 在所属系列目录里自增 run 编号
+  const existing = fs.readdirSync(seriesDir).filter((d) => /^run-\d{3}/.test(d)).sort();
   const lastNum = existing.length > 0 ? parseInt(existing[existing.length - 1].slice(4, 7)) : 0;
   const nextNum = String(lastNum + 1).padStart(3, "0");
-  return path.join(base, `run-${nextNum}-${today}`);
+  // 带 EXPERIMENT 时目录名更短（run-NNN），无 EXPERIMENT 时保留旧格式（run-NNN-YYYYMMDD）
+  const runDirName = experiment ? `run-${nextNum}` : `run-${nextNum}-${today}`;
+  return path.join(seriesDir, runDirName);
 }
 
 const RESULTS_DIR = resolveResultsDir();
@@ -187,9 +205,12 @@ async function runRetrieval(
     upstreamOutput: outputs.filter.output,
   }) as { output: unknown };
 
+  // citation：优先用 testCase.citation，否则用 FIXED.citation
+  // section-citation 的 connectionString 留空，由 server 端从 DATABASE_URL 环境变量 fallback
+  const citationConfig = testCase.citation ?? FIXED.citation;
   outputs.citation = await post("citation", {
-    methodId: FIXED.citation.methodId,
-    params: FIXED.citation.params,
+    methodId: citationConfig.methodId,
+    params: citationConfig.params,
     upstreamOutput: outputs.rerank.output,
   }) as { output: unknown };
 
@@ -244,7 +265,7 @@ async function runTestCase(documentId: string, testCase: TestCase): Promise<Test
       for (const [k, v] of Object.entries(outputs)) outputMap[k] = (v as { output: unknown }).output;
       const metrics = extractQueryMetrics(outputMap as Record<string, { output: unknown }>, durationMs + ingestionDurationMs / QUERIES.length);
 
-      console.log(`    hitRate=${fmt(metrics.hitRate)} citationCoverage=${fmt(metrics.citationCoverage)} retrieved=${metrics.retrievedCount} (${durationMs}ms)`);
+      console.log(`    hitRate=${fmt(metrics.hitRate)} citationCoverage=${fmt(metrics.citationCoverage)} retrieved=${metrics.retrievedCount} ctxLen=${metrics.contextLength ?? "n/a"} evidence=${metrics.evidenceCount ?? "n/a"} (${durationMs}ms)`);
       queryResults.push({ queryId, query: queryText, status: "success", metrics });
       allQueryMetrics.push(metrics);
 

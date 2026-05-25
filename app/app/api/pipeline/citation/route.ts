@@ -8,7 +8,7 @@
  * Pipeline 位置：
  *   Rerank → [Citation] → Prompt Build → Generation
  *
- * 三种方法：
+ * 四种方法：
  *
  *   chunk-citation        全文引用：把 chunk 原文完整传给 LLM
  *                         最完整，但 token 消耗大；适合 chunk 较短（< 200 tokens）的场景
@@ -19,13 +19,24 @@
  *   snippet-citation      从 chunk 中提取包含关键词的最相关片段（窗口截取）
  *                         压缩 token 消耗，适合长 chunk；牺牲一定完整性
  *
+ *   section-citation      上下文扩展引用：查询 DB 反查同 sourceRef 或相邻 chunk，
+ *                         把命中 chunk 扩展为完整章节/邻接段落作为 evidence text。
+ *                         解决"切太细导致 LLM 上下文不够"的问题。
+ *                         等价于 parent-child chunking 的效果，但不需要修改 schema。
+ *                         模式：
+ *                           adjacent — 取 chunkIndex ±1 共 3 个 chunk（折中方案）
+ *                           section  — 取同 sourceRef 全部 chunk（完整章节，推荐）
+ *
  * Evidence Pack 格式：
  *   LLM 接收 evidence 时可以引用 evidenceId，生成结果里的 citation 字段包含 evidenceId 列表，
  *   便于后端追溯到原始 chunk 和文档来源（这是"evidence first"原则的落地）。
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Client } from "pg";
 import type { RerankOutput, RankedChunk } from "../rerank/route";
+import { tokenize } from "@/lib/nlp";
+import { resolveConnectionString, unwrapError } from "@/lib/snapshotDb";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -84,9 +95,7 @@ function extractPageNumber(sourceRef: string): number | null {
 function extractSnippet(text: string, query: string, snippetLength: number): string {
   if (text.length <= snippetLength) return text;
 
-  const qTokens = query
-    .split(/[\s，。？！、；：\?!,.:;()\n]+/)
-    .filter((t) => t.length >= 2);
+  const qTokens = tokenize(query, true, 2);
 
   // 找第一个关键词出现的位置
   let anchorPos = 0;
@@ -220,6 +229,118 @@ function buildSnippetCitation(
   };
 }
 
+// ─── section-citation ─────────────────────────────────────────────────────────
+
+/**
+ * 反查 DB 取兄弟 chunk 拼接成扩展上下文。
+ *
+ * 为什么需要这个：单层 chunk 切得越细，embedding 检索越精准，但 LLM 拿到的上下文越缺。
+ * Parent-Child Chunking 是教科书方案，但需要改 schema 和数据结构。
+ * 这里用"sourceRef 反查"等价实现：命中 chunk 后用其 sourceRef 查同章节所有 chunk，
+ * 拼成完整章节作为 evidence text。只改 citation 一处，不动 storage / retrieval / rerank。
+ *
+ * 两种扩展模式：
+ *   adjacent — 取 chunkIndex N-1, N, N+1 三个 chunk（折中，节省 token）
+ *   section  — 取 source_ref = 命中 chunk.sourceRef 的全部 chunk（完整章节）
+ *
+ * 去重策略：
+ *   section 模式下，多个命中 chunk 可能来自同一章节。按 (documentId, sourceRef) 去重，
+ *   只生成一条 evidence，evidenceId 取该章节里分数最高的 chunk。否则 contextText 会重复。
+ */
+async function buildSectionCitation(
+  matches: RankedChunk[],
+  maxEvidence: number,
+  expansionMode: "adjacent" | "section",
+  connectionString: string
+): Promise<CitationOutput> {
+  const warnings: string[] = [];
+  const db = new Client({ connectionString });
+  await db.connect();
+
+  try {
+    // section 模式去重：同 (documentId, sourceRef) 只保留分数最高的 chunk
+    // adjacent 模式按命中 chunk 各自展开，不去重
+    let sourceList: RankedChunk[];
+    if (expansionMode === "section") {
+      const bestPerSection = new Map<string, RankedChunk>();
+      for (const m of matches) {
+        const key = `${m.documentId}::${m.sourceRef}`;
+        const existing = bestPerSection.get(key);
+        if (!existing || m.rerankScore > existing.rerankScore) {
+          bestPerSection.set(key, m);
+        }
+      }
+      sourceList = [...bestPerSection.values()]
+        .sort((a, b) => b.rerankScore - a.rerankScore)
+        .slice(0, maxEvidence);
+    } else {
+      sourceList = matches.slice(0, maxEvidence);
+    }
+
+    const evidencePack: EvidenceItem[] = [];
+
+    for (const m of sourceList) {
+      let expandedText = m.text;
+      let chunkCount = 1;
+
+      if (expansionMode === "adjacent") {
+        // 取相邻 chunk（chunk_index ±1），按 chunk_index 升序拼接
+        const result = await db.query<{ chunk_index: number; text: string }>(
+          `SELECT chunk_index, text FROM rag_chunks
+           WHERE document_id = $1 AND version = $2
+             AND chunk_index BETWEEN $3 AND $4
+           ORDER BY chunk_index ASC`,
+          [m.documentId, m.version, m.chunkIndex - 1, m.chunkIndex + 1]
+        );
+        if (result.rows.length > 0) {
+          expandedText = result.rows.map((r) => r.text).join("\n\n");
+          chunkCount = result.rows.length;
+        }
+      } else {
+        // section 模式：取同 sourceRef 全部 chunk，按 chunk_index 升序
+        const result = await db.query<{ chunk_index: number; text: string }>(
+          `SELECT chunk_index, text FROM rag_chunks
+           WHERE document_id = $1 AND version = $2
+             AND source_ref = $3
+           ORDER BY chunk_index ASC`,
+          [m.documentId, m.version, m.sourceRef]
+        );
+        if (result.rows.length > 0) {
+          expandedText = result.rows.map((r) => r.text).join("\n\n");
+          chunkCount = result.rows.length;
+        } else {
+          warnings.push(`chunk ${m.chunkId} 的 sourceRef "${m.sourceRef}" 在 DB 里未找到匹配章节，降级为原 chunk 文本`);
+        }
+      }
+
+      evidencePack.push({
+        evidenceId: chunkToEvidenceId(m),
+        text: expandedText,
+        sourceRef: m.sourceRef,
+        documentId: m.documentId,
+        version: m.version,
+        chunkIndex: m.chunkIndex,
+        pageNumber: extractPageNumber(m.sourceRef),
+        score: m.rerankScore,
+      });
+
+      if (chunkCount > 1) {
+        warnings.push(`evidence ${chunkToEvidenceId(m)}: ${expansionMode} 模式扩展为 ${chunkCount} 个 chunk`);
+      }
+    }
+
+    return {
+      evidencePack,
+      totalEvidence: evidencePack.length,
+      method: "section-citation",
+      contextText: buildContextText(evidencePack),
+      warnings,
+    };
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -249,18 +370,40 @@ export async function POST(req: NextRequest) {
 
   let result: CitationOutput;
 
-  switch (methodId) {
-    case "chunk-citation":
-      result = buildChunkCitation(matches, maxEvidence);
-      break;
-    case "page-aware-citation":
-      result = buildPageAwareCitation(matches, Boolean(params.includePage ?? true), maxEvidence);
-      break;
-    case "snippet-citation":
-      result = buildSnippetCitation(matches, query, Number(params.snippetLength ?? 200), Boolean(params.includePage ?? false), maxEvidence);
-      break;
-    default:
-      return NextResponse.json({ error: { code: "unknown_method", message: `未知方法: ${methodId}` } }, { status: 400 });
+  try {
+    switch (methodId) {
+      case "chunk-citation":
+        result = buildChunkCitation(matches, maxEvidence);
+        break;
+      case "page-aware-citation":
+        result = buildPageAwareCitation(matches, Boolean(params.includePage ?? true), maxEvidence);
+        break;
+      case "snippet-citation":
+        result = buildSnippetCitation(matches, query, Number(params.snippetLength ?? 200), Boolean(params.includePage ?? false), maxEvidence);
+        break;
+      case "section-citation": {
+        // 上下文扩展需要数据库连接
+        const connectionString = resolveConnectionString(
+          typeof params.connectionString === "string" ? params.connectionString : undefined
+        );
+        if (!connectionString) {
+          return NextResponse.json(
+            { error: { code: "missing_connection", message: "section-citation 需要数据库连接：请在表单填写 connectionString 或设置 DATABASE_URL 环境变量" } },
+            { status: 400 }
+          );
+        }
+        const expansionMode = params.expansionMode === "adjacent" ? "adjacent" : "section";
+        result = await buildSectionCitation(matches, maxEvidence, expansionMode, connectionString);
+        break;
+      }
+      default:
+        return NextResponse.json({ error: { code: "unknown_method", message: `未知方法: ${methodId}` } }, { status: 400 });
+    }
+  } catch (err) {
+    return NextResponse.json(
+      { error: { code: "citation_failed", message: unwrapError(err) } },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({
@@ -270,6 +413,9 @@ export async function POST(req: NextRequest) {
       inputMatches: matches.length,
       evidenceCount: result.totalEvidence,
       contextLength: result.contextText.length,
+      avgEvidenceLength: result.evidencePack.length > 0
+        ? Math.round(result.contextText.length / result.evidencePack.length)
+        : 0,
       durationMs: Date.now() - startMs,
     },
     durationMs: Date.now() - startMs,

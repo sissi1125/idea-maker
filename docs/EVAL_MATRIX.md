@@ -238,19 +238,50 @@ BASE_URL=http://localhost:3001 npx tsx scripts/eval-matrix/run-matrix.ts
 
 ### 查看结果
 
-每次运行的结果保存在独立文件夹中：
+结果按 **legacy / current** 两段组织（2026-05-25 后重组）：
 
 ```
 scripts/eval-matrix/results/
-  run-001-20260520/
-    summary.json          # 12 个 test case 的指标汇总
-    analysis.md           # 人工分析结论
-    T01_Q1.json           # 每个 test case × query 的完整 pipeline 输出
-    T01_summary.json      # 单个 test case 的 3 query 均值
+  README.md                         # 顶层导引
+  legacy/                           # 历史 run-001~016（feat-008 时期）
+    README.md
+    cross-run-analysis.md           # 跨 run 综合分析
+    feat-009-impact-assessment.md
+    run-001-20260520/
+    run-003-20260520/
     ...
-  run-002-YYYYMMDD/       # 后续每次运行
-    ...
+    run-016-20260522/
+
+  current/                          # 当前进行中的实验系列
+    experiment-4-citation/          # 实验四：Citation 上下文扩展
+      run-001/                      # 该系列第一次 run
+        analysis.md                 # 单次 run 的人工分析
+        summary.json                # 该次 run 的指标汇总
+        T0X_QY.json                 # 每 test case × query 完整 pipeline 输出
+        T0X_summary.json
+      run-002/                      # 后续 run
+    experiment-5-xxx/               # 新系列按需创建
 ```
+
+### 命名约定
+
+- **legacy/run-NNN-YYYYMMDD/**：旧的全局自增 + 日期格式，历史不变
+- **current/<experiment>/run-NNN/**：系列内自增，目录名更短
+
+### 启动新实验
+
+```bash
+# 进入实验四系列（自动落到 current/experiment-4-citation/run-NNN/）
+EXPERIMENT=experiment-4-citation npx tsx scripts/eval-matrix/run-matrix.ts
+
+# 开启新实验系列
+EXPERIMENT=experiment-5-chunksize npx tsx scripts/eval-matrix/run-matrix.ts
+
+# RUN_ID 仍然支持，可指定任意相对路径（覆盖自增逻辑）
+RUN_ID=current/experiment-4-citation/baseline-rerun npx tsx scripts/eval-matrix/run-matrix.ts
+```
+
+不设 `EXPERIMENT` 时，结果落到 `results/` 根（兼容旧脚本行为）。
 
 新的测试运行**不会覆盖旧结果**。`results/` 目录纳入 git 版本控制，每次运行后提交。
 

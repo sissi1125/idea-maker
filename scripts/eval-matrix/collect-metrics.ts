@@ -6,6 +6,7 @@ export function extractQueryMetrics(stageOutputs: Record<string, any>, totalDura
   const evaluation = stageOutputs.evaluation;
   const retrieval = stageOutputs.retrieval;
   const generation = stageOutputs.generation;
+  const citation = stageOutputs.citation;
 
   const hitRate = evaluation?.hitRate ?? null;
   const citationCoverage = evaluation?.citationCoverage ?? null;
@@ -22,7 +23,21 @@ export function extractQueryMetrics(stageOutputs: Record<string, any>, totalDura
   const citedIds: unknown[] = generation?.citedEvidenceIds ?? generation?.ideas ?? [];
   const ideaCount = citedIds.length > 0 ? citedIds.length : null;
 
-  return { hitRate, citationCoverage, confidenceScore, retrievedCount, avgScore, ideaCount, durationMs: totalDurationMs };
+  // Citation 指标：实验四对比 chunk-citation / section-citation 三种模式的关键产物
+  const contextText: string = citation?.contextText ?? "";
+  const contextLength = contextText.length > 0 ? contextText.length : null;
+  const evidencePack: unknown[] = citation?.evidencePack ?? [];
+  const evidenceCount = evidencePack.length > 0 ? evidencePack.length : null;
+  const avgEvidenceLength = contextLength !== null && evidenceCount !== null && evidenceCount > 0
+    ? Math.round(contextLength / evidenceCount)
+    : null;
+
+  return {
+    hitRate, citationCoverage, confidenceScore,
+    retrievedCount, avgScore, ideaCount,
+    contextLength, avgEvidenceLength, evidenceCount,
+    durationMs: totalDurationMs,
+  };
 }
 
 export function averageQueryMetrics(results: QueryMetrics[]): import("./types.js").TestCaseMetrics {
@@ -41,6 +56,9 @@ export function averageQueryMetrics(results: QueryMetrics[]): import("./types.js
     retrievedCount: n > 0 ? successful.reduce((s, r) => s + r.retrievedCount, 0) / n : 0,
     avgScore: avg(successful.map((r) => r.avgScore)),
     ideaCount: avg(successful.map((r) => r.ideaCount)),
+    contextLength: avg(successful.map((r) => r.contextLength)),
+    avgEvidenceLength: avg(successful.map((r) => r.avgEvidenceLength)),
+    evidenceCount: avg(successful.map((r) => r.evidenceCount)),
     totalDurationMs: results.reduce((s, r) => s + r.durationMs, 0),
   };
 }
