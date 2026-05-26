@@ -15,6 +15,7 @@ export { runFilter } from "./retrieval/filter";
 export { runCitation } from "./retrieval/citation";
 export { runFallback } from "./retrieval/fallback";
 export { runRerank } from "./retrieval/rerank";
+export { runRetrieval } from "./retrieval/retrieval";
 export {
   jieba,
   tokenize,
