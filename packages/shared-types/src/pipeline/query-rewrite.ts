@@ -50,6 +50,12 @@ export interface LLMChatClient {
         response_format?: { type: "json_object" };
       }): Promise<{
         choices: Array<{ message: { content: string | null } }>;
+        /** OpenAI 返回的 token usage，generation 等 stage 用于计费/trace */
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+        };
       }>;
     };
   };

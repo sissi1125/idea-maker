@@ -6,7 +6,7 @@ import type {
   ProductPersonaOutput,
   SellingPointsOutput,
   ContentIdeasOutput,
-} from "@/app/api/pipeline/generation/route";
+} from "@harness/shared-types";
 
 interface Props {
   runs: StepRun[];

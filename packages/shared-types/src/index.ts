@@ -17,3 +17,4 @@ export * from "./pipeline/citation";
 export * from "./pipeline/fallback";
 export * from "./pipeline/context-management";
 export * from "./pipeline/prompt-build";
+export * from "./pipeline/generation";
