@@ -14,6 +14,7 @@ export { runMultiRecallMerge } from "./retrieval/multi-recall-merge";
 export { runFilter } from "./retrieval/filter";
 export { runCitation } from "./retrieval/citation";
 export { runFallback } from "./retrieval/fallback";
+export { runRerank } from "./retrieval/rerank";
 export {
   jieba,
   tokenize,
