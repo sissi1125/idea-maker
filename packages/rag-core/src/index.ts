@@ -7,6 +7,7 @@ export { runPreprocess } from "./ingestion/preprocess";
 export { runChunk } from "./ingestion/chunk";
 export { runTransform } from "./ingestion/transform";
 export { runEmbedding } from "./ingestion/embedding";
+export { runStorage } from "./ingestion/storage";
 export {
   jieba,
   tokenize,

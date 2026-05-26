@@ -1,5 +1,40 @@
 # 进度记录
 
+## 2026-05-26（会话 26 — feat-100.2 推进：storage 抽取，ingestion 链收尾，6/18）
+
+### 已完成（storage stage 抽取）
+
+ingestion 链 6 个 stage 全部抽完。storage 是注入 pg.Client 的第一例，沿用 embedding 定下的 I/O 注入模式：
+- shared-types 定义 `PgClient` 最小接口（仅 query 方法），不引 pg dep
+- 路由层 `new Client + await connect()` 后注入到 rag-core，`finally end()` 管理 lifecycle
+- rag-core 不读 env、不管连接生命周期
+
+#### 变更
+
+- **shared-types**：新建 `pipeline/storage.ts`（StorageMethodId 3 method enum + StorageConflictPolicy/IndexMode enum + zod ParamsSchema + Input 含 pgClient + Output/Trace + `PgClient` 最小契约）
+- **rag-core**：新建 `ingestion/storage.ts` runStorage async 函数：
+  - DDL 自动初始化 rag_documents + rag_chunks 表
+  - Dimension Guard 检查表内现有维度
+  - truncateTable 选项（TRUNCATE + DROP INDEX + ALTER COLUMN TYPE vector）
+  - 3 method 各自决定 version（upsert / new+1 / replace）
+  - HNSW / IVFFlat / none 三种索引模式
+- **apps/web 薄路由**：storage/route.ts 450 → 128 行
+  - 路由层负责 connectionString 解析（params / DATABASE_URL）
+  - new Client + connect + try { runStorage } finally { end() }
+  - pg 错误码（ECONNREFUSED/23505/28P01/3D000）→ HTTP status 映射保留
+- **单测**：19 个新单测，全部 mock PgClient（vi.fn 即可）覆盖：3 method 的 version 决定 / Dimension Guard 3 种情况 / truncateTable 全套副作用 / 3 种 indexMode + 索引已存在 skip / 错误路径（missing_client / empty_chunks / dim_mismatch + details） / INSERT 语句生成（ON CONFLICT 是否存在 / enhancedText fallback）
+
+#### 验收
+
+- pnpm test：82/82（idempotency 12 + preprocess 10 + transform 11 + chunk 14 + embedding 15 + storage 19 + smoke 1）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+ingestion 链全完成 ✅。下一段进 retrieval 链 8 个 stage（query-rewrite → intent-recognition → retrieval → multi-recall-merge → filter → rerank → citation → fallback）。retrieval 自身要同时注入 pg.Client（查向量）+ OpenAI client（embed query）+ TEI URL，是双重注入第一例。
+
+---
+
 ## 2026-05-26（会话 25 — feat-100.2 推进：embedding + I/O 注入模式确立，5/18）
 
 ### 已完成（embedding stage 抽取）

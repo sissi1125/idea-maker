@@ -2,22 +2,21 @@
 
 ## 最后更新
 
-2026-05-26（会话 25 — feat-100.2 推进：embedding + I/O 注入模式定型，5/18）
+2026-05-26（会话 26 — feat-100.2 推进：storage 抽取，ingestion 链收尾，6/18）
 
 ## 本会话变更摘要
 
-第一个有真实外部 I/O 的 stage 抽取。I/O 注入模式经此定型：
-- shared-types 定义 OpenAICompatibleClient 结构契约（零依赖）
-- 路由层 providers.ts 创建 client + 读 env，通过 Input 注入到 rag-core
-- rag-core runtime 校验注入完整性（missing_client / missing_endpoint PipelineError）
-- 4 provider 全保留（debug-deterministic / openai-3-small / hf-tei / transformers-js）
-- 15 个新单测含 OpenAI mock client + fetch mock；63/63 全过
-- embedding/route.ts 383 → 102 行
-- openai + @huggingface/transformers 依赖迁到 rag-core
+ingestion 链 6 stage 全抽完。storage 沿用 embedding 注入模式：
+- shared-types 定义 PgClient 最小接口（仅 query 方法）
+- 路由层 new Client + connect + try/finally end()，rag-core 不管 lifecycle
+- DDL/Dim Guard/truncateTable/3 method/3 indexMode 全保留行为
+- 19 个新单测全部 mock PgClient（vi.fn）
+- storage/route.ts 450 → 128 行
+- 累计单测 82/82 全过
 
 **当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`，待 ff 合 main。
 
-**进度**：feat-100.2 status="in-progress" (5/18)。剩 13 stage：storage（ingestion 收尾，注入 pg.Pool）→ retrieval 链 8 → generation 链 3 → evaluation 1。I/O 注入模式后续 stage 直接复制。
+**进度**：feat-100.2 status="in-progress" (6/18，ingestion 链 ✅ 完成)。剩 12 stage 全在 retrieval/generation/evaluation 链。下一站 retrieval（双重注入 pg + openai）。
 
 ---
 
@@ -146,7 +145,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`ebae1d5`（feat-100.1 + idempotency + preprocess + transform + nlp + chunk）。本会话提交将再前进。
+- **主分支**：`main`，当前 HEAD：`5faa218`（feat-100.1 + ingestion 5/6：idempotency/preprocess/chunk/transform/embedding）。本会话提交将再前进至 ingestion 完成。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
