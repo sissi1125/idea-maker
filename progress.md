@@ -1,5 +1,53 @@
 # 进度记录
 
+## 2026-05-27（会话 39 — Idea-Maker MVP 8 周细化规划 + Harness 更新）✅
+
+### 范围
+
+完成从"Coze-Agent 通用 Agent 平台"到"Idea-Maker 产品 MVP"的战略调整和细化规划；更新项目 harness 为 MVP 阶段做准备。
+
+### 核心转变
+
+1. **项目重命名**：Coze-Agent → Idea-Maker（产品定位明确）
+2. **架构简化**：从"ReAct 自动循环 Agent"简化为"Pipeline Orchestrator（YAML 配置驱动 11-stage）"
+   - 原因：MVP 不需要 LLM 自主决策、工具选择、迭代循环
+   - 价值主张：透明可观测 + 成本追踪 + 反馈采集，足以构成 vs Coze 的差异化
+   - 真 Agent 推迟到 Phase 4（3.5）配合学习闭环才有意义
+3. **规划体系**：从原有的"feat-010~013 跨 Phase 混合"改为"feat-200.1~8 垂直 8 周 MVP"
+   - feat-200（epic）= Idea-Maker MVP 总体
+   - feat-200.1 ~ feat-200.8 = Week 1-8 的具体 milestone
+   - 每周明确的验收标准
+
+### 4 个已锁定的关键决策
+
+1. **BYOK API Key 存储**：AES-256 加密入库，服务端 KMS/env 持有主密钥
+2. **Ingestion 进度推送**：SSE（Server-Sent Events）
+3. **Generate 流式化**：两阶段，Week 3-7 完整返回 + 伪动画，Week 8 加 SSE 真实事件
+4. **Auth**：最简 JWT（邮箱+密码），Phase 5 换 Lucia
+
+### Harness 更新（以 harness-creator 框架）
+
+**新建文件**：
+- `.claude/memory/mvp-plan-2026-05-27.md`：4 个决策的原理 + 对接清单
+
+**改造文件**：
+- `AGENTS.md`：加"阶段 3 MVP"章节（§ 末尾）
+- `feature_list.json`：新增 feat-200 epic + feat-200.1~8（共 9 条）
+- `progress.md`：本条目（2026-05-27 会话 39）
+
+### 关键产出
+
+**规划文档**：
+- `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`（8 周详细计划 + 4 个确认决策）
+- `.claude/memory/mvp-plan-2026-05-27.md`（决策原理 + 交接清单）
+
+### 下一步（周 1 启动前）
+
+- [ ] 更新 session-handoff.md，为 Week 1 做交接
+- [ ] Session 40（Week 1 开工）时按新规则执行 feat-200.1
+
+---
+
 ## 2026-05-26（会话 38 — feat-100.4 Wave 4：完整迁完 + 删 Next.js routes）✅
 
 ### 范围

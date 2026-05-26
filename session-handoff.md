@@ -2,12 +2,16 @@
 
 ## 最后更新
 
-2026-05-26（会话 38 — feat-100.4 Wave 4 ✅ 完整迁完 + 删 Next.js routes，feat-100 epic 完结）
+2026-05-27（会话 39 — Idea-Maker MVP 8 周规划完成 + Harness 更新）✅
 
 ## 本会话变更摘要
 
-🎉 feat-100.4 完整收尾：剩余 14 stage + snapshots + pipeline-runs 全部迁到 NestJS；
-`apps/web/app/api/*` 全部删除；apps/web 退回到"纯前端 + Playground UI"。
+🎉 战略调整完成：
+- **重命名**：Coze-Agent → Idea-Maker
+- **架构简化**：ReAct Agent → Pipeline Orchestrator（YAML 配置驱动）
+- **规划细化**：8 周 MVP 排期确定（feat-200.1~8），每周明确的验收标准
+- **决策锁定**：4 个核心决策已确认（BYOK / SSE / 流式化 / Auth）
+- **Harness 更新**：新增 `.claude/memory/mvp-plan-2026-05-27.md` + 更新 AGENTS.md / feature_list.json / progress.md
 
 【NestJS 路由 25 路径】
 - /health x1
@@ -39,16 +43,49 @@
 **进度**：feat-100.4 status="done" ✅。feat-100 epic 4/4 全部收尾。
 下一步：feat-010 起业务 feature（Pipeline Agent / Content Agent / Studio）。
 
-【运行方式（feat-100.4 起）】
+【当前运行方式（feat-100.4 起）】
 - `pnpm --filter @harness/api dev` (ts-node-dev, 端口 3001) — 后端
 - `pnpm --filter @harness/web dev` — 前端
-- 前端必须设 `NEXT_PUBLIC_USE_NEST_API=true` 才能 fetch 后端；
-  不设的话 fetch 会走 /api/... 但路由已删除（404）
+- 前端必须设 `NEXT_PUBLIC_USE_NEST_API=true` 才能 fetch 后端
 
-【部署提示（feat-100.4 留给后续）】
-- 多服务：apps/web (Next.js) + apps/api (NestJS) + Postgres
-- CI：`pnpm -r typecheck/lint/test` 已就绪；各 app build 独立
-- rag-core dist 构建：当前 src 直引（dev OK / prod 需补 build 脚本）
+【部署架构（feat-100.4）】
+- 多服务：apps/web (Next.js) + apps/api (NestJS) + Postgres + services/pymupdf
+- CI：`pnpm -r typecheck/lint/test` 已就绪
+
+---
+
+## Week 1 启动清单（2026-05-27 Session 39 → Session 40）
+
+**下一个 Session 开工前必读**：
+1. `.claude/memory/mvp-plan-2026-05-27.md` —— 4 个决策的原理
+2. `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` —— Week 1-8 完整任务
+3. `AGENTS.md` 新增的"阶段 3 MVP"章节
+4. `feature_list.json` 的 feat-200.1 条目
+
+**Week 1 边界明确**：
+- **只做 feat-200.1**：auth / projects / project_settings + TracingInterceptor
+- **不涉及**：pipeline 改造、前端任何页面、文档相关逻辑
+- **验收标准**：Postman 跑通登录 + 建项目 + 改 settings（见 plan 文档 §"Week 1"）
+
+**scope control 警告**：
+- 不要提前做 password reset / OAuth / Lucia —— 这些是 Phase 5
+- 不要改 packages/rag-core 或 18-stage pipelines —— 这些在 feat-100 已稳定
+- 不要新增 Playground 功能 —— Playground 保留为独立的"高级调试视图"
+
+**周末验收流程**：
+1. 代码改动完成，跑 `pnpm -r typecheck/lint`
+2. Postman 验证 4 个新端点
+3. 更新 `feature_list.json` feat-200.1 的 status 为 "done" + evidence
+4. 更新 `progress.md` 记录这周完成的内容和遇到的问题
+5. 更新 `session-handoff.md`，写明 Week 2 启动清单
+
+**关键文件位置**：
+- 规划：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`
+- 决策：`./.claude/memory/mvp-plan-2026-05-27.md`
+- 功能追踪：`./feature_list.json` (feat-200.x)
+- 规则：`./AGENTS.md` (阶段 3 MVP 章节)
+- 进度：`./progress.md`
+- 交接：`./session-handoff.md` （本文件）
 
 ---
 

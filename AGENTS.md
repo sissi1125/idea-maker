@@ -194,3 +194,93 @@ cd app && npx tsc --noEmit
 3. 刷新 `session-handoff.md`，写明当前分支/状态、阻塞和下一步。
 4. 如果发生 git/lifecycle 状态变化，确认 `progress.md` 和 `session-handoff.md` 与真实状态一致。
 5. 让仓库保持可重启状态，方便下一个 agent 接手。
+
+---
+
+## 阶段 3：Idea-Maker MVP（8 周，2026-05-27 确定）
+
+**状态**：已完成架构重构（feat-100.x）；即将启动 MVP 产品交付（feat-200.x）。
+
+### 核心定位（不同于原 Phase 3 计划）
+
+- **重命名**：从"Coze-Agent"改为"Idea-Maker"
+- **架构简化**：用**Pipeline Orchestrator**（YAML 配置驱动 11-stage 固定编排），而非复杂的 ReAct Agent
+- **价值主张**：**透明可观测**（看到 RAG 全链路）+ **成本追踪**（每个 stage 的成本）+ **反馈采集**（为 Phase 4 学习系统准备），而非"Agent 自动化"
+- **真 Agent 推迟**：LLM 自主决策、工具自主选择、自评估迭代循环 → Phase 4 配合学习闭环才实现
+
+### 4 个已锁定的关键决策
+
+详见 `.claude/memory/mvp-plan-2026-05-27.md` 的"4 个已确认的关键决策"：
+
+1. **BYOK API Key 存储**：AES-256 加密入库，服务端持有主密钥
+2. **Ingestion 进度推送**：SSE（Server-Sent Events）
+3. **Generate 流式化分两阶段**：Week 3-7 完整返回 + 伪动画，Week 8 加 SSE 真实事件驱动
+4. **Auth 最小化**：JWT（邮箱+密码），不做 OAuth，Phase 5 换 Lucia
+
+### 8 周排期与工作规则（MVP 特有）
+
+**排期绑定到 feature_list.json**：
+- **feat-200**（epic）：Idea-Maker MVP 8 周交付
+- **feat-200.1 ~ feat-200.8**：对应 Week 1-8，每周一个 feature
+- **每周定义的任务边界**参考 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`（文件路径固定）
+
+**每周工作流程**：
+1. 周初：阅读当周 feature (feat-200.N) 的 description / dependencies / scope
+2. 周中：实现当周端点、数据库表、前端组件（按 plan 文档的任务清单）
+3. 周末：
+   - 通过当周的验收标准（见 plan 文档 §"8 周排期"）
+   - 跑 `pnpm -r typecheck/lint/test`
+   - 更新 `feature_list.json` 状态为 "done"，加 evidence
+   - 更新 `progress.md`，记录当周完成内容和问题
+4. 周尾：刷新 `session-handoff.md`，为下周 agent 做交接
+
+**Scope Control（防止越界）**：
+- MVP 期间，**非当周的功能不实现**（即使涉及的部分代码已有）
+- 例：Week 6 做对话界面时，不要提前实现 Week 8 的平台规则 validator
+- 例：Week 5 做前端骨架时，不要提前做 Week 7 的笔记库功能
+- 如发现当周范围外的 bug，记录在 `session-handoff.md` 的"风险/pending"，不在当周修
+
+**Pipeline vs Agent 的命名规范**（重点）：
+- 代码层面：`pipeline-orchestrator/` 模块，`PipelineTraceService`，字段名 `pipeline_trace`
+- 数据库层面：`generations` 表的 `pipeline_trace JSONB` 字段（不叫 `thinking_trace`）
+- UI 文案：可保留"Agent 在思考"、"Agent 决策"（用户友好），但确认代码实现不涉及 LLM 决策逻辑
+- Code Review：每个 PR merge 前检查是否夹带了真 Agent 代码（LLM 决策、循环、工具选择）——有则退回
+
+### 依赖和兼容性
+
+**对现有代码的改造**：
+- `packages/rag-core` 的 18-stage services 保持不变（Week 3 会直接 import 复用）
+- `apps/api/src/pipeline/` 的 18 个 controller 保持不变（Week 3 会被新的 pipeline-orchestrator 调用）
+- `apps/web/components/playground/` 保持不变（MVP 期间不改 Playground，Playground 作为"高级调试视图"保留）
+
+**新建的模块**（Week 1-8 逐周新增）：
+- Week 1：`apps/api/src/auth/` + `apps/api/src/projects/` + `apps/web/app/(auth)/` + `app/(workspace)/`
+- Week 2：`apps/api/src/documents/` 扩展 + `apps/api/src/ingestion/`
+- Week 3：`apps/api/src/pipeline-orchestrator/` + `apps/api/src/generations/`
+- ... 详见 plan 文档
+
+**不改 feat-100.x 的内容**：之前的架构重构已完成且验证通过，MVP 基于此基础向上搭
+
+### 结束 MVP 时的定义（Week 8）
+
+feat-200 status="done" 的条件：
+
+- [ ] 所有 7 个"MVP 成功指标"（plan 文档 §"MVP 成功指标"）勾选
+- [ ] 特别是：用户走通**完整闭环**（登录 → 建项目 → 传文档 → 自动生成卡片 → 提问 → 看 pipeline trace → 给反馈 → 查历史 → 复用笔记）
+- [ ] 后端 25+ 新端点全部 e2e 测试通过
+- [ ] 前端 8+ 新页面的交互验证通过（手工 smoke test）
+- [ ] `progress.md` 详细记录了 8 周的工作日志
+- [ ] 部署到 Fly.io 测试环境成功（Week 8）
+
+**之后的阶段**（Phase 4）由下一个规划决定，可能是：
+- 多 Agent 编排（feat-010.x）
+- Marketing Studio（feat-011.x）
+- 或直接做 Phase 5 工程化（feat-013.x）
+
+### 快速参考
+
+- **规划文档**：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`
+- **决策文档**：`.claude/memory/mvp-plan-2026-05-27.md`
+- **功能追踪**：`feature_list.json` 的 feat-200.x 条目
+- **进度记录**：`progress.md` 的"2026-05-27 会话 39+"部分
+- **交接说明**：`session-handoff.md` 的最新条目
