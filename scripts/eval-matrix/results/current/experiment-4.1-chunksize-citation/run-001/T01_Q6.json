@@ -1,0 +1,718 @@
+{
+  "testId": "T01",
+  "queryId": "Q6",
+  "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+  "config": {
+    "id": "T01",
+    "label": "chunkSize=256 / chunk-citation（小 chunk 基线）",
+    "chunk": {
+      "methodId": "recursive",
+      "params": {
+        "chunkSize": 256,
+        "overlap": 32,
+        "separators": [
+          "\\n\\n",
+          "\\n",
+          " ",
+          ""
+        ],
+        "minChunkSize": 32
+      }
+    },
+    "transform": {
+      "methodId": "none",
+      "params": {}
+    },
+    "queryRewrite": {
+      "methodId": "none",
+      "params": {}
+    },
+    "retrieval": {
+      "methodId": "dense-vector",
+      "params": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-v4",
+        "embeddingDimension": 1024,
+        "topK": 10,
+        "threshold": 0.1
+      }
+    },
+    "filter": {
+      "methodId": "pipeline-filter",
+      "params": {
+        "requiredSourceTypes": [],
+        "minScore": 0.2,
+        "maxPerDocument": 5,
+        "finalTopK": 10,
+        "mmrLambda": 0.7
+      }
+    },
+    "rerank": {
+      "methodId": "pipeline-rerank",
+      "params": {
+        "boostPassN": 20,
+        "rerankTopN": 5
+      }
+    },
+    "citation": {
+      "methodId": "chunk-citation",
+      "params": {
+        "maxEvidencePerClaim": 3
+      }
+    },
+    "scoreThreshold": 0.2
+  },
+  "outputs": {
+    "intentRecognition": {
+      "output": {
+        "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "routingReason": "无规则命中，默认为产品知识问答",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "rule-based",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "durationMs": 0
+      },
+      "durationMs": 0,
+      "warnings": []
+    },
+    "queryRewrite": {
+      "output": {
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "rewrittenQueries": [
+          "用户数据如何存储与同步，后台有哪些自动行为？"
+        ],
+        "method": "none",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "none",
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "queryCount": 1,
+        "queries": [
+          "用户数据如何存储与同步，后台有哪些自动行为？"
+        ],
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "retrieval": {
+      "output": {
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "queries": [
+          "用户数据如何存储与同步，后台有哪些自动行为？"
+        ],
+        "matches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "keywords": [],
+            "score": 0.622,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "keywords": [],
+            "score": 0.5356,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 10,
+            "text": "户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。\n用户点击卡片进入笔记，或进入选择模式进行批量操作。\n产品根据分类展示笔记、清单、倒计时、归档或回收站内容。\n关键页面/入口: 主页、侧边栏、主页标题菜单、底部添加按钮。\n状态与规则: 支持按最后修改、创建日期、标题排序；支持普通/紧凑预览；可显示/隐藏最近编辑、快捷操作、缩略图和每日笔记。\n置信度: 高。\n8. 模板与 Block Studio\n功能描述: 用户可以保存或复用笔记模板，并通过 Block Studio 快速创建更复杂或预设结构的块，减少重复记录成本。",
+            "sourceRef": "产品功能需求 > 7. 主页组织与批量管理",
+            "keywords": [],
+            "score": 0.5174,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "keywords": [],
+            "score": 0.5026,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c29",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 29,
+            "text": "维度进入不同笔记集合。\n关键入口: 主页侧边栏按钮或宽屏分栏。\n核心内容: Notes、Checklist、Starred、Archive、On This Day、Wander Through、Countdown、Trash、Template、Review、标签和设置。\n状态与反馈: 分类选中、展开/折叠、归档/回收站状态。\n置信度: 高。\n设置页\n页面目标: 管理订阅、数据存储说明、通用偏好、工具栏、主题、反馈和联系。\n关键入口: 侧边栏设置或相关入口。",
+            "sourceRef": "页面与屏幕 > 侧边栏与分类页",
+            "keywords": [],
+            "score": 0.4956,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c9",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 9,
+            "text": "面/入口: 主搜索页、标签侧边栏、嵌套链接搜索页、页面摘要页。\n状态与规则: 支持空搜索提示、加载状态、无结果状态、块级定位；标签可恢复重建，但会重置自定义标签图标。\n置信度: 高。\n7. 主页组织与批量管理\n功能描述: 主页提供所有笔记、清单、星标、归档、回收站、倒计时、模板、Review、On This Day 和 Wander Through 等入口，让用户从不同维度管理记录。\n适用角色: 普通记录者、重度整理用户。\n前置条件: 用户已有或准备创建笔记。\n交互链路:\n用户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。",
+            "sourceRef": "产品功能需求 > 6. 搜索、标签与知识连接",
+            "keywords": [],
+            "score": 0.4798,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c6",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 6,
+            "text": "把数据以卡片或可视块方式插入笔记，并在日历/时间线中辅助回顾。\n关键页面/入口: 每日笔记快捷操作、块添加面板、日历页、时间线页。\n状态与规则: 无网络时天气不可用；健康数据需授权；路线计算可能有请求频率限制；定位和相机权限缺失时引导前往设置。\n置信度: 高。\n5. 每日笔记、日历与时间线回顾\n功能描述: 用户可以按日期创建每日笔记，并通过日历和时间线查看某一天或一段时间的记录，适合日记、旅行、习惯追踪和生活回顾。\n适用角色: 日记用户、长期记录者。\n前置条件: 用户创建了每日笔记，或从快捷入口选择日期。\n交互链路:\n用户点击每日笔记快捷入口、日历按钮或 Widget。",
+            "sourceRef": "产品功能需求 > 4. 生活数据块：健康、位置、天气、心情、路线和海拔",
+            "keywords": [],
+            "score": 0.4753,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c15",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 15,
+            "text": "应用视觉与交互偏好。\n用户返回主页或笔记页，界面按新偏好展示。\n关键页面/入口: 设置页、General、Theme Picker、自定义块工具栏、自定义笔记页工具栏。\n状态与规则: 支持跟随系统文字大小；可关闭部分主页模块进入极简模式；默认主题外的主题权益需确认。\n置信度: 高。\n11. 系统入口、Widget 与快捷指令\n功能描述: 产品提供多种系统级快速入口，让用户在灵感出现时尽快进入记录：添加笔记、添加每日笔记、搜索和语音备忘。\n适用角色: 高频记录者、移动场景用户。\n前置条件: 用户安装应用，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:",
+            "sourceRef": "产品功能需求 > 10. 个性化、主题和无障碍显示",
+            "keywords": [],
+            "score": 0.4748,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 37,
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.4719,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c35",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 35,
+            "text": "失败、免费额度阈值未确认。\n置信度: 中。\n产品概念与业务对象\n| 产品概念 | 产品含义 | 用户可见状态 | 关联功能 | 置信度 |\n| --- | --- | --- | --- | --- |\n| Note / Page | 一篇完整笔记或每日笔记。 | 普通、每日、星标、归档、回收站、模板。 | 主页、编辑器、日历、导出。 | 高 |\n| Block | 笔记中的独立内容单元。 | 文本、图片、文件、天气、语音等多类型。 | 块式编辑器、搜索、导出。 | 高 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.4693,
+            "retrievalMethod": "dense"
+          }
+        ],
+        "totalMatches": 10,
+        "method": "dense-vector",
+        "dimension": 1024,
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "dense-vector",
+        "queryCount": 1,
+        "matchCount": 10,
+        "dimension": 1024,
+        "durationMs": 318
+      },
+      "durationMs": 318,
+      "warnings": []
+    },
+    "filter": {
+      "output": {
+        "filteredMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "keywords": [],
+            "score": 0.622,
+            "retrievalMethod": "dense",
+            "filteredRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 10,
+            "text": "户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。\n用户点击卡片进入笔记，或进入选择模式进行批量操作。\n产品根据分类展示笔记、清单、倒计时、归档或回收站内容。\n关键页面/入口: 主页、侧边栏、主页标题菜单、底部添加按钮。\n状态与规则: 支持按最后修改、创建日期、标题排序；支持普通/紧凑预览；可显示/隐藏最近编辑、快捷操作、缩略图和每日笔记。\n置信度: 高。\n8. 模板与 Block Studio\n功能描述: 用户可以保存或复用笔记模板，并通过 Block Studio 快速创建更复杂或预设结构的块，减少重复记录成本。",
+            "sourceRef": "产品功能需求 > 7. 主页组织与批量管理",
+            "keywords": [],
+            "score": 0.5174,
+            "retrievalMethod": "dense",
+            "filteredRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "keywords": [],
+            "score": 0.5356,
+            "retrievalMethod": "dense",
+            "filteredRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c29",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 29,
+            "text": "维度进入不同笔记集合。\n关键入口: 主页侧边栏按钮或宽屏分栏。\n核心内容: Notes、Checklist、Starred、Archive、On This Day、Wander Through、Countdown、Trash、Template、Review、标签和设置。\n状态与反馈: 分类选中、展开/折叠、归档/回收站状态。\n置信度: 高。\n设置页\n页面目标: 管理订阅、数据存储说明、通用偏好、工具栏、主题、反馈和联系。\n关键入口: 侧边栏设置或相关入口。",
+            "sourceRef": "页面与屏幕 > 侧边栏与分类页",
+            "keywords": [],
+            "score": 0.4956,
+            "retrievalMethod": "dense",
+            "filteredRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "keywords": [],
+            "score": 0.5026,
+            "retrievalMethod": "dense",
+            "filteredRank": 5
+          }
+        ],
+        "removedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c9",
+            "text": "面/入口: 主搜索页、标签侧边栏、嵌套链接搜索页、页面摘要页。\n状态与规则: 支持空搜索提示、加载状态、无结果状态、块级定位；标签可恢复重建，但会重置自定义标签图标。\n置信度: 高。\n7. 主页组织与批量管理\n功能描述: 主页提供所有笔记、清单、星标、归档、回收站、倒计时、模板、Review、On This Day 和 Wander Through 等入口，让用户从不同维度管理记录。\n适用角色: 普通记录者、重度整理用户。\n前置条件: 用户已有或准备创建笔记。\n交互链路:\n用户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。",
+            "score": 0.4798,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c6",
+            "text": "把数据以卡片或可视块方式插入笔记，并在日历/时间线中辅助回顾。\n关键页面/入口: 每日笔记快捷操作、块添加面板、日历页、时间线页。\n状态与规则: 无网络时天气不可用；健康数据需授权；路线计算可能有请求频率限制；定位和相机权限缺失时引导前往设置。\n置信度: 高。\n5. 每日笔记、日历与时间线回顾\n功能描述: 用户可以按日期创建每日笔记，并通过日历和时间线查看某一天或一段时间的记录，适合日记、旅行、习惯追踪和生活回顾。\n适用角色: 日记用户、长期记录者。\n前置条件: 用户创建了每日笔记，或从快捷入口选择日期。\n交互链路:\n用户点击每日笔记快捷入口、日历按钮或 Widget。",
+            "score": 0.4753,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c15",
+            "text": "应用视觉与交互偏好。\n用户返回主页或笔记页，界面按新偏好展示。\n关键页面/入口: 设置页、General、Theme Picker、自定义块工具栏、自定义笔记页工具栏。\n状态与规则: 支持跟随系统文字大小；可关闭部分主页模块进入极简模式；默认主题外的主题权益需确认。\n置信度: 高。\n11. 系统入口、Widget 与快捷指令\n功能描述: 产品提供多种系统级快速入口，让用户在灵感出现时尽快进入记录：添加笔记、添加每日笔记、搜索和语音备忘。\n适用角色: 高频记录者、移动场景用户。\n前置条件: 用户安装应用，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:",
+            "score": 0.4748,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "score": 0.4719,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c35",
+            "text": "失败、免费额度阈值未确认。\n置信度: 中。\n产品概念与业务对象\n| 产品概念 | 产品含义 | 用户可见状态 | 关联功能 | 置信度 |\n| --- | --- | --- | --- | --- |\n| Note / Page | 一篇完整笔记或每日笔记。 | 普通、每日、星标、归档、回收站、模板。 | 主页、编辑器、日历、导出。 | 高 |\n| Block | 笔记中的独立内容单元。 | 文本、图片、文件、天气、语音等多类型。 | 块式编辑器、搜索、导出。 | 高 |",
+            "score": 0.4693,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          }
+        ],
+        "keptCount": 5,
+        "removedCount": 5,
+        "method": "pipeline-filter",
+        "warnings": [],
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？"
+      },
+      "trace": {
+        "methodId": "pipeline-filter",
+        "inputCount": 10,
+        "keptCount": 5,
+        "removedCount": 5,
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "durationMs": 10
+      },
+      "durationMs": 10,
+      "warnings": []
+    },
+    "rerank": {
+      "output": {
+        "rankedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "keywords": [],
+            "score": 0.622,
+            "retrievalMethod": "dense",
+            "filteredRank": 1,
+            "boostedScore": 0.722,
+            "originalFilterRank": 1,
+            "rerankScore": 0.0693,
+            "originalRank": 1,
+            "newRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "keywords": [],
+            "score": 0.5356,
+            "retrievalMethod": "dense",
+            "filteredRank": 3,
+            "boostedScore": 0.6689,
+            "originalFilterRank": 3,
+            "rerankScore": 0.0113,
+            "originalRank": 3,
+            "newRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "keywords": [],
+            "score": 0.5026,
+            "retrievalMethod": "dense",
+            "filteredRank": 5,
+            "boostedScore": 0.5693,
+            "originalFilterRank": 5,
+            "rerankScore": 0.011,
+            "originalRank": 5,
+            "newRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c29",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 29,
+            "text": "维度进入不同笔记集合。\n关键入口: 主页侧边栏按钮或宽屏分栏。\n核心内容: Notes、Checklist、Starred、Archive、On This Day、Wander Through、Countdown、Trash、Template、Review、标签和设置。\n状态与反馈: 分类选中、展开/折叠、归档/回收站状态。\n置信度: 高。\n设置页\n页面目标: 管理订阅、数据存储说明、通用偏好、工具栏、主题、反馈和联系。\n关键入口: 侧边栏设置或相关入口。",
+            "sourceRef": "页面与屏幕 > 侧边栏与分类页",
+            "keywords": [],
+            "score": 0.4956,
+            "retrievalMethod": "dense",
+            "filteredRank": 4,
+            "boostedScore": 0.5623,
+            "originalFilterRank": 4,
+            "rerankScore": 0.0017,
+            "originalRank": 4,
+            "newRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 10,
+            "text": "户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。\n用户点击卡片进入笔记，或进入选择模式进行批量操作。\n产品根据分类展示笔记、清单、倒计时、归档或回收站内容。\n关键页面/入口: 主页、侧边栏、主页标题菜单、底部添加按钮。\n状态与规则: 支持按最后修改、创建日期、标题排序；支持普通/紧凑预览；可显示/隐藏最近编辑、快捷操作、缩略图和每日笔记。\n置信度: 高。\n8. 模板与 Block Studio\n功能描述: 用户可以保存或复用笔记模板，并通过 Block Studio 快速创建更复杂或预设结构的块，减少重复记录成本。",
+            "sourceRef": "产品功能需求 > 7. 主页组织与批量管理",
+            "keywords": [],
+            "score": 0.5174,
+            "retrievalMethod": "dense",
+            "filteredRank": 2,
+            "boostedScore": 0.5507,
+            "originalFilterRank": 2,
+            "rerankScore": 0.0013,
+            "originalRank": 2,
+            "newRank": 5
+          }
+        ],
+        "rankChanges": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "sourceRef": "通知与后台产品行为",
+            "originalRank": 1,
+            "newRank": 1,
+            "delta": 0
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "sourceRef": "外部触点",
+            "originalRank": 3,
+            "newRank": 2,
+            "delta": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "originalRank": 5,
+            "newRank": 3,
+            "delta": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c29",
+            "sourceRef": "页面与屏幕 > 侧边栏与分类页",
+            "originalRank": 4,
+            "newRank": 4,
+            "delta": 0
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "sourceRef": "产品功能需求 > 7. 主页组织与批量管理",
+            "originalRank": 2,
+            "newRank": 5,
+            "delta": -3
+          }
+        ],
+        "method": "pipeline-rerank",
+        "warnings": [
+          "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+        ],
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？"
+      },
+      "trace": {
+        "methodId": "pipeline-rerank",
+        "inputCount": 5,
+        "outputCount": 5,
+        "topN": 5,
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "durationMs": 2314
+      },
+      "durationMs": 2314,
+      "warnings": [
+        "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+      ]
+    },
+    "citation": {
+      "output": {
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "pageNumber": null,
+            "score": 0.0693
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "pageNumber": null,
+            "score": 0.0113
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "pageNumber": null,
+            "score": 0.011
+          }
+        ],
+        "totalEvidence": 3,
+        "method": "chunk-citation",
+        "contextText": "[evidence-001] 来源：通知与后台产品行为\n为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |\n---\n[evidence-002] 来源：外部触点\n | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |\n---\n[evidence-003] 来源：产品功能需求 > 11. 系统入口、Widget 与快捷指令\n，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+        "warnings": [],
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？"
+      },
+      "trace": {
+        "methodId": "chunk-citation",
+        "inputMatches": 5,
+        "evidenceCount": 3,
+        "contextLength": 900,
+        "avgEvidenceLength": 300,
+        "durationMs": 0
+      },
+      "durationMs": 0,
+      "warnings": []
+    },
+    "promptBuild": {
+      "output": {
+        "systemPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"",
+        "userPrompt": "产品资料：\n[evidence-001] 来源：通知与后台产品行为\n为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |\n---\n[evidence-002] 来源：外部触点\n | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |\n---\n[evidence-003] 来源：产品功能需求 > 11. 系统入口、Widget 与快捷指令\n，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级\n\n任务：用户数据如何存储与同步，后台有哪些自动行为？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "fullPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"\n\n产品资料：\n[evidence-001] 来源：通知与后台产品行为\n为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |\n---\n[evidence-002] 来源：外部触点\n | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |\n---\n[evidence-003] 来源：产品功能需求 > 11. 系统入口、Widget 与快捷指令\n，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级\n\n任务：用户数据如何存储与同步，后台有哪些自动行为？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "tokenEstimate": 297,
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "pageNumber": null,
+            "score": 0.0693
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "pageNumber": null,
+            "score": 0.0113
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "pageNumber": null,
+            "score": 0.011
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-template",
+        "evidenceCount": 3,
+        "tokenEstimate": 297,
+        "contextLength": 900,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "generation": {
+      "output": {
+        "generatedContent": "以下是基于所提供产品资料（evidence-001 至 evidence-003）提炼的**结构化营销内容**，面向产品运营与独立开发者视角，聚焦「数据存储/同步机制」与「后台自动行为」两大核心问题，严格遵循 *evidence-first* 原则，所有主张均有明确来源支撑：\n\n---\n\n### ✅ 一、核心卖点（Evidence-Supported）\n\n| 卖点 | 描述 | 支撑证据 |\n|------|------|-----------|\n| **「无感同步，有据可依」的 iCloud 双向保障** | 用户无需手动操作，iCloud 同步状态实时响应导入/导出/设置变更，并在当前设备即时反馈（如“同步中”提示或笔记列表刷新），确保多端状态一致、操作可感知。 | [evidence-001] 表格第1行；[evidence-002] 第2行 |\n| **「离开即保存，终止不丢稿」的三级自动防护** | 应用在进入后台、转为非活跃状态或被系统终止时，自动触发本地及 iCloud 数据持久化，显著降低意外中断导致的内容丢失风险。 | [evidence-001] 表格第3行 |\n| **「Widget 即视窗，后台即服务」的智能轻量交互** | Widget 不仅展示「最近编辑」与「每日笔记」，更依托系统级后台刷新机制（非轮询），在用户未打开 App 时仍保持数据新鲜度——真正实现「一次配置，持续服务」。 | [evidence-001] 表格第2行；[evidence-003] 第11条交互链路与状态规则 |\n\n> ⚠️ 注：未提及「端到端加密」「同步冲突解决逻辑」「离线编辑合并策略」等细节 → 相关卖点（如“金融级安全同步”“AI 智能冲突修复”）属**低置信度 / 需补充资料**，暂不纳入营销主张。\n\n---\n\n### 🌐 二、典型使用场景（Evidence-Linked）\n\n| 场景 | 用户行为链路 | 关键后台/同步行为 | 证据锚点 |\n|------|----------------|---------------------|------------|\n| **通勤途中速记 → 下班后多端续写** | 锁屏 Widget 点击「新建笔记」→ 记录灵感 → 应用退至后台 → 到家打开 iPad 继续编辑 | 自动保存（后台触发）+ iCloud 同步状态更新（跨设备可见） | [evidence-001] #3 + [evidence-001] #1；[evidence-003] #11 入口链路 |\n| **晨间健康打卡 → 日志自动归集** | 在 Bloomnote 中插入 Apple Health 运动数据块 → 完成晨间笔记 → App 进入后台 | Health 数据写入本地/iCloud；Widget 同步刷新「今日笔记」卡片 | [evidence-002] #3；[evidence-001] #2 + #3 |\n| **会议中语音备忘 → 会后快速整理** | 控制中心快捷指令启动「语音备忘」→ 录音结束 → App 自动创建语音笔记并保存 → 用户稍后在 Widget 查看最新条目 | 语音笔记落库（自动保存）→ Widget 后台刷新展示「最近编辑」 | [evidence-003] #11 状态规则；[evidence-001] #2 + #3 |\n\n---\n\n### 🆚 三、差异化优势（对比通用笔记类 App）\n\n| 维度 | Bloomnote 实现 | 行业常见短板 | 证据依据 |\n|------|----------------|----------------|------------|\n| **后台行为透明性** | 同步状态具象化（指示器+列表刷新），Widget 内容更新可预期、可验证 | 多数 App 同步无反馈，用户需手动下拉刷新或切换设备验证 | [evidence-001] #1；[evidence-003] #11 |\n| **系统级入口深度整合** | 支持主屏快捷菜单、锁屏 Widget、控制中心、Siri Shortcuts、URL Scheme 五维直达，且全部联动后台刷新与自动保存 | 同类工具常仅支持 Widget 或 Shortcuts 单点，缺乏链路闭环 | [evidence-003] #11 全入口列表 + 交互链路 |\n| **健康数据「嵌入式」而非「导出式」** | Apple Health 数据以「块」形式原生嵌入笔记，同步至 iCloud 后仍保留可读性与上下文 | 多数产品仅支持 Health 数据导出为 PDF/CSV，脱离原始语境 | [evidence-002] #3（“添加 Health 块” → “健康数据卡片”） |\n\n---\n\n### 📝 四、内容角度建议（面向用户传播）\n\n| 内容类型 | 标题示例 | 核心信息点 | 证据支撑 |\n|----------|-----------|--------------|------------|\n| **短视频脚本（30s）** | *“你没打开它，它也在工作”* | 展示锁屏 Widget 刷新「今日笔记」→ 切换设备查看同步结果 → 弹出「同步中」微动效 | [evidence-001] #2；[evidence-001] #1；[evidence-003] #11 |\n| **App Store 截图文案** | 「后台自动存 · 跨设备秒同步 · Widget 里见最新」 | 强调三重后台能力的用户价值聚合，避免技术术语 | 整合 [evidence-001] 全部3行 + [evidence-003] #11 |\n| **订阅页信任建设模块** | 「你的数据，只走 Apple 的路」<br>• iCloud 加密传输与存储<br>• Health 数据不离开你的设备<br>• 所有同步行为均在设置页透明说明 | 基于 [evidence-002] #2（iCloud 存储）、#3（Health 块本地渲染）、#2（设置页隐私说明）强化可信感；*注：加密细节需补充资料方可宣称“端到端”* | [evidence-002] #2, #3；[evidence-001] 未提加密实现层级 → 此处表述为「Apple 生态默认保障」，安全主张属**高置信度 / Apple 平台级事实** |\n\n---\n\n如需进一步输出：\n- 面向 ASO 的关键词建议（围绕「iCloud 同步笔记」「Widget 笔记」「Health 笔记」等 evidence 中高频词）\n- 订阅转化页的 A/B 测试假设（例如：“强调自动保存” vs “强调 Widget 实时性”）\n- 开发者文档摘要（后台刷新周期、Widget 刷新触发条件、Health API 调用约束）\n\n欢迎随时提出，我将基于相同 evidence-first 规则继续深化。",
+        "citedEvidenceIds": [
+          "[evidence-001]",
+          "[evidence-002]",
+          "[evidence-003]"
+        ],
+        "model": "qwen-plus",
+        "inputTokens": 647,
+        "outputTokens": 1589,
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c43",
+            "text": "为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| iCloud 同步状态更新 | 云端导入/导出/设置事件 | 当前设备 | 同步中指示或刷新笔记列表。 | 高 |\n| Widget 数据刷新 | 应用进入后台或数据变化 | Widget | 最近编辑和每日笔记更新。 | 高 |\n| 自动保存 | 应用进入后台、非活跃或终止 | 本地/iCloud 数据 | 减少数据丢失。 | 高 |",
+            "sourceRef": "通知与后台产品行为",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 43,
+            "pageNumber": null,
+            "score": 0.0693
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c38",
+            "text": " | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |\n| --- | --- | --- | --- | --- |\n| App Store | 下载、更新、评分、订阅展示。 | 访问 listing 或更新应用。 | 安装 Bloomnote 或查看版本信息。 | 高 |\n| iCloud | 存储与同步个人数据。 | 用户使用应用并登录 iCloud。 | 多设备同步，设置页展示隐私说明。 | 高 |\n| Apple Health | 插入运动/健康相关记录。 | 添加 Health 块。 | 健康数据卡片或选择结果。 | 高 |",
+            "sourceRef": "外部触点",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 38,
+            "pageNumber": null,
+            "score": 0.0113
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c16",
+            "text": "，并可启用 Widget、快捷指令或系统快捷入口。\n交互链路:\n用户从主屏幕快捷操作、锁屏 Widget、控制中心、Widget 或 Siri Shortcuts 触发操作。\n产品打开对应入口：新笔记、每日笔记、搜索或语音备忘。\n用户继续记录或查找内容。\n产品在后台刷新 Widget 展示最近编辑或每日笔记。\n关键页面/入口: 主屏快捷菜单、Widget、控制中心、App Shortcuts、URL Scheme。\n状态与规则: Widget 依赖后台刷新；每日笔记入口支持指定日期或默认今天；语音备忘会创建新语音笔记。\n置信度: 高。\n12. 订阅与升级",
+            "sourceRef": "产品功能需求 > 11. 系统入口、Widget 与快捷指令",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 16,
+            "pageNumber": null,
+            "score": 0.011
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-ideas",
+        "model": "qwen-plus",
+        "originalQuery": "用户数据如何存储与同步，后台有哪些自动行为？",
+        "inputTokens": 647,
+        "outputTokens": 1589,
+        "citedCount": 3,
+        "durationMs": 37336
+      },
+      "durationMs": 37336,
+      "warnings": []
+    },
+    "evaluation": {
+      "output": {
+        "hitRate": 0,
+        "citationCoverage": 1,
+        "confidenceScore": 0.030533333333333332,
+        "totalEvidence": 3,
+        "citedCount": 3,
+        "scoreThreshold": 0.2,
+        "faithfulness": null,
+        "level": "poor",
+        "warnings": [
+          "检索命中率偏低（0%），大部分 evidence 相关度未达阈值，建议调整 retrieval top-k 或 score threshold",
+          "被引用 evidence 平均分偏低（0.03），检索质量可能不足"
+        ],
+        "method": "rag-metrics-only",
+        "durationMs": 1
+      },
+      "trace": {
+        "methodId": "rag-metrics-only",
+        "totalEvidence": 3,
+        "citedCount": 3,
+        "hitRate": 0,
+        "citationCoverage": 1,
+        "confidenceScore": 0.030533333333333332,
+        "faithfulnessScore": null,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": [
+        "检索命中率偏低（0%），大部分 evidence 相关度未达阈值，建议调整 retrieval top-k 或 score threshold",
+        "被引用 evidence 平均分偏低（0.03），检索质量可能不足"
+      ]
+    }
+  },
+  "metrics": {
+    "hitRate": 0,
+    "citationCoverage": 1,
+    "confidenceScore": 0.030533333333333332,
+    "retrievedCount": 10,
+    "avgScore": 0.5044299999999999,
+    "ideaCount": 3,
+    "contextLength": 900,
+    "avgEvidenceLength": 300,
+    "evidenceCount": 3,
+    "durationMs": 40724.833333333336
+  }
+}

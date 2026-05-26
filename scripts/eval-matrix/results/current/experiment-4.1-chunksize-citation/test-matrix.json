@@ -1,0 +1,74 @@
+[
+  {
+    "id": "T01",
+    "label": "chunkSize=256 / chunk-citation（小 chunk 基线）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 256, "overlap": 32, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 32 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "chunk-citation",   "params": { "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T02",
+    "label": "chunkSize=256 / section-citation/section（关键测试：小 chunk 时 section 应生效）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 256, "overlap": 32, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 32 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T03",
+    "label": "chunkSize=512 / chunk-citation（中等基线，验证 run-001 T01 可复现）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "chunk-citation",   "params": { "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T04",
+    "label": "chunkSize=512 / section-citation/section（中等基线，验证 run-001 T03 可复现）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T05",
+    "label": "chunkSize=1024 / chunk-citation（大 chunk 基线）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 1024, "overlap": 128, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 128 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "chunk-citation",   "params": { "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T06",
+    "label": "chunkSize=1024 / section-citation/section（大 chunk 时 section 几乎肯定无效）",
+    "chunk":        { "methodId": "recursive",       "params": { "chunkSize": 1024, "overlap": 128, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 128 } },
+    "transform":    { "methodId": "none",             "params": {} },
+    "queryRewrite": { "methodId": "none",             "params": {} },
+    "retrieval":    { "methodId": "dense-vector",     "params": { "embeddingProvider": "openai", "embeddingModel": "text-embedding-v4", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter",  "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "pipeline-rerank",  "params": { "boostPassN": 20, "rerankTopN": 5 } },
+    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  }
+]

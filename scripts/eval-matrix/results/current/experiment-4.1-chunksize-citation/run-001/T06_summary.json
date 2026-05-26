@@ -1,0 +1,8 @@
+{
+  "testId": "T06",
+  "label": "chunkSize=1024 / section-citation/section（大 chunk 时 section 几乎肯定无效）",
+  "status": "failed",
+  "error": "embedding 失败 [500]: embedding_failed — 400 Access denied, please make sure your account is in good standing. For details, see: https://help.aliyun.com/zh/model-studio/error-code#overdue-payment",
+  "queryResults": [],
+  "metrics": null
+}
