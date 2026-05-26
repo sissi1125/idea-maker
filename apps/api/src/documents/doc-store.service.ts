@@ -122,6 +122,17 @@ export class DocStoreService {
     return doc;
   }
 
+  /** 按 id 取单个文档，找不到返回 undefined。 */
+  get(id: string): DocumentRecord | undefined {
+    return this.read().find((d) => d.id === id);
+  }
+
+  /** 取文档的原始 Buffer（适合喂给 pdf-parse / mammoth）。 */
+  getBuffer(doc: DocumentRecord): Buffer {
+    if (doc.isBinary) return Buffer.from(doc.rawContent, "base64");
+    return Buffer.from(doc.rawContent, "utf-8");
+  }
+
   /** 返回是否删除成功（false 表示不存在）。 */
   delete(id: string): boolean {
     const docs = this.read();

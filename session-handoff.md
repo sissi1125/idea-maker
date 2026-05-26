@@ -2,9 +2,57 @@
 
 ## 最后更新
 
-2026-05-26（会话 37 — feat-100.3 Wave 3 ✅ NestJS 后端启动 + 5 端点双跑）
+2026-05-26（会话 38 — feat-100.4 Wave 4 ✅ 完整迁完 + 删 Next.js routes，feat-100 epic 完结）
 
 ## 本会话变更摘要
+
+🎉 feat-100.4 完整收尾：剩余 14 stage + snapshots + pipeline-runs 全部迁到 NestJS；
+`apps/web/app/api/*` 全部删除；apps/web 退回到"纯前端 + Playground UI"。
+
+【NestJS 路由 25 路径】
+- /health x1
+- /pipeline/{18 个 stage} x18
+- /documents + /documents/{id} x2
+- /snapshots + /snapshots/{stageId} x2
+- /pipeline-runs + /pipeline-runs/{id} x2
+
+【新模块】
+- SnapshotsModule：SnapshotsService (DDL + CRUD) + SnapshotsController + PipelineRunsController
+- 复用 PipelineModule 导出的 ProvidersService 创建 pg 连接
+
+【apps/web 清理】
+- 删除 app/api/* 整个目录
+- 删除 lib/providers.ts、lib/snapshotDb.ts
+- lib/docStore.ts 缩成 28 行类型存根（仅 DocumentRecord 类型）
+- lib/api-base.ts 取消白名单：所有 fetch 走 NestJS
+
+【关键设计】
+- DocStoreService 加 get(id) / getBuffer(doc) 给 idempotency / preprocess
+- DocumentsModule + PipelineModule 互相 export DocStoreService / ProvidersService
+
+【验收】
+- pnpm -r typecheck/lint 全过；rag-core 238/238 单测
+- NestJS smoke：preprocess 真实读 PRODUCT.md 抽 cleanText / idempotency 算 sha256 命中 v9 /
+  pipeline-runs 无 DB 时 400 / filter 空 upstream 400
+- 跨进程数据共享：apps/api 通过共用 apps/web/data/documents.json 看到 17 文档
+
+**进度**：feat-100.4 status="done" ✅。feat-100 epic 4/4 全部收尾。
+下一步：feat-010 起业务 feature（Pipeline Agent / Content Agent / Studio）。
+
+【运行方式（feat-100.4 起）】
+- `pnpm --filter @harness/api dev` (ts-node-dev, 端口 3001) — 后端
+- `pnpm --filter @harness/web dev` — 前端
+- 前端必须设 `NEXT_PUBLIC_USE_NEST_API=true` 才能 fetch 后端；
+  不设的话 fetch 会走 /api/... 但路由已删除（404）
+
+【部署提示（feat-100.4 留给后续）】
+- 多服务：apps/web (Next.js) + apps/api (NestJS) + Postgres
+- CI：`pnpm -r typecheck/lint/test` 已就绪；各 app build 独立
+- rag-core dist 构建：当前 src 直引（dev OK / prod 需补 build 脚本）
+
+---
+
+## 历史交接记录（会话 37 — feat-100.3 Wave 3 ✅ NestJS 后端启动 + 5 端点双跑）
 
 🎉 feat-100.3 完整收尾：apps/api NestJS 真正能跑了，5 端点已在 NestJS + Next.js 上双跑。
 
@@ -164,7 +212,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`6db03a5`（feat-100.2 完整 18/18）。feat-100.3 在 `claude/refactor-monorepo` 待 ff merge。
+- **主分支**：`main`，当前 HEAD：`b25b053`（feat-100.3 Wave 3 已合）。feat-100.4 在 `claude/refactor-monorepo` 待 ff merge。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）

@@ -13,7 +13,7 @@ import type { StageSnapshot, PipelineRunRecord, PipelineRunStageEntry } from "@/
 import { DocumentRecord } from "@/lib/docStore";
 import { resolveEffectiveUpstream } from "@/lib/pipelineDeps";
 import PipelineTraceDrawer from "./PipelineTraceDrawer";
-import { pipelineUrl, documentsUrl } from "@/lib/api-base";
+import { pipelineUrl, documentsUrl, snapshotsUrl, pipelineRunsUrl } from "@/lib/api-base";
 
 export default function PlaygroundShell() {
   const [activeStage, setActiveStage] = useState<PipelineStage>(PIPELINE_STAGES[0]);
@@ -62,7 +62,7 @@ export default function PlaygroundShell() {
 
   // 页面加载时从快照恢复 pipeline 状态（DB 可用时）
   useEffect(() => {
-    fetch("/api/snapshots")
+    fetch(snapshotsUrl())
       .then((r) => r.json())
       .then((data: { snapshots?: StageSnapshot[] }) => {
         const snapshots = data.snapshots ?? [];
@@ -95,7 +95,7 @@ export default function PlaygroundShell() {
     const stageId = activeStage?.id;
     // 用 Promise 链统一 setState，避免在 effect 体内同步调用 setState
     const p = stageId
-      ? fetch(`/api/snapshots/${stageId}`)
+      ? fetch(snapshotsUrl(`/${stageId}`))
           .then((r) => r.json())
           .then((data: { snapshot: StageSnapshot | null }) => data.snapshot ?? null)
           .catch(() => null as StageSnapshot | null)
@@ -106,7 +106,7 @@ export default function PlaygroundShell() {
   // 抽屉打开时拉取历史
   useEffect(() => {
     if (!traceDrawerOpen) return;
-    fetch("/api/pipeline-runs")
+    fetch(pipelineRunsUrl())
       .then((r) => r.json())
       .then((d: { runs: PipelineRunRecord[] }) => setPipelineRunHistory(d.runs ?? []))
       .catch(() => {});
@@ -246,7 +246,7 @@ export default function PlaygroundShell() {
           setPipelineRun((p) => ({ ...p, status: "success" }));
 
           // 异步保存快照（失败不阻断主流程）
-          fetch("/api/snapshots", {
+          fetch(snapshotsUrl(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -305,7 +305,7 @@ export default function PlaygroundShell() {
       }
     }
     const name = window.prompt("为本次 Pipeline Run 命名（留空自动命名）：") ?? "";
-    const res = await fetch("/api/pipeline-runs", {
+    const res = await fetch(pipelineRunsUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -316,7 +316,7 @@ export default function PlaygroundShell() {
     });
     const responseData = await res.json();
     if (responseData.ok) {
-      fetch("/api/pipeline-runs")
+      fetch(pipelineRunsUrl())
         .then((r) => r.json())
         .then((d: { runs: PipelineRunRecord[] }) => setPipelineRunHistory(d.runs ?? []))
         .catch(() => {});

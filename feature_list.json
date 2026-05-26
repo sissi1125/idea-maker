@@ -657,8 +657,8 @@
       "dependencies": [
         "feat-100.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "剩余 14 stage + snapshots + pipeline-runs 全部迁到 NestJS（apps/api 共 25 路径）；删除 apps/web/app/api/* + providers.ts + snapshotDb.ts；docStore.ts 缩成类型存根（DocumentRecord 类型）；apps/web/lib/api-base.ts 取消白名单全部路由到 NestJS；pnpm -r typecheck/lint 全过；rag-core 238/238 单测；NestJS 自测 18 个 stage（含 idempotency hash 检测 / preprocess 真实文档抽文本）+ snapshots/pipeline-runs 路由全部 OK。"
     }
   ]
 }

@@ -1,22 +1,18 @@
 /**
- * api-base — feat-100.3 Wave 3 双跑期 URL 切换层
+ * api-base — 前端 fetch URL 工厂
  *
- * 通过 NEXT_PUBLIC_USE_NEST_API + NEXT_PUBLIC_API_URL 决定前端 fetch 走 Next.js 还是 NestJS。
+ * Wave 4 起所有端点都在 NestJS（apps/api）：18 个 pipeline stage
+ * + documents (CRUD) + snapshots + pipeline-runs。
  *
- * Wave 3 已迁到 NestJS 的端点（仅 5 个）：
- *   - /pipeline/chunk
- *   - /pipeline/embedding
- *   - /pipeline/retrieval
- *   - /pipeline/generation
- *   - /documents (含 POST / GET / DELETE)
+ * 切换：
+ *   NEXT_PUBLIC_USE_NEST_API=true  → 全部走 NestJS（推荐）
+ *   不设 / 其他值                 → 沿用 /api/... 相对路径
  *
- * 未迁的端点（snapshots、pipeline-runs、其他 14 个 stage）继续走 Next.js routes。
+ * 注意：Wave 4 已删除 apps/web/app/api/* 路由。如果 NEXT_PUBLIC_USE_NEST_API
+ * 未设置且 NestJS 没在跑，所有 fetch 都会 404。生产部署必须显式开启 flag。
  *
- * 切换方式：
- *   NEXT_PUBLIC_USE_NEST_API=true
- *   NEXT_PUBLIC_API_URL=http://localhost:3001
- *
- * 不设或设为 "false" → 沿用 Next.js routes（默认安全行为）。
+ * NEXT_PUBLIC_API_URL 默认 http://localhost:3001（dev）；
+ * 部署时设成实际后端域名（例如 https://api.example.com）。
  */
 
 const USE_NEST =
@@ -27,36 +23,29 @@ const NEST_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
   "http://localhost:3001";
 
-/** Wave 3 已迁到 NestJS 的 pipeline stage id 白名单。 */
-const NEST_MIGRATED_PIPELINE = new Set<string>([
-  "chunk",
-  "embedding",
-  "retrieval",
-  "generation",
-]);
+function nest(path: string): string {
+  return USE_NEST ? `${NEST_BASE}${path}` : `/api${path}`;
+}
 
-/**
- * 返回 pipeline stage 端点 URL。
- * - 启用 flag 且 stage 在白名单 → NestJS 绝对 URL
- * - 否则 → Next.js 相对路径
- */
+/** Pipeline stage 端点（18 个 stage 全在 NestJS）。 */
 export function pipelineUrl(stageId: string): string {
-  if (USE_NEST && NEST_MIGRATED_PIPELINE.has(stageId)) {
-    return `${NEST_BASE}/pipeline/${stageId}`;
-  }
-  return `/api/pipeline/${stageId}`;
+  return nest(`/pipeline/${stageId}`);
 }
 
-/**
- * 返回 documents 端点 URL。
- * suffix 形如 "" / "/123"，会拼到 /documents 后面。
- */
+/** Documents CRUD（GET 列表 / POST 上传 / DELETE :id）。 */
 export function documentsUrl(suffix = ""): string {
-  if (USE_NEST) {
-    return `${NEST_BASE}/documents${suffix}`;
-  }
-  return `/api/documents${suffix}`;
+  return nest(`/documents${suffix}`);
 }
 
-/** 当前是否启用了 NestJS 后端（前端可用来在 UI 上显示一个角标）。 */
+/** Snapshots（GET 列表 / POST upsert / GET :stageId）。 */
+export function snapshotsUrl(suffix = ""): string {
+  return nest(`/snapshots${suffix}`);
+}
+
+/** Pipeline runs（POST 保存 / GET 列表 / GET :id）。 */
+export function pipelineRunsUrl(suffix = ""): string {
+  return nest(`/pipeline-runs${suffix}`);
+}
+
+/** 是否走 NestJS（前端 UI 可显示角标）。 */
 export const usingNestApi = USE_NEST;

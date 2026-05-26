@@ -1,5 +1,55 @@
 # 进度记录
 
+## 2026-05-26（会话 38 — feat-100.4 Wave 4：完整迁完 + 删 Next.js routes）✅
+
+### 范围
+
+把剩余 14 个 stage + snapshots + pipeline-runs 全部迁到 NestJS，删除 `apps/web/app/api/*`。
+Wave 完结：所有端点都在 NestJS，apps/web 退回到"纯前端 + Playground UI"。
+
+### NestJS 新增
+
+- **14 个 pipeline controller**：idempotency / preprocess / transform / query-rewrite /
+  intent-recognition / multi-recall-merge / filter / rerank / storage / citation /
+  fallback / context-management / prompt-build / evaluation
+- **2 个新模块**：
+  - `SnapshotsModule`：`SnapshotsService` 封 DDL + CRUD（含 DDL 初始化、upsert 快照、列 / 取单条）
+  - `SnapshotsController` + `PipelineRunsController`：共 5 端点
+- **DocStoreService 扩展**：加 `get(id)` / `getBuffer(doc)` 给 idempotency / preprocess
+- **PipelineModule**：注册全部 18 个 stage controller；export ProvidersService 给 SnapshotsModule
+- **DocumentsModule**：export DocStoreService 给 PipelineModule
+
+### apps/web 清理
+
+- `app/api/*` 整个目录删除（含 18 stage routes + documents x3 + snapshots x2 + pipeline-runs x2）
+- `lib/providers.ts` 删除
+- `lib/snapshotDb.ts` 删除
+- `lib/docStore.ts` 缩成 28 行的类型存根（只保留 `DocumentRecord` 类型给 components 用）
+- `lib/api-base.ts` 取消白名单：`pipelineUrl()` / `documentsUrl()` / `snapshotsUrl()` /
+  `pipelineRunsUrl()` 全部走 NestJS
+
+### 路由总数
+
+NestJS 25 路径（Swagger `/docs` 可见）：
+- `/health` x1
+- `/pipeline/{idempotency,preprocess,chunk,transform,embedding,storage,query-rewrite,intent-recognition,retrieval,multi-recall-merge,filter,rerank,citation,fallback,context-management,prompt-build,generation,evaluation}` x18
+- `/documents` + `/documents/{id}` x2
+- `/snapshots` + `/snapshots/{stageId}` x2
+- `/pipeline-runs` + `/pipeline-runs/{id}` x2
+
+### 验收
+
+- `pnpm -r typecheck/lint` 全过；rag-core 238/238 单测
+- NestJS smoke：health 200 / Swagger 25 路径 / preprocess 读真实文档 cleanText / idempotency
+  正确算 sha256 命中 PRODUCT.md v9 / filter 空 upstream 400 / pipeline-runs 无 DB 400
+- 跨进程文件共享验证：apps/api 通过共用 `apps/web/data/documents.json` 看到 17 个文档
+
+### 下一步
+
+feat-100 epic 完整收尾。开始 feat-010 起的业务 feature（Phase 3 Agent / Phase 4 Studio）。
+
+---
+
 ## 2026-05-26（会话 37 — feat-100.3 Wave 3：NestJS 后端启动 + 5 端点双跑）✅
 
 ### 范围
