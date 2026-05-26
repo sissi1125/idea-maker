@@ -57,9 +57,77 @@ CREATE TABLE IF NOT EXISTS project_settings (
 `;
 
 /**
- * 顺序：users → projects → project_settings（受外键依赖约束，顺序敏感）。
+ * ── feat-200.2 Week 2：documents + ingestion_jobs ─────────────────────────────
  *
- * 调用方需要 await initFeat200Schema(client) 在每个请求开头。
- * 与 SnapshotsService 一致，依赖 CREATE TABLE IF NOT EXISTS 的幂等性。
+ * documents：MVP 项目级文档表（与旧 apps/web/data/documents.json store 并存）。
+ *   - storage_ref：文件实际存储路径（apps/api/data/uploads/{projectId}/{docId}）
+ *     不存 base64 内容到 PG 是为避免大 BLOB 拖慢 SELECT
+ *   - category：'product' / 'compete' / 'history'（与原型 Upload.jsx 三 Tab 对应，TEXT 而非 ENUM
+ *     方便 Week 8 增加分类）
+ *   - hash：内容 sha256，给 idempotency 判重
+ *   - processing_status：'queued' / 'processing' / 'ready' / 'error'（ingestion_job 完成
+ *     后 runner 反写）
+ *
+ * ingestion_jobs：异步处理任务表
+ *   - status：'queued' → 'running' → 'succeeded' | 'failed'
+ *   - progress：0-100；current_stage：当前 stage 名称（idempotency / preprocess / ...）
+ *   - 单文档可有多次 ingestion 历史（同一 doc 多版本），按 document_id 查最新
  */
-export const FEAT_200_DDL_BLOCKS = [DDL_USERS, DDL_PROJECTS, DDL_PROJECT_SETTINGS];
+
+export const DDL_DOCUMENTS = `
+CREATE TABLE IF NOT EXISTS documents (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  category          TEXT NOT NULL,
+  file_name         TEXT NOT NULL,
+  mime_type         TEXT NOT NULL,
+  file_size         INTEGER NOT NULL,
+  hash              TEXT NOT NULL,
+  version           INTEGER NOT NULL DEFAULT 1,
+  processing_status TEXT NOT NULL DEFAULT 'queued',
+  storage_ref       TEXT NOT NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_documents_project_id ON documents (project_id);
+CREATE INDEX IF NOT EXISTS idx_documents_project_category ON documents (project_id, category);
+CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents (hash);
+`;
+
+export const DDL_INGESTION_JOBS = `
+CREATE TABLE IF NOT EXISTS ingestion_jobs (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  document_id   TEXT NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+  status        TEXT NOT NULL DEFAULT 'queued',
+  progress      INTEGER NOT NULL DEFAULT 0,
+  current_stage TEXT,
+  chunks_done   INTEGER NOT NULL DEFAULT 0,
+  chunks_total  INTEGER NOT NULL DEFAULT 0,
+  cost_usd      NUMERIC(12, 6) NOT NULL DEFAULT 0,
+  error         TEXT,
+  started_at    TIMESTAMPTZ,
+  finished_at   TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_project_id ON ingestion_jobs (project_id);
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_document_id ON ingestion_jobs (document_id);
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status_updated
+  ON ingestion_jobs (status, updated_at DESC);
+`;
+
+/**
+ * 顺序：users → projects → project_settings → documents → ingestion_jobs。
+ * 受外键依赖约束（documents.project_id → projects；ingestion_jobs 双向 FK）。
+ *
+ * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
+ * 依赖 CREATE TABLE IF NOT EXISTS 的幂等性。
+ */
+export const FEAT_200_DDL_BLOCKS = [
+  DDL_USERS,
+  DDL_PROJECTS,
+  DDL_PROJECT_SETTINGS,
+  DDL_DOCUMENTS,
+  DDL_INGESTION_JOBS,
+];

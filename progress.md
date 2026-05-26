@@ -1,5 +1,85 @@
 # 进度记录
 
+## 2026-05-27（会话 41 — feat-200.2 Week 2 收尾：Documents + Ingestion + SSE 全链路打通）✅
+
+### 范围
+
+Week 2 主线打通：PDF/文本上传 → 异步 5-stage ingestion → SSE 推 progress 0→100。
+
+### 交付
+
+**新文件**
+- `apps/api/src/db/schema.ts`：DDL_DOCUMENTS / DDL_INGESTION_JOBS（追加到 FEAT_200_DDL_BLOCKS）
+- `apps/api/src/mvp-documents/`：types / service / controller / module / file-storage（multipart 上传 → 本地 fs + PG 元数据；list / get / delete + status 回填）
+- `apps/api/src/ingestion/`：types / service / controller / job-runner / module（异步 job 表 + EventEmitter2 + @Sse 流 + 5-stage pipeline）
+- `EventEmitterModule.forRoot()` 注册到 app.module
+
+**5 个新端点**
+- `POST   /projects/:projectId/documents`（multipart，category=product|compete|history）→ 立即返回 `{document, ingestionJobId}`
+- `GET    /projects/:projectId/documents?category=` / `GET /projects/:projectId/documents/:docId` / `DELETE /projects/:projectId/documents/:docId`
+- `GET    /projects/:projectId/ingestion`（列出近 100 job）
+- `GET    /projects/:projectId/ingestion/:jobId`（轮询）
+- `GET    /projects/:projectId/ingestion/:jobId/events?token=...`（SSE）
+
+**Stage 权重映射**：idempotency 0→10，preprocess 10→35，chunk 35→45，embedding 45→85，storage 85→100。
+
+**SSE 事件**：`snapshot`（建连即推一帧当前 job 状态）→ `progress`（每 stage 入口 + 完成两次）→ `completed` | `failed`（takeWhile inclusive=true，最后一帧后关流）+ `keepalive`（15s 心跳防代理超时）。
+
+### 关键 bug 修复
+
+1. **TracingInterceptor 与 SSE 冲突**：NestJS @Sse 在 interceptor 执行前已写 `Content-Type: text/event-stream` 响应头（`res.headersSent=true`）。再调 `res.setHeader("x-trace-id", ...)` 抛错 → 进 ExceptionFilter → filter 调 `res.json()` 又抛同样错 → 被 SSE 流封成 `event: error\ndata: Cannot set headers...`，客户端只收到一帧错误，看不到任何 progress。
+   - 修法：`if (!res.headersSent)` 跳过 setHeader；SSE 路由短路 tap（每帧 emit 触发 access log 也无意义）；filter 加 `if (res.headersSent) return;` 兜底
+2. **IngestionController TDZ**：`@CurrentUserOrQueryToken()` 装饰器在 class 内使用，但 const 声明在文件末尾。class 定义时进入 TDZ，模块加载即崩。修法：装饰器声明提到 class 之上 + 相关 imports 合并到顶部
+3. **rag-core schema 漂移**：runner 用了不存在的 method id `docx-html-markdown`（应为 `markitdown`）和过期的 params 字段（`collapseWhitespace`/`appendKeywords`/`normalize` 等）。按 `packages/shared-types/src/pipeline/*` 当前 schema 修齐
+4. **Dimension Guard 冲突**：MVP 用 `debug-deterministic dimension=64`，但 Playground 已往 chunks 表写过 1024 维向量。修法：dimension=1024 对齐 + storage 切到 `pgvector-replace-version`（只删本 document 旧 chunks，不全表覆盖）
+
+### 验收（curl smoke）
+
+```
+event: snapshot   progress=10 currentStage=preprocess
+event: progress   progress=35 currentStage=preprocess
+event: progress   progress=35 currentStage=chunk
+event: progress   progress=45 currentStage=chunk      chunksTotal=1
+event: progress   progress=45 currentStage=embedding
+event: progress   progress=85 currentStage=embedding  chunksDone=1
+event: progress   progress=85 currentStage=storage
+event: completed                                       chunksTotal=1 costUsd=0
+```
+
+终态查询：`status=succeeded, progress=100, finishedAt=...`。`pnpm -r typecheck/lint` 全过。
+
+### 设计决策回顾
+
+1. **Documents 新建 PG 表**：与旧 JSON store 并存，Playground 不动
+2. **Job runner = 进程内 Promise + setImmediate**：重启丢任务接受（Week 8 再加 cron 兜底扫 queued 行）
+3. **SSE + 轮询同时支持**：SSE 主推浏览器，`?token=` 走 query（EventSource 不能塞 header）；`GET /:jobId` 留作 curl 调试
+
+---
+
+## 2026-05-27（会话 40 续 — feat-200.2 Week 2 启动：Documents + Ingestion Jobs + SSE）🚧
+
+### 范围
+
+Week 2 主线：把 PDF/文本"上传 → 异步跑 5-stage ingestion → 实时看进度 0→100"打通。
+
+**3 个关键设计决策**（与用户确认）：
+1. Documents 新建 PG 表（与旧 JSON store 并存，Playground 不动）
+2. Job runner：进程内 Promise + setImmediate 异步（PG 写状态），重启丢任务接受
+3. 进度推送：SSE 主推（`/events`）+ 轮询 fallback（同 jobId GET，便于 curl 调试）
+
+**交付计划**：
+- DDL：`documents` + `ingestion_jobs` 两张表
+- `apps/api/src/mvp-documents/`：项目级 documents CRUD（multipart 上传 → 写本地 fs + PG 元数据）
+- `apps/api/src/ingestion/`：JobRunner + Service + Controller + SSE 端点
+- 5-stage pipeline 在 JobRunner 内部串：idempotency → preprocess → chunk → embedding (debug-deterministic 免 API key) → storage（pgvector）
+
+**Scope 红线**：
+- 不改原 `/documents` JSON store 端点（Playground 仍在用）
+- 不做 Week 3 generations / pipeline-orchestrator
+- 不做前端 Upload UI（Week 6）
+
+---
+
 ## 2026-05-27（会话 40 — feat-200.1 Week 1 完成：Auth + Projects + Tracing）✅
 
 ### 范围

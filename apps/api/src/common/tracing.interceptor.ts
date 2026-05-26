@@ -35,8 +35,28 @@ export class TracingInterceptor implements NestInterceptor {
     const traceId = randomUUID();
     const startedAt = Date.now();
 
-    // 客户端可以通过 header 关联日志（如 Grafana 上钻）
-    res.setHeader("x-trace-id", traceId);
+    // SSE 路由的特殊处理：NestJS @Sse 内部会在 interceptor 执行*之前*就把 SSE 响应头
+    // (Content-Type: text/event-stream) 写到 res，此时 res.headersSent=true。
+    // 若再调 res.setHeader 会抛 "Cannot set headers after they are sent to the client"，
+    // 该异常进入全局 ExceptionFilter，filter 再调 res.json 又触发同一错误，最终被 NestJS
+    // 的 SSE 流封装成 `event: error` 帧返回，导致客户端只能收到一条错误而看不到 progress。
+    //
+    // 修法：
+    //   1. setHeader 时若 headersSent 已 true，跳过（SSE 不需要客户端读 x-trace-id）
+    //   2. SSE 路由不挂 tap（每帧 emit 触发 access log 也无意义），只起 ALS 上下文
+    if (!res.headersSent) {
+      res.setHeader("x-trace-id", traceId);
+    }
+
+    // originalUrl 含 query string，取 path 部分判断
+    const path = req.originalUrl.split("?")[0];
+    const isSse =
+      path.endsWith("/events") ||
+      (req.headers.accept ?? "").includes("text/event-stream");
+    if (isSse) {
+      console.log(`[trace] ${traceId} ${req.method} ${path} [sse-open]`);
+      return this.tracer.run(traceId, () => next.handle());
+    }
 
     return this.tracer.run(traceId, () =>
       next.handle().pipe(

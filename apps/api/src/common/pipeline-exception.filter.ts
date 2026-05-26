@@ -52,6 +52,15 @@ export class PipelineExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
 
+    // 已经开始流式响应（SSE / chunked）后再调 res.json 会触发
+    // "Cannot set headers after they are sent to the client"。
+    // 此时只记录日志，让响应自然结束。
+    if (res.headersSent) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[pipeline-exception-filter] 流式响应中发生错误，跳过 res.json:", msg);
+      return;
+    }
+
     // 0. ZodError — 参数校验失败，统一翻成 400 invalid_params
     if (err instanceof ZodError) {
       return res.status(400).json({

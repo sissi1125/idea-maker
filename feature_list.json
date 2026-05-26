@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.2（Week 2：documents 加 category + ingestion jobs + SSE 进度，待启动；feat-200.1 已完成）",
+      "current": "feat-200.3（Week 3：Pipeline Orchestrator + Generations + Generate 端点，待启动；feat-200.2 已完成）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -463,8 +463,8 @@
       "dependencies": [
         "feat-200.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Session 41：documents(category) + ingestion_jobs DDL；MvpDocumentsModule + IngestionModule（service/controller/runner）；5-stage runner（idempotency→preprocess→chunk→embedding(1024)→storage replace-version）；EventEmitter2 + @Sse 流；curl 验证：snapshot + 6 progress + completed 帧，progress 0→100。修复 2 bug：(a) TracingInterceptor 在 SSE 路由前置 setHeader 触发 headersSent；(b) IngestionController 内 const decorator TDZ。"
     },
     {
       "id": "feat-200.3",
