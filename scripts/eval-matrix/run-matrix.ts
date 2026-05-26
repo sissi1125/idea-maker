@@ -6,13 +6,13 @@
  *   npx tsx scripts/eval-matrix/run-matrix.ts
  *
  * 前提条件：
- *   - Next.js dev server 已启动（cd app && npm run dev）
+ *   - NestJS API 已启动（pnpm --filter @harness/api start:dev，默认 3001 端口）
  *   - PostgreSQL 可访问（docker compose up postgres）
  *   - DATABASE_URL / EMBEDDING_API_KEY / LLM_API_KEY 已设置
  *   - HF_TEI_ENDPOINT 已设置（pipeline-rerank 需要 TEI 服务）
  *
  * 可选环境变量：
- *   BASE_URL=http://localhost:3000              （默认）
+ *   BASE_URL=http://localhost:3001              （默认，对接 apps/api NestJS）
  *   START_FROM=T04                              （跳过前面的 test case，用于断点续跑）
  *   RUN_ID=run-002-20260521                     （指定结果目录名，默认按日期自动生成）
  *   EXPERIMENT=experiment-4-citation            （实验系列名，决定结果落到 current/<EXPERIMENT>/）
@@ -32,7 +32,9 @@ import { preprocessDoc } from "./preprocess-doc.js";
 import type { TestCase, TestCaseResult, QueryResult } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
+// 默认指向 apps/api NestJS（3001）。Session 39 重构后 pipeline endpoints 迁移到独立 API
+// 服务，apps/web (3000) 不再有 /api/pipeline/* 路由。
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3001";
 const START_FROM = process.env.START_FROM ?? null;
 
 // 结果目录解析：
@@ -82,7 +84,7 @@ const FIXED = {
 
 // connection error 时自动重试，最多 3 次，间隔 3s
 async function post(route: string, body: unknown, retries = 3): Promise<unknown> {
-  const url = `${BASE_URL}/api/pipeline/${route}`;
+  const url = `${BASE_URL}/pipeline/${route}`;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, {
@@ -111,7 +113,7 @@ async function post(route: string, body: unknown, retries = 3): Promise<unknown>
 
 async function uploadDocument(text: string): Promise<string> {
   console.log("  📄 上传测试文档...");
-  const res = await fetch(`${BASE_URL}/api/documents`, {
+  const res = await fetch(`${BASE_URL}/documents`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, fileName: "PRODUCT.md", mimeType: "text/markdown" }),
@@ -297,12 +299,12 @@ function fmt(v: number | null): string {
 }
 
 async function preflight(): Promise<void> {
-  // 1. dev server 可达
+  // 1. NestJS API 可达：调 /health 是最轻量、最稳定的探活端点
   try {
-    const res = await fetch(`${BASE_URL}/api/documents`);
+    const res = await fetch(`${BASE_URL}/health`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   } catch (err) {
-    console.error(`✗ dev server 不可达 (${BASE_URL})。请先运行: cd app && npm run dev`);
+    console.error(`✗ NestJS API 不可达 (${BASE_URL})。请先运行: pnpm --filter @harness/api start:dev`);
     console.error("  详情:", err instanceof Error ? err.message : err);
     process.exit(1);
   }
