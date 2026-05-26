@@ -65,9 +65,6 @@ importers:
       '@huggingface/transformers':
         specifier: ^4.2.0
         version: 4.2.0
-      '@node-rs/jieba':
-        specifier: ^2.0.1
-        version: 2.0.1
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
@@ -126,6 +123,9 @@ importers:
       '@harness/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@node-rs/jieba':
+        specifier: ^2.0.1
+        version: 2.0.1
       is-html:
         specifier: ^3.2.0
         version: 3.2.0

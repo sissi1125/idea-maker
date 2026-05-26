@@ -2,21 +2,20 @@
 
 ## 最后更新
 
-2026-05-26（会话 22 — feat-100.2 推进：preprocess 抽取，2/18）
+2026-05-26（会话 23 — feat-100.2 推进：transform + nlp 工具迁移，3/18）
 
 ## 本会话变更摘要
 
-按 idempotency 样板复制模式，第二个 stage 完成。preprocess 比 idempotency 复杂（5 method 含 3 个 async，4 个第三方库 + 1 微服务）。
-- 依赖迁移：pdf-parse / mammoth / turndown / is-html 从 apps/web 移到 packages/rag-core
-- shared-types：新建 preprocess.ts（PreprocessMethodId enum + zod schema + 接口），pymupdfServiceUrl 作为 Input 字段
-- rag-core：新建 ingestion/preprocess.ts（runPreprocess 异步纯函数，5 method 全保留 fallback warnings）
-- apps/web 薄路由：520 行 → 78 行
-- 10 个新单测：markdown 标题 path / 清洗 / 截断 / plain-text 过滤 / pdf-pages 降级 / pymupdf 拒绝降级 / metadata 注入
-- Playground 端到端：markdown-structure / plain-text / markitdown 三 method 实测正常
+- transform stage 抽取：3 method（none/heading-context/summary-keywords）+ 11 单测
+- nlp.ts 迁到 packages/rag-core/src/util/nlp.ts（jieba / tokenize / extractKeywords / tokenizeForBM25 / tokenizeToSet 全部）
+- 6 个 route imports 批量更新：transform / citation / query-rewrite / retrieval / rerank / filter `@/lib/nlp` → `@harness/rag-core`
+- @node-rs/jieba 依赖从 apps/web 转 rag-core
+- transform/route.ts 283 → 67 行
+- 全部测试：34/34；typecheck + lint 4 包全过
 
 **当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`，待 ff 合 main。
 
-**进度**：feat-100.2 status="in-progress" (2/18)。剩 16 stage：transform / chunk / embedding / storage（ingestion 完成）→ retrieval 链 8 → generation 链 3。
+**进度**：feat-100.2 status="in-progress" (3/18)。剩 15 stage：chunk / embedding / storage（ingestion 完成）→ retrieval 链 8 → generation 链 3 → evaluation 1。
 
 ---
 
@@ -145,7 +144,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`6b3c039`（feat-100.1 完成 + feat-100.2 idempotency 样板 + feat-100.1/100.2 面试题）。本会话提交将再前进若干步。
+- **主分支**：`main`，当前 HEAD：`d893915`（feat-100.1 完成 + feat-100.2 idempotency + preprocess 样板 + 面试题）。本会话提交将再前进若干步。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）

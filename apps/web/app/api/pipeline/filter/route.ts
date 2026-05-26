@@ -27,7 +27,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import type { RetrievalOutput, MatchedChunk } from "../retrieval/route";
-import { tokenizeToSet } from "@/lib/nlp";
+import { tokenizeToSet } from "@harness/rag-core";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 

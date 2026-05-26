@@ -4,3 +4,11 @@ export const RAG_CORE_VERSION = "0.1.0";
 export { PipelineError, isPipelineError } from "./errors";
 export { checkIdempotency } from "./ingestion/idempotency";
 export { runPreprocess } from "./ingestion/preprocess";
+export { runTransform } from "./ingestion/transform";
+export {
+  jieba,
+  tokenize,
+  tokenizeToSet,
+  tokenizeForBM25,
+  extractKeywords,
+} from "./util/nlp";

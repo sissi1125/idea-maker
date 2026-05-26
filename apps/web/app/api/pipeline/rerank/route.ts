@@ -31,7 +31,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
 import type { FilterOutput, FilteredChunk } from "../filter/route";
-import { tokenizeToSet } from "@/lib/nlp";
+import { tokenizeToSet } from "@harness/rag-core";
 
 // jieba 单例、停用词表、分词逻辑统一在 lib/nlp.ts 管理，此处直接使用封装函数。
 // 不再本地维护副本，避免三份停用词表发散的历史问题。

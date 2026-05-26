@@ -35,7 +35,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 import type { RerankOutput, RankedChunk } from "../rerank/route";
-import { tokenize } from "@/lib/nlp";
+import { tokenize } from "@harness/rag-core";
 import { resolveConnectionString, unwrapError } from "@/lib/snapshotDb";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────

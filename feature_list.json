@@ -634,7 +634,7 @@
         "feat-100.1"
       ],
       "status": "in-progress",
-      "evidence": "2026-05-26 基础设施 + 2/18 stage 完成。【基础设施】vitest（13+10 测全过）+ PipelineError 统一错误类型 + packages/rag-core/README.md「提取模式」+ next.config.ts transpilePackages 修复（缺失会导致 Next.js 反复解析 workspace TS 源致机器假死）。【已抽取】idempotency（sha256/normalized/file-signature 3 method）+ preprocess（markdown-structure/plain-text/markitdown/pdf-pages/pymupdf 5 method，含 mammoth/turndown/pdf-parse/is-html 依赖迁移到 rag-core，pymupdf URL 通过 Input 注入）。Playground 端到端验证：所有已迁移 method 在 dev server 实测通过，内存稳定 ~1.3GB（含 preprocess 后 lib 体积变化），trace 字段完整。剩余 16 stage 待复制模式：transform/chunk/embedding/storage（ingestion 完成）+ retrieval 链 8 stage + generation 链 3 stage。"
+      "evidence": "2026-05-26 基础设施 + 3/18 stage 完成。【基础设施】vitest（34 测全过）+ PipelineError + packages/rag-core/README.md「提取模式」+ next.config.ts transpilePackages 修复（缺失致机器假死）。【已抽取】idempotency（3 method）+ preprocess（5 method）+ transform（3 method：none/heading-context/summary-keywords）。【工具】nlp.ts（jieba 分词 + 停用词 + extractKeywords/tokenize/tokenizeForBM25/tokenizeToSet）迁到 packages/rag-core/src/util/，apps/web 6 个 route 的 @/lib/nlp imports 同步改为 @harness/rag-core。【依赖迁移】@node-rs/jieba / pdf-parse / mammoth / turndown / is-html / @types 从 apps/web 转 rag-core。Playground 端到端验证 idempotency / preprocess 全过，trace 字段完整。剩余 15 stage：chunk/embedding/storage（ingestion 收尾）+ retrieval 链 8 + generation 链 3 + evaluation 1。"
     },
     {
       "id": "feat-100.3",

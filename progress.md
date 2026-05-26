@@ -1,5 +1,32 @@
 # 进度记录
 
+## 2026-05-26（会话 23 — feat-100.2 推进：transform + nlp 工具迁移，3/18）
+
+### 已完成
+
+3 个 stage 完成。本次顺手把 6 个 route 共用的 `nlp.ts` 工具迁到 rag-core（杠杆操作：避免后续每个 stage 都重复处理 nlp 依赖）。
+
+#### 变更
+
+- **nlp.ts 迁移**：`apps/web/lib/nlp.ts`（153 行）→ `packages/rag-core/src/util/nlp.ts`。`@node-rs/jieba` 依赖随之转 rag-core。原 apps/web/lib/ 删除该文件
+- **6 个 route imports 批量更新**：transform / citation / query-rewrite / retrieval / rerank / filter 全部把 `from "@/lib/nlp"` 改为 `from "@harness/rag-core"`（sed 一把完成，零行为改动）
+- **rag-core export**：index.ts 新增 jieba / tokenize / tokenizeToSet / tokenizeForBM25 / extractKeywords
+- **shared-types**：新建 `pipeline/transform.ts`（TransformMethodId enum + zod schema + InputChunk/Transformed/Trace 接口）
+- **rag-core**：新建 `ingestion/transform.ts`（runTransform 同步纯函数，3 method 全保留）
+- **apps/web 薄路由**：transform/route.ts 283 → 67 行
+- **单测**：11 个新单测覆盖 none 透传 / heading-context 4 路径（标题+sourceRef / 单独 sourceRef / 单独 title / 去重 / 全空 warning）/ summary-keywords 2 路径（appendToChunk 真假）/ trace 字段
+
+#### 验收
+
+- pnpm test：34/34（12 idempotency + 10 preprocess + 11 transform + 1 smoke）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+ingestion 链剩 chunk / embedding / storage 三个。chunk 是 RAG 最核心 stage，面试价值高。embedding/storage 含外部 I/O（OpenAI / pgvector），是注入模式的真正考验。
+
+---
+
 ## 2026-05-26（会话 22 — feat-100.2 推进：preprocess 抽取，2/18）
 
 ### 已完成（preprocess stage 抽取）

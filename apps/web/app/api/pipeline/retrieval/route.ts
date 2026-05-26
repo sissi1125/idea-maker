@@ -33,7 +33,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 import { createEmbeddingClient, embedSingleText } from "@/lib/providers";
 import type { QueryRewriteOutput } from "../query-rewrite/route";
-import { tokenizeForBM25 } from "@/lib/nlp";
+import { tokenizeForBM25 } from "@harness/rag-core";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 

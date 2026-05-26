@@ -27,7 +27,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
-import { tokenize } from "@/lib/nlp";
+import { tokenize } from "@harness/rag-core";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
