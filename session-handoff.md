@@ -2,21 +2,21 @@
 
 ## 最后更新
 
-2026-05-26（会话 27 — feat-100.2 推进：query-rewrite，retrieval 链启动，7/18）
+2026-05-26（会话 28 — feat-100.2 推进：intent-recognition，8/18）
 
 ## 本会话变更摘要
 
-retrieval 链开启。query-rewrite 3 method 抽取，确立 LLMChatClient 注入契约：
-- shared-types 加 LLMChatClient（chat.completions.create）与 OpenAICompatibleClient（embeddings）分离
-- rag-core 新增 retrieval/ 目录，放置检索链 stage
-- runQueryRewrite 实现 none / rule-keyword-expansion（jieba 4 角度）/ llm-marketing-rewrite
-- 12 个新单测含 mock LLMChatClient
-- query-rewrite/route.ts 259 → 65 行
-- 累计单测 94/94 全过
+intent-recognition 抽取，复用 query-rewrite 的 LLMChatClient 注入模式。
+首例 upstream 跨 stage 取字段（query）。
+- shared-types/pipeline/intent-recognition.ts: IntentValue enum + Input 含 upstreamQuery
+- rag-core/retrieval/intent-recognition.ts: rule-based + llm-router
+- intent-recognition/route.ts 200 → 67 行
+- 10 个新单测含 mock LLM + intent 回退 + confidence clamp
+- 累计单测 105/105 全过
 
 **当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`，待 ff 合 main。
 
-**进度**：feat-100.2 status="in-progress" (7/18，ingestion 6/6 ✅，retrieval 1/8)。剩 11 stage。下一站 intent-recognition（同 LLM 模式）。
+**进度**：feat-100.2 status="in-progress" (8/18，ingestion 6/6 ✅，retrieval 2/8)。剩 10 stage。下一站可批量推进 4 个纯算法（multi-recall-merge / filter / citation / fallback 的 rule 部分）。
 
 ---
 
@@ -145,7 +145,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`7d599ec`（feat-100.1 + ingestion 6/6 完成）。本会话提交将再前进。
+- **主分支**：`main`，当前 HEAD：`5927b23`（feat-100.1 + ingestion 6 + retrieval 1）。本会话提交将再前进。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）

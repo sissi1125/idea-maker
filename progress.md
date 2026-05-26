@@ -1,5 +1,32 @@
 # 进度记录
 
+## 2026-05-26（会话 28 — feat-100.2 推进：intent-recognition，8/18）
+
+### 已完成（intent-recognition stage 抽取）
+
+复用 query-rewrite 定下的 LLMChatClient 注入模式。**首例 upstreamOutput 跨 stage 取字段（query）**——shared-types Input 加 `upstreamQuery` 可选字段，路由层从 `body.upstreamOutput?.query` 提取注入。
+
+#### 变更
+
+- **shared-types**：新建 `pipeline/intent-recognition.ts`（IntentValue enum 4 类 + IntentRecognitionMethodId 2 method + Input 含 upstreamQuery / llmClient + Output/Trace）
+- **rag-core**：新建 `retrieval/intent-recognition.ts` runIntentRecognition：
+  - rule-based：3 组正则（marketing / chitchat / out-of-scope）+ 默认 knowledge-qa
+  - llm-router：JSON mode + intent 白名单 + confidence clamp
+  - upstreamQuery 优先于 params.query
+- **apps/web 薄路由**：intent-recognition/route.ts 200 → 67 行；上游 `{ query?: string }` 类型化注入
+- **单测**：10 个新测覆盖 rule-based 4 类意图 + upstreamQuery 优先级 / LLM mock（正常 / 未知 intent 回退 / 非 JSON 回退 / confidence clamp / missing_client）
+
+#### 验收
+
+- pnpm test：105/105
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+继续 retrieval 链 6 个。建议批量推进 4 个纯算法 stage（multi-recall-merge / filter / citation / fallback 的 rule 部分），然后 rerank + retrieval 收尾。
+
+---
+
 ## 2026-05-26（会话 27 — feat-100.2 推进：query-rewrite，retrieval 链启动，7/18）
 
 ### 已完成（query-rewrite stage 抽取）

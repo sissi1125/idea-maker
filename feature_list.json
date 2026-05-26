@@ -634,7 +634,7 @@
         "feat-100.1"
       ],
       "status": "in-progress",
-      "evidence": "2026-05-26 基础设施 + 7/18 stage 完成。Ingestion 链 6/6 ✅。Retrieval 链开始 1/8（query-rewrite）。【已抽取】idempotency / preprocess / chunk / transform / embedding / storage / query-rewrite。【I/O 注入扩展】shared-types 新加 LLMChatClient 最小契约（chat.completions.create），与 OpenAICompatibleClient（embeddings only）分离，每 stage 显式声明用哪种 API。query-rewrite 3 method：none / rule-keyword-expansion（jieba 关键词+模板4变体）/ llm-marketing-rewrite（注入 LLMChatClient）。【单测 94/94】query-rewrite +12 mock LLM client。【目录】新增 rag-core/retrieval/。剩余 11 stage：retrieval 链 7 + generation 链 3 + evaluation 1。"
+      "evidence": "2026-05-26 基础设施 + 8/18 stage 完成。Ingestion 链 6/6 ✅。Retrieval 链 2/8（query-rewrite + intent-recognition）。【已抽取】+ intent-recognition 2 method（rule-based 4 类意图正则 / llm-router JSON mode 分类，注入 LLMChatClient）。【单测 105/105】intent-recognition +10 mock LLM。剩余 10 stage：retrieval 链 6 + generation 链 3 + evaluation 1。"
     },
     {
       "id": "feat-100.3",
