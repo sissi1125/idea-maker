@@ -1,5 +1,109 @@
 # 进度记录
 
+## 2026-05-27（会话 40 — feat-200.1 Week 1 完成：Auth + Projects + Tracing）✅
+
+### 范围
+
+按 8 周 MVP 排期启动 Week 1（feat-200.1）：搭建 MVP 后端骨架。
+
+**交付清单**（12 个新文件 / 1 个修改）：
+
+- **DB 层** `apps/api/src/db/`：
+  - `schema.ts` — users / projects / project_settings 三表 DDL（FK CASCADE + 索引）
+  - `db.service.ts` — `withClient(fn)` 统一 DB 入口，模块级 DDL 标记位避免重复 CREATE
+  - `db.module.ts` — @Global 注册
+- **Auth 模块** `apps/api/src/auth/`：
+  - `auth.service.ts` — bcrypt (rounds=10) + jsonwebtoken (HS256, 7d) + register/login/findById；登录失败统一返回"邮箱或密码错误"防账户枚举
+  - `jwt-auth.guard.ts` — Bearer token 解析 + 验签 + @CurrentUser 装饰器
+  - `auth.controller.ts` — POST /register (201) / POST /login (200) / GET /me（JwtAuthGuard）
+  - `auth.types.ts` / `auth.module.ts`
+- **Projects 模块** `apps/api/src/projects/`：
+  - `projects.service.ts` — list/create/get/update/delete + getSettings/updateSettings；所有方法按 owner_id 过滤，跨 owner 一律 404 防泄漏
+  - `projects.controller.ts` — 9 路由全 @UseGuards(JwtAuthGuard)
+- **Tracing 骨架** `apps/api/src/common/`：
+  - `trace-context.service.ts` — AsyncLocalStorage 持 traceId + CostBreakdown（Week 3 起 pipeline-orchestrator 累计）
+  - `tracing.interceptor.ts` — 入口生成 uuid traceId → response header x-trace-id → tap next/error 打 access log
+  - `common.module.ts` — APP_INTERCEPTOR 全局注册
+- **修改**：`app.module.ts` 注册 CommonModule/DbModule/AuthModule/ProjectsModule；`main.ts` Swagger 加 BearerAuth + 5 个 tag
+
+**依赖新增**（`apps/api/package.json`）：
+- `bcrypt ^6.0.0` + `@types/bcrypt` — 密码哈希
+- `jsonwebtoken ^9.0.3` + `@types/jsonwebtoken` — JWT
+
+### 验证证据
+
+**typecheck/lint**：`pnpm -r typecheck` 4 包全过；`pnpm -r lint` 4 包全过。
+
+**boot**：NestJS 启动，新增 9 路由全部 mapped：
+```
+/auth/register POST | /auth/login POST | /auth/me GET
+/projects GET POST | /projects/:id GET PATCH DELETE
+/projects/:id/settings GET PUT
+```
+
+**17 项 curl smoke 全过**（用 `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rag` + `JWT_SECRET`）：
+
+| # | 操作 | 期望 | 实际 |
+|---|------|------|------|
+| 1 | register | 201 + user + token | ✅ |
+| 2 | duplicate register | 409 | ✅ |
+| 3 | login wrong pw | 401 | ✅ |
+| 4 | login | 200 + token | ✅ |
+| 5 | GET /me | 200 + user | ✅ |
+| 6 | list projects (空) | `{projects:[]}` | ✅ |
+| 7 | POST /projects | 201 + project | ✅ |
+| 8 | list projects (1) | 1 条 | ✅ |
+| 9 | GET /projects/:id | 200 | ✅ |
+| 10 | PATCH name+desc | 200 + 更新后 | ✅ |
+| 11 | 不存在 id | 404 | ✅ |
+| 12 | GET settings 默认 | 全 null | ✅ |
+| 13 | PUT settings | 200 + 字段持久化 | ✅ |
+| 14 | GET 验证 | 字段已写入 | ✅ |
+| 15a | user2 访问 user1 settings | 404 (防枚举) | ✅ |
+| 15b | user2 PATCH user1 project | 404 | ✅ |
+| 16 | DELETE → 再 GET | 204 → 404 | ✅ |
+| 17 | x-trace-id header | uuid v4 | ✅ |
+
+**DB schema 验证**（`docker exec ... psql \d`）：
+- users：`id PK`, `email UNIQUE`, `idx_users_email`，被 projects FK 引用
+- projects：`id PK`, `owner_id FK ON DELETE CASCADE`, `idx_projects_owner_id`, `idx_projects_updated_at DESC`
+- project_settings：`project_id PK FK ON DELETE CASCADE`
+- DELETE project 后 settings 同步消失（FK CASCADE 工作）
+
+**Trace 日志样本**（验证 TracingInterceptor）：
+```
+[trace] a2033708-... GET /health 200 0ms
+[trace] 9879cfce-... POST /auth/register 201 78ms
+[trace] 2f0f5808-... PUT /projects/.../settings 200 22ms
+[trace] 7249577c-... GET /projects/.../settings 404 10ms err=项目不存在
+```
+
+### 面试题
+
+`.interview/feat-200.1_auth-projects.md`（6 题）：
+1. 为什么不用 `@nestjs/passport` 而手写 JwtAuthGuard
+2. 登录失败统一文案防账户枚举的原理
+3. `encrypted_api_key` 用 TEXT 而非 BYTEA 的 trade-off + Week 5 AES 计划
+4. AsyncLocalStorage vs NestJS REQUEST scope DI 的性能差
+5. `new Client + end` per-request 何时该切到 `Pool`
+6. （加分）DDL inline vs Drizzle migrations 的 trade-off + 升级触发器
+
+### Scope Control 守住
+
+- 没碰 pipeline / playground / packages/rag-core / apps/web
+- 没做 OAuth / 密码重置 / refresh token（Phase 5）
+- 没做 AES 真加密（Week 5 BYOK UI 时做）
+
+### 下一步（Week 2 / feat-200.2）
+
+- documents 表加 category 字段（product / compete / history 三 Tab）
+- 新建 ingestion_jobs 表（status / progress / current_stage）
+- 改 ingestion 走异步 job
+- SSE 端点：`GET /projects/:id/ingestion/:jobId/events`
+- 验收：上传 PDF 看进度 0→100
+
+---
+
 ## 2026-05-27（会话 39 — Idea-Maker MVP 8 周细化规划 + Harness 更新）✅
 
 ### 范围

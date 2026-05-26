@@ -2,9 +2,72 @@
 
 ## 最后更新
 
-2026-05-27（会话 39 — Idea-Maker MVP 8 周规划完成 + Harness 更新）✅
+2026-05-27（会话 40 — feat-200.1 Week 1 完成 ✅ Auth + Projects + Tracing 骨架）
 
 ## 本会话变更摘要
+
+🎉 Week 1 完整闭环：12 个新文件 + 9 个新路由 + 17 项 curl smoke 全过
+
+【交付】
+- `apps/api/src/db/` — DDL（users/projects/project_settings）+ `withClient` 统一 DB 入口
+- `apps/api/src/auth/` — bcrypt + JWT(HS256 7d) + JwtAuthGuard + register/login/me
+- `apps/api/src/projects/` — CRUD + settings 子端点，全部按 owner_id 过滤（跨用户一律 404）
+- `apps/api/src/common/` — AsyncLocalStorage TraceContext + TracingInterceptor + x-trace-id header
+- `app.module.ts` 注册 4 个新 module；`main.ts` Swagger 加 BearerAuth
+
+【新增依赖】
+- bcrypt + jsonwebtoken（仅 apps/api）
+
+【验证】
+- pnpm -r typecheck/lint 全过
+- 17 项 curl：register / 409 dup / 401 wrong-pw / login / me / projects CRUD（5 端点）/ settings GET+PUT / 跨用户 404 防枚举 / DELETE 后 FK CASCADE / x-trace-id 头
+- DB schema：FK CASCADE + 索引齐全（\\d 验证）
+
+【面试题】
+`.interview/feat-200.1_auth-projects.md`（6 题）：passport vs 手写 / 账户枚举 / TEXT vs BYTEA / ALS vs REQUEST scope DI / Client vs Pool / DDL inline vs migrations
+
+**进度**：feat-200.1 status="done" ✅。下一步 feat-200.2（Week 2）。
+
+---
+
+## Week 2 启动清单（feat-200.2，2026-05-27 Session 40 → Session 41）
+
+**下一 Session 开工前必读**：
+1. 上一周成果：`progress.md` 2026-05-27 Session 40 条目
+2. 本周任务：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` § "Week 2"
+3. `feature_list.json` feat-200.2 条目
+
+**Week 2 边界**：
+- documents 表加 `category` 列（product / compete / history）
+- 新建 `ingestion_jobs` 表（id / project_id / document_id / status / progress / current_stage / chunks_done / chunks_total / cost_usd / error）
+- 改造 ingestion 走异步 job（不阻塞 HTTP 请求；现有 idempotency / preprocess / chunk / embedding / storage 链改成 job runner）
+- SSE 端点：`GET /projects/:id/ingestion/:jobId/events`（每秒推 progress）
+- 验收：上传 PDF 后 SSE 流看进度 0→100
+
+**Scope 红线**：
+- 不动 Week 1 已做的 auth / projects / settings（除非发现 bug）
+- 不做前端 Upload 组件（Week 6）
+- 不动 packages/rag-core（已稳定）
+
+**启动命令**：
+```bash
+# Postgres：主仓 Postgres 容器已在 5432，主仓 .claude/worktrees/magical-raman-204f50 也可复用
+docker exec -e PGPASSWORD=postgres harness_idea_maker-postgres-1 psql -U postgres -d rag
+
+# API（注意环境变量）：
+DATABASE_URL='postgresql://postgres:postgres@localhost:5432/rag' \
+JWT_SECRET=feat-200.1-dev-secret-needs-16-chars \
+pnpm --filter @harness/api dev
+```
+
+**已验证可复用**：
+- DDL 自动初始化（`db.service.ts` 在首次 withClient 时跑 CREATE TABLE IF NOT EXISTS）
+- `@CurrentUser()` 装饰器 + JwtAuthGuard 现成可挂在新 controller 上
+- TracingInterceptor 全局自动生效，新路由也带 x-trace-id
+
+---
+
+## 历史交接记录（会话 39 — Idea-Maker MVP 8 周规划完成 + Harness 更新）
 
 🎉 战略调整完成：
 - **重命名**：Coze-Agent → Idea-Maker

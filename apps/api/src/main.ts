@@ -48,13 +48,17 @@ async function bootstrap() {
 
   // Swagger
   const config = new DocumentBuilder()
-    .setTitle("Harness RAG API")
+    .setTitle("Idea-Maker API")
     .setDescription(
-      "NestJS 承接的 RAG pipeline 端点（feat-100.3 Wave 3，与 Next.js routes 双跑）",
+      "NestJS 后端：feat-100.x RAG pipeline + feat-200.x MVP 业务（auth / projects / settings / ...）",
     )
-    .setVersion("0.1.0")
-    .addTag("pipeline", "RAG pipeline 算法端点")
+    .setVersion("0.2.0")
+    .addBearerAuth() // feat-200.1：JWT，UI 上加 Authorize 按钮
+    .addTag("pipeline", "RAG pipeline 算法端点（feat-100.x）")
     .addTag("documents", "文档上传 / 列表 / 删除")
+    .addTag("snapshots", "Stage snapshots + Pipeline run history")
+    .addTag("auth", "登录 / 注册 / me（feat-200.1）")
+    .addTag("projects", "项目 CRUD + settings（feat-200.1）")
     .addTag("health", "健康检查")
     .build();
   const doc = SwaggerModule.createDocument(app, config);

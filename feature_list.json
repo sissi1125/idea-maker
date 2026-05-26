@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.1（Week 1：API 基础设施 + 项目 CRUD，待启动）",
+      "current": "feat-200.2（Week 2：documents 加 category + ingestion jobs + SSE 进度，待启动；feat-200.1 已完成）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -451,8 +451,8 @@
       "dependencies": [
         "feat-200"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "apps/api/src/{db,auth,projects,common}/ 共 12 个文件；DDL 三表 users/projects/project_settings 含 FK CASCADE + 索引；端点 9 路由（/auth/register|login|me + /projects CRUD + /projects/:id/settings GET|PUT）；JWT (HS256+7d) + bcrypt (rounds=10) + AsyncLocalStorage trace context + x-trace-id 响应头 + access log。验证：pnpm -r typecheck/lint 全过；17 项 curl smoke 全过（register/409 dup/401 wrong-pw/login/me/CRUD 5 端点/settings GET+PUT/跨 user 隔离 404 防枚举/DELETE 后 FK CASCADE）。面试题：.interview/feat-200.1_auth-projects.md（6 题）。"
     },
     {
       "id": "feat-200.2",
