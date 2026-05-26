@@ -79,25 +79,34 @@ export default function StageConfigPanel({
   const params = paramsMap[selectedMethodId] ?? {};
 
   const handleMethodChange = (methodId: string) => {
+    // 先算出"切到该 method 后应有的 params"，再 setState + 调父组件回调。
+    // 关键：父组件 setState（onParamsChange）必须放在 useState updater **之外**，
+    // 否则 React 18 会报 "Cannot update a component while rendering a different component"。
+    const existing = paramsMap[methodId];
+    const methodDef = stageDef?.methods.find((x) => x.id === methodId);
+    const nextParams = existing ?? (methodDef ? defaults(methodDef) : {});
+
     setSelectedMethodId(methodId);
     setErrors({});
-    // 若该 method 尚无保存值，则用 defaults 初始化
-    setParamsMap((prev) => {
-      const next = prev[methodId]
-        ? prev
-        : { ...prev, [methodId]: (() => { const m = stageDef?.methods.find((x) => x.id === methodId); return m ? defaults(m) : {}; })() };
-      onParamsChange?.(stage.id, methodId, next[methodId] ?? {});
-      return next;
-    });
+    setParamsMap((prev) => (prev[methodId] ? prev : { ...prev, [methodId]: nextParams }));
+    onParamsChange?.(stage.id, methodId, nextParams);
   };
 
   const handleParamChange = (key: string, value: unknown) => {
-    setParamsMap((prev) => {
-      const next = { ...prev, [selectedMethodId]: { ...(prev[selectedMethodId] ?? {}), [key]: value } };
-      onParamsChange?.(stage.id, selectedMethodId, next[selectedMethodId]);
+    // 同理：先算 nextParams 给父组件，再用 updater 更新本地 state。
+    const currentParams = paramsMap[selectedMethodId] ?? {};
+    const nextParams = { ...currentParams, [key]: value };
+
+    setParamsMap((prev) => ({
+      ...prev,
+      [selectedMethodId]: { ...(prev[selectedMethodId] ?? {}), [key]: value },
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
       return next;
     });
-    setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
+    onParamsChange?.(stage.id, selectedMethodId, nextParams);
   };
 
   const validate = (): boolean => {
