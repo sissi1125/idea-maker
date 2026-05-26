@@ -1,5 +1,38 @@
 # 进度记录
 
+## 2026-05-26（会话 37 — feat-100.3 Wave 3：NestJS 后端启动 + 5 端点双跑）✅
+
+### 范围
+
+完整搭起 `apps/api` NestJS 后端，把 5 个最关键端点迁过去，apps/web 通过 feature flag 切换。
+
+### 关键交付
+
+- **NestJS 基建** (`apps/api`):
+  - `src/main.ts`: ValidationPipe + CORS + PipelineExceptionFilter + Swagger UI (`/docs`)
+  - `src/common/pipeline-exception.filter.ts`: 统一翻译 `PipelineError` / `ZodError` / `HttpException`，沿用 feat-100.2 的 status code 表
+  - `src/pipeline/providers.service.ts`: I/O 客户端 DI 工厂（LLM / Embedding / pg / TEI 端点），复刻 apps/web/lib/providers.ts 的 env 优先级
+  - 4 个 Controller：`ChunkController` / `EmbeddingController` / `RetrievalController` / `GenerationController`
+  - `DocumentsModule`: `DocStoreService` 复刻 docStore.ts；通过 `DOCUMENTS_DATA_FILE` env 与 apps/web 共用同一份 `apps/web/data/documents.json`，双跑期数据零分裂
+- **apps/web 切换层** (`lib/api-base.ts`):
+  - `pipelineUrl(stageId)` / `documentsUrl(suffix)` 两个 helper
+  - `NEXT_PUBLIC_USE_NEST_API=true` + `NEXT_PUBLIC_API_URL=http://localhost:3001` 一键切换
+  - 默认不开启，对未迁移端点 (snapshots / pipeline-runs / 其他 14 stage) 完全透明
+  - PlaygroundShell + DocumentUploadPanel 共 5 处 fetch 替换
+- **关键依赖切换**：tsx 不支持 `emitDecoratorMetadata`（esbuild 限制），NestJS DI 会全部失效。改用 `ts-node-dev --transpile-only --respawn` 作为 dev runner
+
+### 验收
+
+- `pnpm -r typecheck` 全过；`pnpm -r lint` 全过；rag-core 238/238 单测
+- NestJS 自测：`/health` 200 / `/docs` 200 / `/pipeline/chunk` 正确分块 / `/documents` 列表 17 / `DELETE` missing → 404 not_found / ZodError → 400 invalid_params
+- Swagger UI 列出 7 个端点：`/health`, `/pipeline/{chunk,embedding,retrieval,generation}`, `/documents`, `/documents/{id}`
+
+### 下一步
+
+- feat-100.4 Wave 4：剩余 14 个 stage 端点迁完 + 删 `apps/web/app/api/*` + CI 多服务构建
+
+---
+
 ## 2026-05-26（会话 33-36 综合 — feat-100.2 完整收尾，18/18 ✅）
 
 ### 🎉 feat-100.2 全部 18 stage 抽取完成

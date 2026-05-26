@@ -645,8 +645,8 @@
       "dependencies": [
         "feat-100.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "NestJS apps/api 启动：health + /docs Swagger UI 200；5 端点（chunk/embedding/retrieval/generation/documents）已迁入并 DI 注入 ProvidersService/DocStoreService 验证通过；apps/web 加 lib/api-base.ts 切换层（NEXT_PUBLIC_USE_NEST_API + NEXT_PUBLIC_API_URL）；PipelineExceptionFilter 统一翻译 PipelineError/ZodError/NotFoundException；ts-node-dev 解决 decorator metadata 问题；238/238 单测；pnpm -r typecheck/lint 全过。"
     },
     {
       "id": "feat-100.4",

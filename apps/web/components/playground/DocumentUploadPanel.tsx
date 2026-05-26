@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { DocumentRecord } from "@/lib/docStore";
+import { documentsUrl } from "@/lib/api-base";
 
 interface Props {
   documents: DocumentRecord[];
@@ -37,10 +38,10 @@ function UploadArea({ onUploaded }: { onUploaded: (doc: DocumentRecord) => void 
       if (tab === "file" && fileRef.current?.files?.[0]) {
         const form = new FormData();
         form.append("file", fileRef.current.files[0]);
-        res = await fetch("/api/documents", { method: "POST", body: form });
+        res = await fetch(documentsUrl(), { method: "POST", body: form });
       } else {
         if (!text.trim()) { setError("内容不能为空"); setUploading(false); return; }
-        res = await fetch("/api/documents", {
+        res = await fetch(documentsUrl(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text, fileName: fileName.trim() || "pasted-text.txt", mimeType: "text/plain" }),
@@ -167,7 +168,7 @@ function DocumentLibrary({
               selected={doc.id === selectedId}
               onSelect={() => onSelect(doc)}
               onDelete={async () => {
-                await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
+                await fetch(documentsUrl(`/${doc.id}`), { method: "DELETE" });
                 onDeleted(doc.id);
               }}
             />

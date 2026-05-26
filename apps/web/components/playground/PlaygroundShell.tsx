@@ -13,6 +13,7 @@ import type { StageSnapshot, PipelineRunRecord, PipelineRunStageEntry } from "@/
 import { DocumentRecord } from "@/lib/docStore";
 import { resolveEffectiveUpstream } from "@/lib/pipelineDeps";
 import PipelineTraceDrawer from "./PipelineTraceDrawer";
+import { pipelineUrl, documentsUrl } from "@/lib/api-base";
 
 export default function PlaygroundShell() {
   const [activeStage, setActiveStage] = useState<PipelineStage>(PIPELINE_STAGES[0]);
@@ -39,7 +40,7 @@ export default function PlaygroundShell() {
 
   // 页面加载时拉取已上传文档，并恢复上次选中的文档
   useEffect(() => {
-    fetch("/api/documents")
+    fetch(documentsUrl())
       .then((r) => r.json())
       .then((data) => {
         if (!Array.isArray(data.documents)) return;
@@ -222,7 +223,7 @@ export default function PlaygroundShell() {
           upstreamOutput = upstreamStageId ? latestRun(upstreamStageId)?.output ?? null : null;
         }
 
-        const res = await fetch(`/api/pipeline/${stageId}`, {
+        const res = await fetch(pipelineUrl(stageId), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ methodId, params, pipelineRun, upstreamOutput }),

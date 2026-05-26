@@ -2,29 +2,40 @@
 
 ## 最后更新
 
-2026-05-26（会话 33-36 综合 — feat-100.2 ✅ 完整收尾，18/18）
+2026-05-26（会话 37 — feat-100.3 Wave 3 ✅ NestJS 后端启动 + 5 端点双跑）
 
 ## 本会话变更摘要
 
-🎉 feat-100.2 全 18 stage 抽取完成：
-- retrieval（pipeline 之王，三重 client 注入）
-- context-management / prompt-build / generation（generation 链 3）
-- evaluation（含 LLM Faithfulness judge）
+🎉 feat-100.3 完整收尾：apps/api NestJS 真正能跑了，5 端点已在 NestJS + Next.js 上双跑。
 
-【三类 client 契约】OpenAICompatibleClient / LLMChatClient（含 usage）/ PgClient
+【NestJS 基建】
+- `apps/api/src/main.ts`：ValidationPipe + CORS + PipelineExceptionFilter + Swagger UI (`/docs`)
+- `common/pipeline-exception.filter.ts`：PipelineError/ZodError/HttpException → HTTP envelope
+- `pipeline/providers.service.ts`：DI 工厂复刻 apps/web/lib/providers.ts 的 env 优先级
+- 4 个 Controller：chunk / embedding / retrieval / generation
+- DocumentsModule：DocStoreService 共用 apps/web/data/documents.json（DOCUMENTS_DATA_FILE 可改）
 
-【7 种 idiom】upstreamQuery 跨 stage / 双 provider 注入 / 三重 client 注入 /
-missing 降级 vs 失败语义 / per-chunk 失败收集 / 预定义 canonical types /
-evidencePack 跨 stage 透传
+【apps/web 切换层】
+- `lib/api-base.ts`：`pipelineUrl(stageId)` + `documentsUrl(suffix)` 两个 helper
+- `NEXT_PUBLIC_USE_NEST_API=true` + `NEXT_PUBLIC_API_URL=http://localhost:3001` 切换；默认走 Next.js 安全
+- PlaygroundShell + DocumentUploadPanel 共 5 处 fetch 替换
 
-【累计单测】238/238
+【关键踩坑】tsx (esbuild) 不支持 `emitDecoratorMetadata` → NestJS DI 全静默失败。换 ts-node-dev 解决
 
-【路由减幅】~6500 行 → ~1500 行薄路由（算法 + schema 在 packages 内）
+【验收】
+- pnpm -r typecheck/lint 全过；rag-core 238/238 单测
+- NestJS 自测：health 200 / Swagger 200 / chunk 正确分块 / documents 列表 17 / DELETE missing 404 / Zod 400
+- Swagger 路径：/health, /pipeline/{chunk,embedding,retrieval,generation}, /documents, /documents/{id}
 
 **当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`。
 
-**进度**：feat-100.2 status="done" ✅ (18/18)。Wave 2 完整收尾。
-下一步：feat-100.3 Wave 3（NestJS + 5 端点迁移 + 双跑期）→ feat-100.4 Wave 4（迁完 + 清理）。
+**进度**：feat-100.3 status="done" ✅。Wave 3 完整收尾。
+下一步：feat-100.4 Wave 4（剩余 14 stage 迁完 + 删 apps/web/app/api/* + CI 多服务）。
+
+【运行方式】
+- `pnpm --filter @harness/api dev` (ts-node-dev, 端口 3001) — NestJS
+- `pnpm --filter @harness/web dev` — Next.js
+- 双跑期 web 默认走 Next.js；想试 NestJS 路径设 `NEXT_PUBLIC_USE_NEST_API=true` + `NEXT_PUBLIC_API_URL=http://localhost:3001`
 
 ---
 
@@ -153,7 +164,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：本次提交后将包含 feat-100.2 完整 18/18。
+- **主分支**：`main`，当前 HEAD：`6db03a5`（feat-100.2 完整 18/18）。feat-100.3 在 `claude/refactor-monorepo` 待 ff merge。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）
