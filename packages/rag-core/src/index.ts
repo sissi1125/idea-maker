@@ -8,6 +8,7 @@ export { runChunk } from "./ingestion/chunk";
 export { runTransform } from "./ingestion/transform";
 export { runEmbedding } from "./ingestion/embedding";
 export { runStorage } from "./ingestion/storage";
+export { runQueryRewrite } from "./retrieval/query-rewrite";
 export {
   jieba,
   tokenize,

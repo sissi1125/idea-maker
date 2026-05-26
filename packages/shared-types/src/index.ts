@@ -7,3 +7,4 @@ export * from "./pipeline/chunk";
 export * from "./pipeline/transform";
 export * from "./pipeline/embedding";
 export * from "./pipeline/storage";
+export * from "./pipeline/query-rewrite";

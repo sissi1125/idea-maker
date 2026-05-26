@@ -1,5 +1,37 @@
 # 进度记录
 
+## 2026-05-26（会话 27 — feat-100.2 推进：query-rewrite，retrieval 链启动，7/18）
+
+### 已完成（query-rewrite stage 抽取）
+
+retrieval 链 8 stage 第一站。`LLMChatClient` 接口确立，与 embedding 的 `OpenAICompatibleClient` 分离——每个 stage 显式声明用 chat 还是 embeddings API。
+
+#### 变更
+
+- **shared-types**：新建 `pipeline/query-rewrite.ts`（QueryRewriteMethodId 3 method + zod ParamsSchema 8 字段 + Input 含 llmClient + Output/Trace + `LLMChatClient` 最小契约）
+- **rag-core retrieval/**：新目录，存放检索链 stage
+- **rag-core**：新建 `retrieval/query-rewrite.ts` runQueryRewrite async：
+  - none 透传
+  - rule-keyword-expansion：jieba 分词 + 4 种角度模板（关键词/功能/受众/原query）
+  - llm-marketing-rewrite：注入 LLMChatClient，OpenAI chat 生成 JSON 数组变体
+- **apps/web 薄路由**：query-rewrite/route.ts 259 → 65 行
+- **单测**：12 个新测覆盖 none / rule（中文/英文/停用词/maxQueries/受众注入）/ LLM mock client（正常/非JSON回退/不含原query插入/prompt 注入/missing_client）
+
+#### 验收
+
+- pnpm test：94/94（idempotency 12 + preprocess 10 + transform 11 + chunk 14 + embedding 15 + storage 19 + query-rewrite 12 + smoke 1）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+继续 retrieval 链 7 个 stage。建议节奏：
+1. intent-recognition（200 行，LLM 注入，复用 query-rewrite 模式）
+2. multi-recall-merge / filter / citation / fallback（4 个纯算法或半纯算法，可批量推进）
+3. rerank（384 行，TEI + OpenAI 双 provider）
+4. retrieval（574 行，**pg + OpenAI 双重注入**，最复杂）
+
+---
+
 ## 2026-05-26（会话 26 — feat-100.2 推进：storage 抽取，ingestion 链收尾，6/18）
 
 ### 已完成（storage stage 抽取）
