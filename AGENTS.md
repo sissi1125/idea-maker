@@ -205,6 +205,18 @@ cd app && npx tsc --noEmit
 - 非当周范围的 bug → 记录在 `session-handoff.md` 的"风险/pending"，不在当周修
 - 详细红线见 `docs/VERIFICATION.md` § Scope Control 红线
 
+### 产品原型参考
+
+- **原型位置**：项目根的 `.idea_maker/`（若不存在则 fallback 到 `/Users/sissi/Downloads/idea_maker/`）
+- **使用场景**：
+  - Week 5-7 前端组件迁移时（Login / Projects / Sidebar / Upload / Chat / History / Settings / AgentThinking）— 以 `.idea_maker/src/` 下对应 `.jsx` 为 UI 蓝本
+  - CSS 变量、配色、布局节奏、交互动效优先复用原型（`--brand` / `--think` / `--search` / `--tool` / `--gen`）
+  - 数据 mock 结构（`PROJECTS / THINKING_TRACE / GENERATED_RESULT / HISTORY / NOTE_LIBRARY`）→ 字段命名映射到 MVP schema 见 `docs/ROADMAP_PHASE2_PLUS.md` § 字段命名映射
+- **不要照搬**：
+  - 原型用 `window.*` mock 数据，MVP 要走 API client；不要保留全局变量依赖
+  - 原型的 `AgentThinking.jsx` → MVP 改名 `PipelineTrace.tsx`（命名规范见下文）
+  - 原型未画"笔记库"独立页面，MVP Week 7 需新建（不要因原型无 UI 就跳过）
+
 ### Pipeline vs Agent 命名规范（Code Review 必查）
 
 - 代码层面：`pipeline-orchestrator/` 模块、`PipelineTraceService`、字段名 `pipeline_trace`（不叫 `thinking_trace` / `agent_trace`）
