@@ -17,6 +17,7 @@ export { runFallback } from "./retrieval/fallback";
 export { runRerank } from "./retrieval/rerank";
 export { runRetrieval } from "./retrieval/retrieval";
 export { runContextManagement } from "./generation/context-management";
+export { runPromptBuild } from "./generation/prompt-build";
 export {
   jieba,
   tokenize,
