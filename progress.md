@@ -1,5 +1,34 @@
 # 进度记录
 
+## 2026-05-26（会话 24 — feat-100.2 推进：chunk，RAG 最核心 stage，4/18）
+
+### 已完成（chunk stage 抽取）
+
+抽取 RAG pipeline 最核心的 chunk stage。4 种 method、复杂递归算法、跨 stage Chunk 类型统一。
+
+#### 变更
+
+- **shared-types**：新建 `pipeline/chunk.ts`（ChunkMethodId enum 4 method + zod ParamsSchema 5 字段 + Input/Output/Trace 接口 + **canonical `Chunk` 类型**）
+- **类型统一**：`transform.ts` 把 `TransformInputChunk` 改为 `type TransformInputChunk = Chunk`，整个 pipeline 共用同一份 Chunk 定义
+- **rag-core**：新建 `ingestion/chunk.ts`（350 行）实现 runChunk 同步纯函数：
+  - fixed-size：滑动窗口 + overlap 安全下调
+  - recursive：LangChain RecursiveCharacterTextSplitter 移植 + 中文优先 separators
+  - markdown-heading：标题边界 + 超长章节 fixed-size 降级
+  - markdown-heading-recursive：标题边界 + 超长章节 recursive 语义降级（hierarchical chunking）
+- **apps/web 薄路由**：chunk/route.ts 535 → 69 行（减 87%）
+- **单测**：14 个新测覆盖 4 method 主路径 + overlap 边界 + 章节降级 + sourceRef 绑定 + PipelineError 错误码
+
+#### 验收
+
+- pnpm test：48/48 全过（12+10+11+1+14）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+ingestion 收尾还差 embedding + storage 两个，都涉及外部 I/O（OpenAI client / pgvector pg client）注入。先做 embedding（4 provider，I/O 注入第一例），再做 storage。完成后 ingestion 链就全 done。
+
+---
+
 ## 2026-05-26（会话 23 — feat-100.2 推进：transform + nlp 工具迁移，3/18）
 
 ### 已完成

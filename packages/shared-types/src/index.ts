@@ -3,4 +3,5 @@ export const SHARED_TYPES_VERSION = "0.1.0";
 
 export * from "./pipeline/idempotency";
 export * from "./pipeline/preprocess";
+export * from "./pipeline/chunk";
 export * from "./pipeline/transform";

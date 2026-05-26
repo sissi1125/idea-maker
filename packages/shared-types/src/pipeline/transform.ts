@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Chunk } from "./chunk";
 
 /**
  * Chunk Transform - 共享类型定义
@@ -30,19 +31,11 @@ export const TransformParamsSchema = z.object({
 });
 export type TransformParams = z.infer<typeof TransformParamsSchema>;
 
-/** 输入 chunk（来自 chunk stage 的产物） */
-export interface TransformInputChunk {
-  index: number;
-  text: string;
-  charStart: number;
-  charEnd: number;
-  charCount: number;
-  tokenEstimate: number;
-  sourceRef: string;
-}
+/** 输入 chunk 直接复用 chunk stage 定义的 Chunk 类型 */
+export type TransformInputChunk = Chunk;
 
 /** 增强后的 chunk */
-export interface TransformedChunk extends TransformInputChunk {
+export interface TransformedChunk extends Chunk {
   /** 增强后的文本，供 embedding 使用（不替换原始 text） */
   enhancedText: string;
   /** 本次 transform 注入的前缀内容（none/summary-keywords 时为空） */
