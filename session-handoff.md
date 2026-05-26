@@ -2,23 +2,29 @@
 
 ## 最后更新
 
-2026-05-26（会话 29-32 综合 — feat-100.2 推进至 13/18，retrieval 链 7/8）
+2026-05-26（会话 33-36 综合 — feat-100.2 ✅ 完整收尾，18/18）
 
 ## 本会话变更摘要
 
-retrieval 链快速推进，5 个 stage 抽取（multi-recall-merge / filter / citation / fallback / rerank）。沿用既有模式 + 引入 5 种 idiom：
-1. upstreamQuery 跨 stage 字段提取（Input.upstreamQuery）
-2. 双 provider 注入（rerank 同时声明 hfTeiEndpoint + llmClient）
-3. missing 降级 vs missing 失败语义（fallback 降级、其他抛 PipelineError）
-4. per-chunk 失败收集（rerank LLM 单 chunk 失败降原始分数 + warning，不中断）
-5. 预定义 canonical types（rerank → RankedChunk）
+🎉 feat-100.2 全 18 stage 抽取完成：
+- retrieval（pipeline 之王，三重 client 注入）
+- context-management / prompt-build / generation（generation 链 3）
+- evaluation（含 LLM Faithfulness judge）
 
-累计单测：172/172。pnpm -r typecheck/lint 4 包全过。
+【三类 client 契约】OpenAICompatibleClient / LLMChatClient（含 usage）/ PgClient
 
-**当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`，已 ff 合 main 至 `2d3fb9d`。
+【7 种 idiom】upstreamQuery 跨 stage / 双 provider 注入 / 三重 client 注入 /
+missing 降级 vs 失败语义 / per-chunk 失败收集 / 预定义 canonical types /
+evidencePack 跨 stage 透传
 
-**进度**：feat-100.2 status="in-progress" (13/18，ingestion 6/6 ✅，retrieval 7/8 ✅)。剩 5 stage。
-下一站：retrieval（pipeline 之王，pg + OpenAI/TEI 三重注入，最复杂）→ generation 链 3 → evaluation 1。
+【累计单测】238/238
+
+【路由减幅】~6500 行 → ~1500 行薄路由（算法 + schema 在 packages 内）
+
+**当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`。
+
+**进度**：feat-100.2 status="done" ✅ (18/18)。Wave 2 完整收尾。
+下一步：feat-100.3 Wave 3（NestJS + 5 端点迁移 + 双跑期）→ feat-100.4 Wave 4（迁完 + 清理）。
 
 ---
 
@@ -147,7 +153,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`2d3fb9d`（feat-100.1 + ingestion 6/6 + retrieval 7/8）。
+- **主分支**：`main`，当前 HEAD：本次提交后将包含 feat-100.2 完整 18/18。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）

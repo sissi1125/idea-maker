@@ -1,7 +1,7 @@
 "use client";
 
 import type { StepRun } from "@/lib/types";
-import type { EvaluationOutput, FaithfulnessResult } from "@/app/api/pipeline/evaluation/route";
+import type { EvaluationOutput, FaithfulnessResult } from "@harness/shared-types";
 
 interface EvaluationOutputPanelProps {
   runs: StepRun[];

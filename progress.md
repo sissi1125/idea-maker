@@ -1,5 +1,63 @@
 # 进度记录
 
+## 2026-05-26（会话 33-36 综合 — feat-100.2 完整收尾，18/18 ✅）
+
+### 🎉 feat-100.2 全部 18 stage 抽取完成
+
+retrieval pipeline 之王 + generation 链 3 + evaluation 1，五个连续提交一鼓作气：
+
+#### 5 个收尾 commit
+
+| Stage | 复杂度 | 注入 | 单测 |
+|---|---|---|---|
+| retrieval | 最高（574 行） | **三重**：pg + OpenAI/Embed + TEI | 15 |
+| context-management | 中 | LLMChatClient | 10 |
+| prompt-build | 低（纯算法） | — | 12 |
+| generation | 高（4 LLM method） | LLMChatClient + defaultModel | 14 |
+| evaluation | 中（含 LLM judge） | LLMChatClient（optional，缺则降级） | 16 |
+
+#### feat-100.2 全景
+
+- **Ingestion 6/6**：idempotency / preprocess / chunk / transform / embedding / storage
+- **Retrieval 8/8**：query-rewrite / intent-recognition / retrieval / multi-recall-merge / filter / rerank / citation / fallback
+- **Generation 3/3**：context-management / prompt-build / generation
+- **Evaluation 1/1**：evaluation
+
+#### 三类 client 契约（shared-types 零外部依赖）
+
+```ts
+OpenAICompatibleClient  // embeddings.create
+LLMChatClient            // chat.completions.create + usage
+PgClient                 // query<T>(sql, params)
+```
+
+#### 7 种 idiom
+
+1. upstreamQuery 跨 stage 字段提取（intent / rerank / citation 等）
+2. 双 provider 注入（rerank：tei + llm）
+3. 三重 client 注入（retrieval：pg + openai + tei）
+4. missing 降级 vs missing 失败（fallback/evaluation 降级；其他抛 PipelineError）
+5. per-chunk 失败收集（rerank llm-relevance 单 chunk 失败不中断）
+6. 预定义 canonical types（chunk → retrieval/MatchedChunk → rerank/RankedChunk）
+7. evidencePack 跨 stage 透传（citation → prompt-build → generation → evaluation）
+
+#### 累计单测
+
+238/238 ✅（idempotency 12 + preprocess 10 + transform 11 + chunk 14 + embedding 15 + storage 19 + query-rewrite 12 + intent-recognition 11 + multi-recall-merge 10 + filter 13 + citation 17 + fallback 10 + rerank 17 + retrieval 15 + context-management 10 + prompt-build 12 + generation 14 + evaluation 16 + smoke 1）
+
+#### 路由减幅
+
+整个 pipeline 18 个 route 从合计 ~6500 行（含逻辑）→ ~1500 行薄路由（仅参数 + I/O + 错误翻译）。算法 + schema 全在 packages/{rag-core,shared-types}。
+
+### 下一步
+
+- feat-100.3 Wave 3：NestJS 后端 + 5 端点迁移 + 双跑期（USE_NEST_API flag）
+- feat-100.4 Wave 4：剩余端点全迁完 + 删 apps/web/app/api/* + 部署架构调整
+
+完成 feat-100 epic（Wave 1-4 全部）后，主流程业务 feature（feat-010 Pipeline Agent / feat-011 Content Agent / feat-012 Marketing Studio / feat-013 工程化）才正式启动。
+
+---
+
 ## 2026-05-26（会话 29-32 综合 — feat-100.2 推进：retrieval 链推进至 7/8，13/18）
 
 ### 已完成（5 个 stage 抽取）

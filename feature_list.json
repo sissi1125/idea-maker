@@ -633,8 +633,8 @@
       "dependencies": [
         "feat-100.1"
       ],
-      "status": "in-progress",
-      "evidence": "2026-05-26 基础设施 + 13/18 stage 完成。Ingestion 链 6/6 ✅。Retrieval 链 7/8（剩 retrieval 本身）。【已抽取】idempotency / preprocess / chunk / transform / embedding / storage / query-rewrite / intent-recognition / multi-recall-merge / filter / citation / fallback / rerank。【I/O 注入模式扩展】OpenAICompatibleClient（embeddings）/ LLMChatClient（chat）/ PgClient（query）三类最小契约，shared-types 零外部依赖。新 idioms：（1）upstreamQuery 跨 stage 字段提取（intent / rerank / citation）；（2）双 provider 注入（rerank 同时声明 hfTeiEndpoint + llmClient）；（3）missing 降级 vs missing 失败（fallback 缺 client 降级；其他 stage 缺 client 抛 PipelineError）；（4）per-chunk 失败收集（rerank LLM 单 chunk 失败不中断）；（5）pre-define canonical types（chunk/Chunk → retrieval/MatchedChunk → rerank/RankedChunk）。【单测 172/172】。剩余 5 stage：retrieval（pipeline 之王，pg + OpenAI/TEI 三重注入）+ generation 链 3 + evaluation 1。"
+      "status": "done",
+      "evidence": "2026-05-26 ✅ 全部 18 stage 抽取完成。【Ingestion 链 6/6】idempotency / preprocess / chunk / transform / embedding / storage。【Retrieval 链 8/8】query-rewrite / intent-recognition / retrieval / multi-recall-merge / filter / rerank / citation / fallback。【Generation 链 3/3】context-management / prompt-build / generation。【Evaluation 1/1】evaluation。【I/O 注入契约三类】OpenAICompatibleClient（embeddings）/ LLMChatClient（chat，含 usage）/ PgClient（query）— shared-types 零外部依赖。【7 种 idiom】（1）upstreamQuery 跨 stage 字段提取；（2）双 provider 注入（rerank）；（3）三重 client 注入（retrieval = pg + openai + tei）；（4）missing 降级 vs missing 失败语义；（5）per-chunk 失败收集；（6）预定义 canonical types；（7）evidencePack 跨 stage 透传（citation → prompt-build → generation → evaluation）。【单测 238/238】。【路由减幅】2344+1132+1340+760 行 → 各 60-130 行薄路由。下一步：feat-100.3（Wave 3 NestJS 端点迁移）。"
     },
     {
       "id": "feat-100.3",
