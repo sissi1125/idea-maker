@@ -1,5 +1,44 @@
 # 进度记录
 
+## 2026-05-26（会话 29-32 综合 — feat-100.2 推进：retrieval 链推进至 7/8，13/18）
+
+### 已完成（5 个 stage 抽取）
+
+retrieval 链快速推进。沿用 ingestion 链定下的提取模式 + I/O 注入模式，新增 5 种 idiom：
+
+1. **upstreamQuery 跨 stage 字段提取**：intent-recognition / rerank / citation Input 含可选 `upstreamQuery`，路由层从 `body.upstreamOutput.originalQuery` 提取注入
+2. **双 provider 注入**：rerank 同时声明 `hfTeiEndpoint` + `llmClient`，按 methodId 决定使用哪个
+3. **可选注入的 "missing 降级" vs "missing 失败"语义**：fallback 的 generic-response 缺 llmClient → 优雅降级到拒答 + warning（不抛错）；其他 stage 缺 client → 抛 PipelineError(missing_client)
+4. **per-chunk 失败收集**：rerank llm-relevance 单 chunk LLM 调用失败时降为原始分数 + warning，不中断其他 chunk
+5. **预定义 canonical types 模式**：chunk → Chunk → retrieval/MatchedChunk → rerank/RankedChunk。下游 stage 抽取时通过 import + alias 重用，避免重复定义
+
+#### 变更明细
+
+| Stage | 测 | 路由减幅 | 注入 |
+|---|---|---|---|
+| 9. multi-recall-merge | 10 | 170→65 | — |
+| 10. filter | 13 | 350→60 | — |
+| 11. citation | 17 | 424→110 | pg.Client（section-citation） |
+| 12. fallback | 10 | 188→75 | LLMChatClient（generic，optional） |
+| 13. rerank | 17 | 384→92 | hfTeiEndpoint + LLMChatClient |
+
+shared-types 新增：multi-recall-merge / filter / citation / fallback / rerank + retrieval 预定义 canonical types
+
+rag-core 新增：retrieval/multi-recall-merge / filter / citation / fallback / rerank
+
+apps/web 薄路由：5 个 route 全部改薄，行为零回归
+
+#### 验收
+
+- pnpm test：累计 172/172（idempotency 12 + preprocess 10 + transform 11 + chunk 14 + embedding 15 + storage 19 + query-rewrite 12 + intent-recognition 11 + multi-recall-merge 10 + filter 13 + citation 17 + fallback 10 + rerank 17 + smoke 1）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+剩 5 stage：retrieval（574 行，pipeline 之王，pg + OpenAI/TEI 三重注入，最复杂）+ generation 链 3（context-management / prompt-build / generation）+ evaluation 1。
+
+---
+
 ## 2026-05-26（会话 28 — feat-100.2 推进：intent-recognition，8/18）
 
 ### 已完成（intent-recognition stage 抽取）
