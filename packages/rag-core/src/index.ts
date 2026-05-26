@@ -16,6 +16,7 @@ export { runCitation } from "./retrieval/citation";
 export { runFallback } from "./retrieval/fallback";
 export { runRerank } from "./retrieval/rerank";
 export { runRetrieval } from "./retrieval/retrieval";
+export { runContextManagement } from "./generation/context-management";
 export {
   jieba,
   tokenize,
