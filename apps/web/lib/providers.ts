@@ -130,46 +130,10 @@ export async function createEmbeddingClient(
   return { client, defaultModel, defaultDimension };
 }
 
-// ─── 工具：embed 单条文本（供 retrieval stage 使用） ──────────────────────────
+// ─── 工具：embed 单条文本 / 批量 embed ─────────────────────────────────────────
+//
+// 这两个函数已迁到 packages/rag-core/src/util/openai-embed.ts（feat-100.2 embedding stage）。
+// 此处保留 re-export 以维持 retrieval / 其他未迁移 route 的导入路径兼容。
+// 这些 route 后续抽取时直接 import "@harness/rag-core" 即可，本 re-export 可删除。
 
-/**
- * 通过 OpenAI-compatible API 对单条文本做 embedding。
- * 兼容 text-embedding-3-* 的 dimensions 参数，以及其他模型（Qwen text-embedding-v4 等）。
- */
-export async function embedSingleText(
-  text: string,
-  model: string,
-  dimension: number,
-  client: OpenAI
-): Promise<number[]> {
-  // 不再限制 text-embedding-3-* 才传 dimensions；
-  // 旧模型 ada-002 不支持 dimensions 参数，需排除
-  const isLegacy = model === "text-embedding-ada-002" || model === "text-embedding-001";
-
-  const resp = await client.embeddings.create({
-    model,
-    input: text,
-    ...(isLegacy ? {} : { dimensions: dimension }),
-  });
-  return resp.data[0].embedding;
-}
-
-/**
- * 批量 embedding，返回向量数组，顺序与输入一致。
- */
-export async function embedBatch(
-  texts: string[],
-  model: string,
-  dimension: number,
-  client: OpenAI
-): Promise<number[][]> {
-  const isLegacy = model === "text-embedding-ada-002" || model === "text-embedding-001";
-
-  const resp = await client.embeddings.create({
-    model,
-    input: texts,
-    ...(isLegacy ? {} : { dimensions: dimension }),
-  });
-  resp.data.sort((a, b) => a.index - b.index);
-  return resp.data.map((d) => d.embedding);
-}
+export { embedBatch, embedSingleText } from "@harness/rag-core";

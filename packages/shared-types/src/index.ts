@@ -5,3 +5,4 @@ export * from "./pipeline/idempotency";
 export * from "./pipeline/preprocess";
 export * from "./pipeline/chunk";
 export * from "./pipeline/transform";
+export * from "./pipeline/embedding";

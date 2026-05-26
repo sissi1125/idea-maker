@@ -6,6 +6,7 @@ export { checkIdempotency } from "./ingestion/idempotency";
 export { runPreprocess } from "./ingestion/preprocess";
 export { runChunk } from "./ingestion/chunk";
 export { runTransform } from "./ingestion/transform";
+export { runEmbedding } from "./ingestion/embedding";
 export {
   jieba,
   tokenize,
@@ -13,3 +14,4 @@ export {
   tokenizeForBM25,
   extractKeywords,
 } from "./util/nlp";
+export { embedSingleText, embedBatch } from "./util/openai-embed";

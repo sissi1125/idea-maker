@@ -1,5 +1,40 @@
 # 进度记录
 
+## 2026-05-26（会话 25 — feat-100.2 推进：embedding + I/O 注入模式确立，5/18）
+
+### 已完成（embedding stage 抽取）
+
+第一个有真实外部 I/O 的 stage。**I/O 注入模式**经此次定型，后续 stage 复用：
+- shared-types 定义 `OpenAICompatibleClient` 结构契约（不直接 import openai，零依赖原则）
+- 路由层 `apps/web/lib/providers.ts` 创建 client + 读 env，通过 Input 字段注入 rag-core
+- rag-core 不读 env、不 new OpenAI，纯靠 Input 工作
+- 每个 provider 在 runtime 校验所需注入，缺则 throw PipelineError(missing_client / missing_endpoint)
+
+#### 变更
+
+- **shared-types**：新建 `pipeline/embedding.ts`（EmbeddingMethodId enum 4 provider + zod ParamsSchema 6 字段 + Input 含 openaiClient/hfTeiEndpoint + Output/Trace + `OpenAICompatibleClient` 结构契约）
+- **rag-core util**：新建 `util/openai-embed.ts`（embedBatch/embedSingleText 纯函数，从 apps/web/lib/providers.ts 迁移）
+- **rag-core 算法**：新建 `ingestion/embedding.ts` runEmbedding async 函数，4 provider 全保留：
+  - debug-deterministic（FNV-1a 哈希）
+  - openai-3-small（用注入的 client）
+  - hf-tei-embedding（fetch 调 endpoint）
+  - hf-transformers-js-embedding（dynamic import 本地推理）
+- **apps/web 薄路由**：embedding/route.ts 383 → 102 行，含 PipelineError → HTTP status 的细粒度映射
+- **apps/web providers.ts**：embedBatch/embedSingleText 改 re-export 自 rag-core；createEmbeddingClient 留下（仍读 env 创建 client）
+- **依赖迁移**：openai + @huggingface/transformers 从 apps/web 转 rag-core（openai 在 apps/web 也保留，因为 providers.ts 直接用）
+- **单测**：15 个新测覆盖 debug-deterministic 确定性 + 单位向量 / openai mock client + sort 修复 + missing_client / hf-tei mock fetch + 端点优先级 + 错误码 / empty_chunks / trace 字段
+
+#### 验收
+
+- pnpm test：63/63（12+10+11+14+15+1）
+- pnpm -r typecheck/lint：4 包全过
+
+#### 下一步
+
+ingestion 收尾还差 storage（450 行，pgvector，3 method，注入 pg.Pool 实例的第一例）。完成后 ingestion 链全 done。
+
+---
+
 ## 2026-05-26（会话 24 — feat-100.2 推进：chunk，RAG 最核心 stage，4/18）
 
 ### 已完成（chunk stage 抽取）

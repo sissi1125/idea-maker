@@ -12,7 +12,6 @@
   "dependencies": {
     "@harness/rag-core": "workspace:*",
     "@harness/shared-types": "workspace:*",
-    "@huggingface/transformers": "^4.2.0",
     "@types/pg": "^8.20.0",
     "next": "16.2.6",
     "openai": "^6.38.0",

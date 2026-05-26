@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@harness/shared-types": "workspace:*",
+    "@huggingface/transformers": "^4.2.0",
     "@node-rs/jieba": "^2.0.1",
     "is-html": "^3.2.0",
     "mammoth": "^1.12.0",
+    "openai": "^6.38.0",
     "pdf-parse": "^1.1.4",
     "turndown": "^7.2.4"
   },

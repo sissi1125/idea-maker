@@ -1,224 +1,34 @@
 /**
- * RAG Pipeline Stage 5 - Embedding（向量化）
+ * RAG Pipeline Stage 5 - Embedding（向量化）- 薄路由
  *
- * 作用：将 Transform 阶段产出的 enhancedText 转成向量，供向量数据库存储和检索。
- *
- * Pipeline 位置：
- *   Transform → [Embedding] → Storage
- *
- * 四种 provider：
- *
- *   openai-3-small          调用 OpenAI /v1/embeddings API，模型 text-embedding-v4
- *                            需要环境变量 OPENAI_API_KEY
- *                            默认维度 1536；支持 dimensions 参数降维（节省存储 + 加速检索）
- *
- *   hf-tei-embedding        调用自托管 HuggingFace TEI（Text Embeddings Inference）服务
- *                            需要环境变量 HF_TEI_ENDPOINT，例如 http://localhost:8080
- *                            与 OpenAI 接口格式兼容（/embed endpoint）
- *
- *   hf-transformers-js      使用 @huggingface/transformers 在 Node.js 本地推理
- *                            首次运行时自动下载模型（缓存到 ~/.cache/huggingface）
- *                            不需要 API Key，适合离线调试
- *
- *   debug-deterministic     基于文本哈希生成确定性向量，无需任何外部服务
- *                            同一文本始终产出相同向量（便于测试端到端流程）
- *                            向量仅用于流程验证，无真实语义
- *
- * 为什么 embedding 要用 enhancedText 而非原始 text？
- *   Transform 阶段注入的标题前缀/关键词后缀让向量携带更多上下文语义，
- *   与 query 向量的余弦相似度更高，召回率更好。
- *   检索结果返回给用户时仍展示原始 text（无注入噪音）。
+ * 算法本体在 @harness/rag-core/ingestion/embedding.ts。
+ * 路由职责：
+ *   1. 解析请求 + 校验上游 transform/chunk 输出
+ *   2. openai-3-small：用 createEmbeddingClient（读 env / 表单）创建 client，注入到 rag-core
+ *   3. hf-tei-embedding：从 env 读 HF_TEI_ENDPOINT，注入到 rag-core
+ *   4. 包装 trace.durationMs，翻译 PipelineError 为 HTTP envelope
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createEmbeddingClient, embedBatch } from "@/lib/providers";
+import { runEmbedding, isPipelineError } from "@harness/rag-core";
+import {
+  EmbeddingMethodId,
+  EmbeddingParamsSchema,
+  type EmbeddingInputChunk,
+} from "@harness/shared-types";
+import { createEmbeddingClient } from "@/lib/providers";
 
-// ─── 类型定义 ─────────────────────────────────────────────────────────────────
-
-interface TransformedChunk {
-  index: number;
-  text: string;
-  /**
-   * enhancedText 在 Transform 阶段注入；当 Transform 步骤被禁用时为 undefined。
-   * embedding 阶段使用 enhancedText ?? text 作为向量化输入。
-   */
-  enhancedText?: string;
-  charCount: number;
-  tokenEstimate: number;
-  /** Transform 步骤被禁用时为 undefined，回退到 tokenEstimate */
-  enhancedTokenEstimate?: number;
-  sourceRef: string;
-  injectedPrefix?: string;
-  keywords?: string[];
-  summary?: string;
+interface UpstreamOutput {
+  chunks: EmbeddingInputChunk[];
 }
 
-interface TransformOutput {
-  chunks: TransformedChunk[];
-  chunkCount: number;
-  warnings: string[];
-}
-
-export interface EmbeddedChunk extends TransformedChunk {
-  /** 向量（float32 数组，长度 = dimension） */
-  embedding: number[];
-  embeddingDimension: number;
-}
-
-interface EmbeddingOutput {
-  chunks: EmbeddedChunk[];
-  chunkCount: number;
-  dimension: number;
-  provider: string;
-  model: string;
-  /** 所有 chunk 的 enhancedToken 总计（用于估算 OpenAI 费用） */
-  totalTokensEstimated: number;
-  /** 实际发出的 batch 次数（debug 始终为 1） */
-  batchCount: number;
-  /** OpenAI 成本估算字符串，其他 provider 为空字符串 */
-  costEstimate: string;
-  warnings: string[];
-}
-
-// ─── debug-deterministic ──────────────────────────────────────────────────────
-
-/**
- * 基于 FNV-1a 哈希将文本映射到确定性单位向量。
- * 同一文本 → 同一向量（可重复），不依赖任何外部 API。
- * 向量仅保证确定性，不携带语义信息。
- */
-function debugDeterministicEmbed(text: string, dimension: number): number[] {
-  // FNV-1a 32-bit hash，展开到 dimension 个分量
-  const raw: number[] = [];
-  for (let i = 0; i < dimension; i++) {
-    let h = 2166136261 ^ (i * 16777619); // 用 i 作为 seed 偏移，让每个分量不同
-    for (let j = 0; j < text.length; j++) {
-      h ^= text.charCodeAt(j);
-      h = Math.imul(h, 16777619);
-    }
-    // 转为 [-1, 1] 范围
-    raw.push(((h >>> 0) / 0xffffffff) * 2 - 1);
-  }
-  // 归一化为单位向量（余弦相似度的标准做法）
-  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0)) || 1;
-  return raw.map((v) => parseFloat((v / norm).toFixed(6)));
-}
-
-// ─── openai-3-small ───────────────────────────────────────────────────────────
-
-async function embedOpenAI(
-  chunks: TransformedChunk[],
-  model: string,
-  dimension: number,
-  batchSize: number,
-  paramApiKey?: string,
-  paramBaseUrl?: string
-): Promise<{ vectors: number[][]; batchCount: number; costEstimate: string }> {
-  const { client } = await createEmbeddingClient(paramApiKey, paramBaseUrl);
-  // Transform 禁用时 enhancedText 为 undefined，回退到 text
-  const texts = chunks.map((c) => c.enhancedText ?? c.text);
-  const vectors: number[][] = [];
-  let batchCount = 0;
-
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-    const batchVecs = await embedBatch(batch, model, dimension, client);
-    vectors.push(...batchVecs);
-    batchCount++;
-  }
-
-  const totalTokens = chunks.reduce((s, c) => s + (c.enhancedTokenEstimate ?? c.tokenEstimate), 0);
-  const costUSD = ((totalTokens / 1_000_000) * 0.02).toFixed(5);
-  const costEstimate = `~$${costUSD} (${totalTokens} tokens × $0.02/1M，仅供参考)`;
-
-  return { vectors, batchCount, costEstimate };
-}
-
-// ─── hf-tei-embedding ─────────────────────────────────────────────────────────
-
-/**
- * HuggingFace Text Embeddings Inference（TEI）HTTP 接口
- * 部署方式：docker run -p 8080:80 ghcr.io/huggingface/text-embeddings-inference:cpu-1.5 --model-id BAAI/bge-small-en-v1.5
- * endpoint 形如 http://localhost:8080
- */
-async function embedHFTEI(
-  chunks: TransformedChunk[],
-  batchSize: number,
-  /** 表单临时填写的 endpoint，优先于环境变量 */
-  paramEndpoint?: string
-): Promise<{ vectors: number[][]; batchCount: number }> {
-  const endpoint = (paramEndpoint?.trim() || process.env.HF_TEI_ENDPOINT)?.replace(/\/$/, "");
-  if (!endpoint) {
-    throw new Error(
-      "缺少 TEI Endpoint：请在表单 \"TEI Endpoint\" 字段中填写，或设置 HF_TEI_ENDPOINT 环境变量后重启 dev server"
-    );
-  }
-
-  const texts = chunks.map((c) => c.enhancedText ?? c.text); // transform 禁用时回退到 text
-  const vectors: number[][] = [];
-  let batchCount = 0;
-
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-    const resp = await fetch(`${endpoint}/embed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inputs: batch }),
-    });
-    if (!resp.ok) {
-      const msg = await resp.text().catch(() => resp.statusText);
-      throw new Error(`TEI 服务返回错误 ${resp.status}: ${msg}`);
-    }
-    // TEI /embed 返回 float32[][] 或 { embeddings: float32[][] }
-    const data = await resp.json() as number[][] | { embeddings: number[][] };
-    const batch_vectors = Array.isArray(data) ? data : data.embeddings;
-    vectors.push(...batch_vectors);
-    batchCount++;
-  }
-
-  return { vectors, batchCount };
-}
-
-// ─── hf-transformers-js ───────────────────────────────────────────────────────
-
-/**
- * 使用 @huggingface/transformers 在 Node.js 本地推理。
- * 首次调用会从 HuggingFace Hub 下载模型（约 20–80MB，缓存后不再下载）。
- * 适合开发阶段本地测试，不需要任何 API Key。
- */
-async function embedTransformersJS(
-  chunks: TransformedChunk[],
-  modelId: string,
-  batchSize: number
-): Promise<{ vectors: number[][]; batchCount: number }> {
-  // 动态 import：@huggingface/transformers 体积大，避免影响其他 provider 启动
-  const { pipeline, env } = await import("@huggingface/transformers");
-
-  // 禁用浏览器端 WASM fallback，强制使用 Node.js native ort
-  env.allowLocalModels = false;
-
-  const extractor = await pipeline("feature-extraction", modelId, {
-    dtype: "fp32",
-  });
-
-  const texts = chunks.map((c) => c.enhancedText ?? c.text); // transform 禁用时回退
-  const vectors: number[][] = [];
-  let batchCount = 0;
-
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-    // mean_pooling + normalize = 标准 sentence embedding 做法
-    const output = await extractor(batch, { pooling: "mean", normalize: true });
-    // output 是 Tensor，tolist() 返回 number[][]
-    const list = output.tolist() as number[][];
-    vectors.push(...list);
-    batchCount++;
-  }
-
-  return { vectors, batchCount };
-}
-
-// ─── Route Handler ────────────────────────────────────────────────────────────
+const PIPELINE_ERROR_STATUS: Record<string, number> = {
+  empty_chunks: 400,
+  missing_client: 400,
+  missing_endpoint: 400,
+  provider_error: 502,
+  vector_count_mismatch: 500,
+};
 
 export async function POST(req: NextRequest) {
   const startMs = Date.now();
@@ -226,7 +36,7 @@ export async function POST(req: NextRequest) {
   let body: {
     methodId: string;
     params: Record<string, unknown>;
-    upstreamOutput: TransformOutput | null;
+    upstreamOutput: UpstreamOutput | null;
   };
 
   try {
@@ -234,149 +44,63 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: { code: "invalid_json", message: "请求体不是合法 JSON" } },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  const { methodId, params, upstreamOutput } = body;
+  const { methodId: rawMethodId, params: rawParams, upstreamOutput } = body;
 
-  if (!upstreamOutput) {
+  if (!upstreamOutput?.chunks?.length) {
     return NextResponse.json(
       {
         error: {
           code: "missing_upstream",
-          message: "缺少上游 Transform 产物，请先成功运行 Transform Stage",
+          message: "缺少上游 chunk/transform 产物，请先成功运行上游 Stage",
         },
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
-
-  const { chunks } = upstreamOutput;
-  if (!chunks || chunks.length === 0) {
-    return NextResponse.json(
-      { error: { code: "empty_chunks", message: "上游 Transform 未产出任何 chunk" } },
-      { status: 400 }
-    );
-  }
-
-  const dimension = Number(params.dimension ?? 4);
-  const batchSize = Number(params.batchSize ?? 10);
-  const model = String(params.model ?? "");
-  const paramApiKey = typeof params.apiKey === "string" ? params.apiKey : undefined;
-  const paramBaseUrl = typeof params.baseUrl === "string" ? params.baseUrl : undefined;
-  const paramEndpoint = typeof params.endpoint === "string" ? params.endpoint : undefined;
-  const warnings: string[] = [];
 
   try {
-    let vectors: number[][] = [];
-    let batchCount = 1;
-    let costEstimate = "";
-    let resolvedModel = model;
+    const methodId = EmbeddingMethodId.parse(rawMethodId);
+    const params = EmbeddingParamsSchema.parse(rawParams ?? {});
 
-    switch (methodId) {
-      case "debug-deterministic": {
-        resolvedModel = "debug-deterministic";
-        vectors = chunks.map((c) => debugDeterministicEmbed(c.enhancedText ?? c.text, dimension));
-        warnings.push(
-          "debug-deterministic 向量不携带语义，仅用于流程验证。生产环境请换用真实 embedding provider。"
-        );
-        break;
-      }
-
-      case "openai-3-small": {
-        resolvedModel = model || "text-embedding-v4";
-        const result = await embedOpenAI(chunks, resolvedModel, dimension, batchSize, paramApiKey, paramBaseUrl);
-        vectors = result.vectors;
-        batchCount = result.batchCount;
-        costEstimate = result.costEstimate;
-        break;
-      }
-
-      case "hf-tei-embedding": {
-        resolvedModel = model || "BAAI/bge-small-en-v1.5";
-        const result = await embedHFTEI(chunks, batchSize, paramEndpoint);
-        vectors = result.vectors;
-        batchCount = result.batchCount;
-        break;
-      }
-
-      case "hf-transformers-js-embedding": {
-        resolvedModel = model || "Xenova/all-MiniLM-L6-v2";
-        const result = await embedTransformersJS(chunks, resolvedModel, batchSize);
-        vectors = result.vectors;
-        batchCount = result.batchCount;
-        break;
-      }
-
-      default:
-        return NextResponse.json(
-          { error: { code: "unknown_method", message: `未知方法: ${methodId}` } },
-          { status: 400 }
-        );
+    // openai-3-small：路由层创建 client 注入
+    let openaiClient;
+    if (methodId === "openai-3-small") {
+      const { client } = await createEmbeddingClient(params.apiKey, params.baseUrl);
+      openaiClient = client;
     }
 
-    // 校验：向量数量必须与 chunk 数量一致
-    if (vectors.length !== chunks.length) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "vector_count_mismatch",
-            message: `向量数量 ${vectors.length} 与 chunk 数量 ${chunks.length} 不匹配`,
-          },
-        },
-        { status: 500 }
-      );
-    }
+    // hf-tei-embedding：从 env 读 endpoint
+    const hfTeiEndpoint = process.env.HF_TEI_ENDPOINT;
 
-    const actualDimension = vectors[0]?.length ?? dimension;
-    if (actualDimension !== dimension && methodId !== "debug-deterministic") {
-      warnings.push(
-        `实际向量维度 ${actualDimension} 与配置维度 ${dimension} 不一致，已使用实际维度`
-      );
-    }
-
-    const embeddedChunks: EmbeddedChunk[] = chunks.map((c, i) => ({
-      ...c,
-      embedding: vectors[i],
-      embeddingDimension: vectors[i].length,
-    }));
-
-    const totalTokensEstimated = chunks.reduce(
-      (s, c) => s + (c.enhancedTokenEstimate ?? c.tokenEstimate),
-      0
-    );
-
-    const output: EmbeddingOutput = {
-      chunks: embeddedChunks,
-      chunkCount: embeddedChunks.length,
-      dimension: actualDimension,
-      provider: methodId,
-      model: resolvedModel,
-      totalTokensEstimated,
-      batchCount,
-      costEstimate,
-      warnings,
-    };
+    const result = await runEmbedding({
+      methodId,
+      params,
+      upstreamChunks: upstreamOutput.chunks,
+      openaiClient,
+      hfTeiEndpoint,
+    });
 
     return NextResponse.json({
-      output,
-      trace: {
-        methodId,
-        chunkCount: chunks.length,
-        dimension: actualDimension,
-        batchCount,
-        totalTokensEstimated,
-        durationMs: Date.now() - startMs,
-      },
+      output: result.output,
+      trace: { ...result.trace, durationMs: Date.now() - startMs },
       durationMs: Date.now() - startMs,
-      warnings,
+      warnings: result.warnings,
     });
   } catch (err) {
+    if (isPipelineError(err)) {
+      return NextResponse.json(
+        { error: { code: err.code, message: err.message, ...(err.details ?? {}) } },
+        { status: PIPELINE_ERROR_STATUS[err.code] ?? 400 },
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       { error: { code: "embedding_failed", message } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
