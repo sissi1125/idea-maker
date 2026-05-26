@@ -10,6 +10,7 @@ export { runEmbedding } from "./ingestion/embedding";
 export { runStorage } from "./ingestion/storage";
 export { runQueryRewrite } from "./retrieval/query-rewrite";
 export { runIntentRecognition } from "./retrieval/intent-recognition";
+export { runMultiRecallMerge } from "./retrieval/multi-recall-merge";
 export {
   jieba,
   tokenize,

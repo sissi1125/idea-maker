@@ -9,3 +9,5 @@ export * from "./pipeline/embedding";
 export * from "./pipeline/storage";
 export * from "./pipeline/query-rewrite";
 export * from "./pipeline/intent-recognition";
+export * from "./pipeline/retrieval";
+export * from "./pipeline/multi-recall-merge";
