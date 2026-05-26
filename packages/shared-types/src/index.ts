@@ -14,3 +14,4 @@ export * from "./pipeline/multi-recall-merge";
 export * from "./pipeline/filter";
 export * from "./pipeline/rerank";
 export * from "./pipeline/citation";
+export * from "./pipeline/fallback";

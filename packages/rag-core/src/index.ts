@@ -13,6 +13,7 @@ export { runIntentRecognition } from "./retrieval/intent-recognition";
 export { runMultiRecallMerge } from "./retrieval/multi-recall-merge";
 export { runFilter } from "./retrieval/filter";
 export { runCitation } from "./retrieval/citation";
+export { runFallback } from "./retrieval/fallback";
 export {
   jieba,
   tokenize,
