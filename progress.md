@@ -1,5 +1,31 @@
 # 进度记录
 
+## 2026-05-26（会话 22 — feat-100.2 推进：preprocess 抽取，2/18）
+
+### 已完成（preprocess stage 抽取）
+
+按 idempotency 样板复制模式，第二个 stage 完成。preprocess 比 idempotency 复杂：5 method（其中 3 个 async）、4 个第三方库（pdf-parse / mammoth / turndown / is-html）、1 个外部微服务（pymupdf）。
+
+#### 变更
+
+- **依赖迁移**：`pdf-parse / mammoth / turndown / is-html` + `@types/pdf-parse / @types/turndown` 从 apps/web 迁到 packages/rag-core（grep 确认这些 lib 只在 preprocess 用过）
+- **shared-types**：新建 `pipeline/preprocess.ts`，PreprocessMethodId enum（5 方法）+ zod ParamsSchema（7 个参数含默认值）+ Input/Output/Trace 接口。`pymupdfServiceUrl` 作为 Input 字段（路由层注入 env，rag-core 不读 env）
+- **rag-core**：新建 `ingestion/preprocess.ts`，导出 `runPreprocess(input): Promise<PreprocessResult>`。5 method 完整搬过去，全部 fallback warnings 文案保留。pymupdf service URL 改为 Input 注入
+- **apps/web 薄路由**：原 520 行 route.ts 改为 78 行（仅参数解析 + 加载 doc + buffer + 注入 pymupdfServiceUrl + 错误翻译）
+- **单测**：10 个新单测（markdown-structure 标题 path / 清洗 / maxChars 截断 + plain-text 空行过滤 / removeBoilerplate + pdf-pages 非 PDF 降级 + pymupdf 连接拒绝降级 + metadata fileName 注入）
+
+#### 验收
+
+- `pnpm --filter @harness/rag-core test`：23/23（含 idempotency 12 + smoke 1 + preprocess 10）
+- `pnpm -r typecheck/lint`：4 包全绿
+- Playground 端到端（dev server 实测）：markdown-structure（39 标题 / 332 sourceRefs / 6ms）、plain-text（0 标题 / 2ms）、markitdown（路由到 MD 解析，4ms），与抽取前完全一致
+
+#### 下一步
+
+按 ingestion 完整组继续：transform → chunk → embedding → storage（4 个剩余 stage）。每个 stage 一个 PR。
+
+---
+
 ## 2026-05-26（会话 21 — feat-100.2 启动：rag-core 基础设施 + idempotency 样板）
 
 ### 已完成（feat-100.2 in-progress，1/18 stage）
