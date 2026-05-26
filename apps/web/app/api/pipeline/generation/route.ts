@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
 import type { PromptBuildOutput } from "../prompt-build/route";
-import type { EvidenceItem } from "../citation/route";
+import type { EvidenceItem } from "@harness/shared-types";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 

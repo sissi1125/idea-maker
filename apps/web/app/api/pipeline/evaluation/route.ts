@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createLLMClient } from "@/lib/providers";
-import type { EvidenceItem } from "../citation/route";
+import type { EvidenceItem } from "@harness/shared-types";
 
 // GenerationOutput 的最小结构（只取 evaluation 需要的字段）
 interface GenerationUpstream {

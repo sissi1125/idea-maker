@@ -22,7 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import type { CitationOutput, EvidenceItem } from "../citation/route";
+import type { CitationOutput, EvidenceItem } from "@harness/shared-types";
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 

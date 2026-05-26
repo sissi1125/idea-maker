@@ -12,3 +12,5 @@ export * from "./pipeline/intent-recognition";
 export * from "./pipeline/retrieval";
 export * from "./pipeline/multi-recall-merge";
 export * from "./pipeline/filter";
+export * from "./pipeline/rerank";
+export * from "./pipeline/citation";
