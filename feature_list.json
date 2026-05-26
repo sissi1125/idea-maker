@@ -1,21 +1,21 @@
 {
-  "project": "Marketing RAG Playground",
-  "phase": "阶段 2 收尾（feat-006 + feat-008）+ 阶段 2.5 架构重构（feat-100.x）并行推进",
+  "project": "Idea-Maker (Marketing RAG Playground)",
+  "phase": "阶段 3 MVP（feat-200.1~8，8 周快速交付）+ RAG 实验流（feat-006/008）并行推进",
   "tracks": {
     "A-main": {
-      "description": "主流程：架构重构 + Agent + Studio + 工程化",
-      "current": "feat-100.2（抽 packages/rag-core 纯库，待启动）",
+      "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
+      "current": "feat-200.1（Week 1：API 基础设施 + 项目 CRUD，待启动）",
       "scope": [
-        "feat-100.x",
-        "feat-010.x",
-        "feat-011.x",
-        "feat-012.x",
-        "feat-013.x"
+        "feat-200.x（当前 8 周 MVP）",
+        "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
+        "feat-012.x（Phase 4 Studio）",
+        "feat-013.x（Phase 5 工程化）"
       ],
-      "branch_hint": "claude/refactor-monorepo 或类似"
+      "branch_hint": "claude/mvp-week-N 或类似",
+      "weekly_milestones": "Week 1-8 每周一个 milestone；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-3-mvp"
     },
     "B-experiment": {
-      "description": "RAG 实验流：阶段 2 收尾 + 持续算法实验，默认只产报告",
+      "description": "RAG 实验流：阶段 2 收尾 + 持续算法实验，默认只产报告，不阻塞 MVP",
       "current": "feat-006 / feat-008 收尾",
       "scope": [
         "feat-006",
@@ -25,7 +25,8 @@
         "feat-009.x（如有第二批）"
       ],
       "branch_hint": "claude/experiments/<topic>",
-      "report_path": "scripts/eval-matrix/results/run-XXX/"
+      "report_path": "scripts/eval-matrix/results/run-XXX/",
+      "sync_rule": "实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main；MVP Week 3（pipeline-orchestrator）期间冻结算法核心改动只调参"
     }
   },
   "numbering_convention": {
@@ -371,15 +372,12 @@
     },
     {
       "id": "feat-010",
-      "name": "Pipeline Orchestration Agent",
-      "phase": "3",
+      "name": "Pipeline Orchestration Agent（Phase 3.5 真 Agent）",
+      "phase": "3.5",
       "track": "A-main",
-      "description": "把 12+ 个 stage 的手动操作自动化为一键运行。采用 Plan-and-Execute 模式，计划由 STAGE_DEPS 依赖图静态决定（非 LLM 推理）。**架构调整**：在 Phase 1.5 重构完成后，agent 改为服务端 NestJS Service 运行 + SSE 推送进度（不再走客户端循环），位于 apps/api/src/agent/。",
+      "description": "**注意：MVP（feat-200）采用 Pipeline Orchestrator（YAML 固定编排，非真 Agent）。feat-010 推迟到 Phase 3.5，引入 LLM 决策循环**：基于反馈学习自动决定 stage 顺序、参数调整、是否重试。位于 apps/api/src/agent/。区别于 MVP 的 Pipeline Orchestrator：后者是 YAML 写死的固定 11-stage 顺序，前者是 LLM 自主决策的 ReAct/Plan-and-Execute 混合模式。",
       "dependencies": [
-        "feat-002.4",
-        "feat-003.7",
-        "feat-005",
-        "feat-100.4"
+        "feat-200.8"
       ],
       "status": "epic",
       "evidence": "父级聚合 feat-010.1~010.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-010"
@@ -387,7 +385,7 @@
     {
       "id": "feat-010.1",
       "name": "Pipeline Agent 核心（NestJS Service + SSE）",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "在 apps/api/src/agent/ 新增 pipeline-agent.service.ts（runPipeline(config): AsyncIterable<AgentProgressEvent>，注入 RagCoreService）和 pipeline-agent.controller.ts（POST /api/agent/pipeline/start 启动 run 返回 runId；GET /api/agent/pipeline/:runId/events 使用 NestJS @Sse() 装饰器推送事件流）。AgentRunConfig + AgentProgressEvent zod schema 定义在 packages/shared-types/src/agent.ts。",
       "dependencies": [
@@ -399,7 +397,7 @@
     {
       "id": "feat-010.2",
       "name": "AutoRun 入口与预运行配置 Modal",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（apps/web/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
       "dependencies": [
@@ -411,7 +409,7 @@
     {
       "id": "feat-010.3",
       "name": "AgentProgressPanel 时间线（SSE 订阅）",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "新组件 apps/web/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。通过 EventSource 订阅后端 SSE 流（GET /api/agent/pipeline/:runId/events）。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
       "dependencies": [
@@ -423,7 +421,7 @@
     {
       "id": "feat-011",
       "name": "Content Generation ReAct Agent",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "在 RAG 完成后接管内容生成质量迭代。ReAct 模式（推理 + 工具 + 观察），自动迭代「生成 → 评估 → 换角度 → 重生成」直到 hook 评分 ≥7 或达到最大迭代次数。区别于 feat-010 的 Plan-and-Execute（顺序固定），这里迭代次数不确定，体现动态决策循环。",
       "dependencies": [
@@ -436,7 +434,7 @@
     {
       "id": "feat-011.1",
       "name": "Content Agent 工具集（4 个纯函数工具）",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "在 packages/rag-core/src/agent/content-tools/ 实现 4 个纯函数工具（无 HTTP / 可独立单测）：generate-ideas.ts / evaluate-hook.ts / evaluate-evidence.ts / suggest-angle.ts。evaluate-hook 双层评估：规则预检（0 token 过滤）+ LLM 精评（prompt 扮演挑剔小红书用户）。suggest-angle 从角度库选未尝试角度。",
       "dependencies": [
@@ -448,7 +446,7 @@
     {
       "id": "feat-011.2",
       "name": "Content Agent ReAct 循环引擎（NestJS Service）",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "在 apps/api/src/agent/content-agent.service.ts 实现 runContentAgent(config): AsyncIterable<ContentAgentEvent>。注入 rag-core 工具函数。max_iterations=3，threshold=7。三重终止：score ≥ 7 / 达到 max / 用户 abort。POST /api/agent/content/start + GET /api/agent/content/:runId/events SSE + POST /api/agent/content/:runId/accept 接管端点。",
       "dependencies": [
@@ -460,7 +458,7 @@
     {
       "id": "feat-011.3",
       "name": "ContentAgentPanel UI",
-      "phase": "3",
+      "phase": "3.5",
       "track": "A-main",
       "description": "新组件 apps/web/components/agent/ContentAgentPanel.tsx：通过 EventSource 订阅 SSE 流，每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮（调 /accept 端点）+ 「手动指定角度」输入框。完成后跳转到 Marketing Studio。",
       "dependencies": [

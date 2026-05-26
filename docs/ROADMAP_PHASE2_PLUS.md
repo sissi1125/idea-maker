@@ -1,57 +1,62 @@
 # 阶段 2+ 详细路线图
 
-> 本文档承接 `docs/PRODUCT.md` 的阶段规划，是 feat-010 至 feat-013 系列的执行级实施计划。
+> 本文档承接 `docs/PRODUCT.md` 的阶段规划，是 feat-200 / feat-010 / feat-011 / feat-012 / feat-013 系列的执行级实施计划。
 > 每个 feature 段落含：**用户故事 / 关键文件 / API 设计 / 验收标准 / 简历亮点**。
+>
+> **2026-05-27 更新**：阶段 2.5 架构重构已完成（feat-100.1~100.4 全 done）；当前主流程进入**阶段 3 MVP（feat-200.1~8，8 周快速交付）**；原 feat-010/011 真 Agent 推迟到 **阶段 3.5**（MVP 完成后启动）。
 
 ## 总览
 
 ```
-当前位置（阶段 2 收尾）
-    │
-    ├─ feat-006  RAG Quality Evaluation        [todo]  ← 先收尾
-    └─ feat-008  Eval Matrix CLI               [todo]  ← 先收尾
-    ↓
-阶段 2.5：架构重构（基座升级，先于阶段 3）
-    ├─ feat-100    （epic）架构重构（pnpm monorepo + NestJS 前后端分离）
-    ├─ feat-100.1  Wave 1: monorepo 骨架
-    ├─ feat-100.2  Wave 2: 抽 packages/rag-core 纯库
-    ├─ feat-100.3  Wave 3: 搭 NestJS 后端 + 5 端点迁移 + 双跑期
-    └─ feat-100.4  Wave 4: 迁完剩余 + 清理 + 部署调整
-    ↓
-阶段 3：Agent 自动化层
-    ├─ feat-010  Pipeline Orchestration Agent  (Plan-and-Execute)
-    │   ├─ 010.1 核心循环引擎
-    │   ├─ 010.2 AutoRun Modal
-    │   └─ 010.3 AgentProgressPanel
-    └─ feat-011  Content Generation Agent      (ReAct + Tools)
-        ├─ 011.1 4 个工具实现
-        ├─ 011.2 ReAct 循环引擎
-        └─ 011.3 ContentAgentPanel
-    ↓
-阶段 4：Marketing Studio UX
-    └─ feat-012  Studio 工作流
-        ├─ 012.1 /studio/[runId] 路由 + 四列看板
-        ├─ 012.2 踩赞反馈与 regenerate API
-        ├─ 012.3 Content Directions 中间层
-        └─ 012.4 帖子扩展 + PostTemplate
-    ↓
-阶段 5：工程化与生产部署
-    └─ feat-013  工程化系列
-        ├─ 013.1 Lucia Auth
-        ├─ 013.2 Workspace 多租户
-        ├─ 013.3 BYOK API Key 管理
-        ├─ 013.4 Drizzle ORM 迁移
-        └─ 013.5 Fly.io 部署
+✅ 已完成
+├─ 阶段 1：RAG Playground 闭环（feat-001~005）
+├─ 阶段 2.5：架构重构（feat-100.1~100.4）pnpm monorepo + NestJS 前后端分离
+└─ section-citation（main）
+
+🟢 当前位置（双轨并行）
+┌─ 轨道 A：主流程（claude/mvp-week-N）
+│  └─ 阶段 3 MVP（8 周）
+│     ├─ feat-200.1  Week 1: API 基础设施 + 项目 CRUD          ← 下一个
+│     ├─ feat-200.2  Week 2: 文档 + Ingestion Job + SSE 进度
+│     ├─ feat-200.3  Week 3: Pipeline Orchestrator + Generate
+│     ├─ feat-200.4  Week 4: 自动生成 + 反馈 + 历史 API
+│     ├─ feat-200.5  Week 5: 前端骨架 + 登录 + 项目管理
+│     ├─ feat-200.6  Week 6: 文档上传 + 自动卡片 + Chat 主界面
+│     ├─ feat-200.7  Week 7: 多维反馈 + 历史 + 笔记库 + Settings
+│     └─ feat-200.8  Week 8: 平台规则 + 流式化 + 联调打磨 + 部署
+│
+└─ 轨道 B：RAG 实验流（claude/experiments/<topic>）
+   ├─ feat-006  RAG Quality Evaluation        [收尾中]
+   └─ feat-008  Eval Matrix CLI               [收尾中]
+        ↓ 默认只产报告；指标提升的算法改动单独小 PR 合入 main
+
+🔵 MVP 之后
+├─ 阶段 3.5：真 Agent 自动化层（学习系统 + 智能迭代）
+│  ├─ feat-010  Pipeline Orchestration Agent（ReAct + 决策循环）
+│  └─ feat-011  Content Generation ReAct Agent（工具自主选择）
+├─ 阶段 4：Marketing Studio UX
+│  └─ feat-012  Studio 四列看板 + PostTemplate
+└─ 阶段 5：工程化与生产部署
+   └─ feat-013  Lucia Auth + 多租户 + BYOK + Drizzle + Fly.io
 ```
 
-**优先级原则**：
-1. 先把阶段 2 的两个 todo 收尾。
-2. **再做阶段 2.5 架构重构**（feat-100 epic + feat-100.1~100.4）—— 后续所有代码都长在新结构上，避免二次重写浪费。
-3. **不要把阶段 5 的 Auth 提前到阶段 3** —— Agent 层与 Auth 解耦能让两边都更聚焦。
+**优先级原则（2026-05-27 调整）**：
+1. **阶段 2.5 已完成** —— 架构重构基础已就位（apps/web + apps/api + packages/rag-core + shared-types）。
+2. **当前主线：阶段 3 MVP 8 周快速交付** —— feat-200.1~8 每周一个 milestone，每周末跑 `docs/VERIFICATION.md` 中的验收清单。
+3. **MVP 内不引入真 Agent** —— Pipeline Orchestrator 是 YAML 固定编排，没有 LLM 决策；真 Agent 推迟到 Phase 3.5 配合反馈学习闭环。
+4. **RAG 实验与 MVP 并行** —— 实验流默认只产报告 + 数据；指标提升的算法改动单独小 PR 合入 main。MVP Week 3（Pipeline Orchestrator 集成）期间冻结算法核心改动只调参。
+5. **不要把阶段 5 的 Auth 全套提前** —— MVP 用最简 JWT（feat-200.1），Lucia v3 + 多租户 + Drizzle 留到 Phase 5。
 
 ---
 
-## 阶段 2.5：架构重构（基座升级）
+## 阶段 2.5：架构重构（✅ 已完成 2026-05-26）
+
+> **状态**：feat-100.1~100.4 全部 done。`apps/web` + `apps/api` + `packages/rag-core` + `packages/shared-types` 已就绪，18 个 stage 全部迁到 NestJS，Next.js API routes 已清理。详见 `feature_list.json` 中 feat-100.* 的 evidence。
+>
+> 以下保留原迁移方案以供回溯，不再是当前工作项。
+
+<details>
+<summary>展开查看原迁移方案（已完成）</summary>
 
 ### 用户故事（开发者视角）
 > 作为长期维护这个项目的开发者，我希望 RAG 算法是独立纯库（可单测、可被 CLI/未来的 worker 复用），前后端有清晰分层（NestJS 后端 + Next.js 前端），Playground 降级为调试入口、Marketing Studio 成为主产品。这样后续 Agent / Studio / Auth 功能都能直接长在干净的架构上。
@@ -137,11 +142,161 @@ marketing-rag/                          ← repo root
 - **"如何渐进迁移而不破坏现有功能？"** — Wave 1-4 分批 + 双跑期 + feature flag，每步验证再推进
 - **共享 zod schema 的好处** — 同一 schema 同时做后端校验 + 前端表单 + TS 类型，杜绝前后端 schema drift
 
+</details>
+
 ---
 
-## 阶段 3：Agent 自动化层
+## 阶段 3 MVP：Idea-Maker 8 周快速交付（feat-200.1~8）
 
-> ⚠️ **架构基础**：以下所有文件路径均基于阶段 2.5 完成后的 monorepo + NestJS 结构。如果阶段 2.5 尚未完成，请先完成 feat-100 epic（含 feat-100.1~100.4）。
+> 与原始 plan：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` 同步。决策摘要：`.claude/memory/mvp-plan-2026-05-27.md`。
+
+### 用户故事
+
+> 作为独立开发者，我希望登录后能建项目、传文档、自动看到产品介绍和竞品分析卡片，然后向 AI 提问营销 idea。每个生成结果都能看到 11-stage RAG 执行过程、成本分解，并能给 4 维反馈、复用为笔记。
+
+### 核心定位（与 Coze 的差异）
+
+- **不是"快速搭建"，而是"深度学习和持续演进"**
+- 价值主张：**透明可观测**（看到 RAG 全 11-stage 执行过程）+ **成本追踪**（每次调用 token/成本分解）+ **反馈采集**（为 Phase 3.5 学习系统准备数据）
+- **不依赖 Agent 概念**：核心是 **Pipeline Orchestrator**（YAML 配置驱动的固定 11-stage 编排，无 LLM 决策、无循环、无工具选择）
+
+### 4 个确认的核心决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| **BYOK API Key 存储** | 服务端 AES-256 加密入库 | KMS/env 持有主密钥；Agent 编排时服务端解密调用 LLM；用户填的 key 在 `project_settings.encrypted_api_key` |
+| **Ingestion 进度推送** | SSE（`GET /projects/:id/ingestion/:jobId/events`） | Week 2 多预留 1-2 天处理断线重连；备用轮询作 fallback |
+| **Generate 流式** | 两阶段：Week 3-7 一次性完整返回 + 前端伪动画；Week 8 把 11-stage 关键节点映射成 4 个 SSE 事件 | 复用原型 `useStageProgress`；MVP 末尾切到真实事件驱动 |
+| **Auth** | 最简 JWT（邮箱 + 密码） | 不做 OAuth / 找回密码；Phase 5 再换 Lucia |
+
+### 周排期 + 验收（详见 `docs/VERIFICATION.md` 每周末验收清单）
+
+| Week | feat-id | 聚焦 | 核心交付 |
+|------|---------|------|---------|
+| 1 | feat-200.1 | API 基础设施 + 项目 CRUD | `auth / projects / project_settings` 模块；`TracingInterceptor + TraceContext` 骨架 |
+| 2 | feat-200.2 | 文档 + Ingestion Job + SSE 进度 | `documents.category` 字段；`ingestion_jobs` 表；SSE 端点 |
+| 3 | feat-200.3 | Pipeline Orchestrator + Generate | `pipeline-orchestrator` 模块（YAML 驱动）；`generations` 表；`POST /projects/:id/generate` |
+| 4 | feat-200.4 | 自动生成 + 反馈 + 历史 API | `auto_generations / feedbacks / cost_summary` 表；25+ 端点 e2e 通过 |
+| 5 | feat-200.5 | 前端骨架 + 登录 + 项目管理 | `(auth)/login` + `(workspace)/layout` + Sidebar；zustand store |
+| 6 | feat-200.6 | 文档上传 + 自动卡片 + Chat 主界面 | `ProjectInfoCards + PresetGrid + PipelineTrace`；端到端 demo |
+| 7 | feat-200.7 | 多维反馈 + 历史 + 笔记库 + Settings | `MultiDimRating + GenerationEditor + 笔记库 + BYOK` |
+| 8 | feat-200.8 | 平台规则 + 流式化 + 联调打磨 + 部署 | platform_rules validator；4 SSE 事件；Fly.io 测试环境 |
+
+### 关键模块新增（apps/api/src/）
+
+```
+auth/                     # 最简 JWT（邮箱 + 密码）
+projects/                 # projects CRUD + settings
+pipeline-orchestrator/    # YAML 驱动的 stage 编排（不是 Agent）
+  ├─ pipeline-orchestrator.service.ts
+  └─ pipelines/default.yaml   # intent-recognition → query-rewrite → embedding → retrieval → rerank → multi-recall-merge → context-management → prompt-build → generation → citation → evaluation
+generations/              # generations + feedbacks 查询
+auto-generations/         # ingestion.completed 事件监听 → 串行触发 intro / compete
+platform-rules/           # 规则 CRUD + validator
+cost/                     # cost_summary 查询
+common/
+  ├─ tracing.interceptor.ts
+  └─ trace-context.service.ts  # AsyncLocalStorage 累计 tokens / vector queries / rerank / cost_usd
+```
+
+### 关键模块新增（apps/web/）
+
+```
+app/
+├─ (auth)/login/page.tsx
+├─ (workspace)/layout.tsx          # 含 Sidebar
+├─ projects/page.tsx
+└─ projects/[id]/
+   ├─ page.tsx                     # Chat 主界面（ProjectInfoCards + PresetGrid + 输入框 + PipelineTrace + 结果区）
+   ├─ knowledge/page.tsx           # 三 Tab 上传（产品 / 竞品 / 历史物料）
+   ├─ history/page.tsx             # 时间线 + 详情 + 过滤
+   ├─ notes/page.tsx               # 笔记库（NOTE_LIBRARY）
+   └─ settings/page.tsx            # BYOK + 模型参数 + 平台规则
+
+components/
+├─ pipeline/PipelineTrace.tsx      # 原型 AgentThinking.jsx 迁过来；接 generate 返回的 pipeline_trace
+├─ pipeline/StageDetail.tsx
+├─ feedback/MultiDimRating.tsx     # 4 维评分（relevance / style / reliability / representativeness）
+├─ feedback/GenerationEditor.tsx   # textarea + 保存 diff（diff-match-patch）
+├─ feedback/CostBreakdown.tsx
+├─ chat/PresetGrid.tsx
+├─ chat/ProjectInfoCards.tsx
+├─ chat/GeneratedNote.tsx
+└─ shared/{Sidebar,ProjectCard,UploadDropzone}.tsx
+```
+
+### 字段命名映射（原型 → MVP）
+
+| 原型（idea_maker） | MVP 落地 | 说明 |
+|---|---|---|
+| `THINKING_TRACE.think[]` | `pipeline_trace.intent` | 来自 intent-recognition + query-rewrite stage |
+| `THINKING_TRACE.search` | `pipeline_trace.retrieval` | 来自 retrieval + rerank + multi-recall-merge stage |
+| `THINKING_TRACE.tools[]` | `pipeline_trace.stages[]` | 实际是 stage 执行日志，**非 LLM 工具调用**（UI 文案可保留"tools"，内部数据结构叫 stages） |
+| `THINKING_TRACE.selfEval[]` | `pipeline_trace.evaluation` | 来自 evaluation stage，规则式打分，**非 LLM 自评** |
+
+> **诚实标注**：MVP 不是 LLM 决定调什么工具，而是 YAML 配置固定执行的 stage。UI 文案可保留用户友好措辞，但代码层面统一用 `Pipeline / Stage / Trace`。
+
+### 数据库新增表（汇总）
+
+```sql
+-- Week 1
+users(id, email, password_hash, created_at)
+projects(id, name, emoji, description, owner_id, docs_count, total_cost_usd, created_at, updated_at)
+project_settings(project_id, provider, encrypted_api_key, model, temperature, max_tokens, thinking_depth, retrieval_mode)
+
+-- Week 2
+ingestion_jobs(id, project_id, document_id, status, progress, current_stage, chunks_done, chunks_total, cost_usd, error)
+-- documents 加 category 字段（product | compete | history）
+
+-- Week 3
+generations(id, project_id, query, pipeline_trace JSONB, retrieved_chunks JSONB, result_notes JSONB, evaluation JSONB, cost_breakdown JSONB, trace_id, created_at)
+
+-- Week 4
+auto_generations(id, project_id, type, title, body, chips[], source_document_ids[], created_at)  -- type: intro | compete
+feedbacks(id, generation_id, ratings JSONB, edit_diff JSONB, comment, created_at)  -- ratings: {relevance, style, reliability, representativeness}
+cost_summary(project_id, date, embedding_cost, llm_cost, total_cost, request_count)
+
+-- Week 7
+notes(id, project_id, generation_id, source_note_index, channel, style, tag, angle, body, hashtags[], uses_count, rating, created_at)
+
+-- Week 8
+platform_rules(id, project_id, name, platform, banned_words[], required_elements[], min_words, max_words, forced_format, is_active)
+```
+
+### MVP 重点说明（避免误解）
+
+- ✅ 透明的 11-stage pipeline 执行过程可视化
+- ✅ 完整的成本追踪（embedding + LLM + 总计）
+- ✅ 多维反馈采集（4 维评分 + 编辑 diff）
+- ✅ BYOK + 平台规则验证
+- ❌ **不做真 Agent**（LLM 自主决策、工具选择、自评估迭代循环）— 这些留到 Phase 3.5
+- ❌ **不做 EditPattern 学习** — MVP 只采集数据攒 `feedbacks.edit_diff`，Phase 3.5 再批量分析
+- ❌ **不做多人共享 / RLS** — 先单租户；多租户留到 Phase 5
+
+### 总验收标准（MVP 7 个成功指标）
+
+- [ ] 用户完整走通：**登录 → 建项目 → 传文档 → 自动生成卡片 → 提问 → 看 Pipeline Trace → 给反馈 → 查历史 → 复用笔记库**
+- [ ] 每个生成结果都能追溯到源文档和 LLM 调用过程（可观测性）
+- [ ] 生成结果旁显示成本分解（`embedding $0.02 | LLM $0.15 | 总计 $0.17`）
+- [ ] 用户的每个反馈（评分 + 编辑）都被记录用于 Phase 3.5
+- [ ] 支持 BYOK（用户自带 API Key，AES-256 加密存储）
+- [ ] 支持平台规则验证（违禁词 / 必含元素 / 字数限制）
+- [ ] 部署到 Fly.io 测试环境可公网访问
+
+### 简历亮点
+
+- **Pipeline Orchestrator vs 真 Agent 的诚实区分**：MVP 不假装做 ReAct，先把可观测性和反馈采集做扎实，再演进到真 Agent
+- **AsyncLocalStorage 链路追踪**：`TracingInterceptor + TraceContext` 跨 stage 累计成本，每个外层请求一个 traceId
+- **YAML 驱动的 stage 编排**：`pipelines/default.yaml` 配置 11-stage 顺序，无 LLM 决策保证可调试可回滚
+- **8 周冲刺 + 每周可独立验收**：每周末跑 `docs/VERIFICATION.md` 检查清单，scope 边界清晰
+
+---
+
+## 阶段 3.5：真 Agent 自动化层（MVP 之后）
+
+> ⚠️ **架构基础**：以下所有文件路径均基于阶段 2.5 完成后的 monorepo + NestJS 结构 + 阶段 3 MVP 完成后的 feat-200.* 数据基础（反馈数据 + 编辑 diff 已积累）。
+>
+> 与 MVP 的关键区别：**MVP 是 Pipeline Orchestrator**（YAML 固定编排、无 LLM 决策、无工具选择）；**Phase 3.5 是真 Agent**（LLM 决策循环、工具自主选择、基于历史反馈调整策略）。
 
 ### feat-010 Pipeline Orchestration Agent
 
@@ -567,52 +722,56 @@ app = "marketing-rag-playground"
 - [ ] Playground 仍可用，已有 stage 无回归
 - [ ] `npm run typecheck && npm run lint` 通过
 
-## 排期估算（参考）
+## 排期估算（2026-05-27 更新）
 
-| 阶段 | feature | 周数（一人 part-time） |
-|------|---------|----------------------|
-| 收尾 | feat-006 + feat-008 | 1-2 周 |
-| 阶段 2.5 | feat-100 epic + feat-100.1~100.4 架构重构 | 4-5 周 |
-| 阶段 3 | feat-010 (Pipeline Agent) | 2-3 周 |
-| 阶段 3 | feat-011 (Content Agent) | 3-4 周 |
-| 阶段 4 | feat-012 (Marketing Studio) | 4-5 周 |
-| 阶段 5 | feat-013 (工程化) | 5-7 周 |
-| **合计** | | **~5-6 个月** |
+| 阶段 | feature | 周数（一人 part-time） | 状态 |
+|------|---------|----------------------|------|
+| 阶段 1 | feat-001~005 RAG Playground 闭环 | - | ✅ done |
+| 阶段 2.5 | feat-100.1~100.4 架构重构 | 4-5 周 | ✅ done |
+| 收尾（轨道 B） | feat-006 + feat-008 RAG 质量评估 | 1-2 周 | 🟡 进行中（并行） |
+| **阶段 3 MVP**（轨道 A） | **feat-200.1~8 Idea-Maker 8 周交付** | **8 周** | 🟢 **当前主线** |
+| 阶段 3.5 | feat-010 + feat-011 真 Agent | 5-7 周 | 🔵 MVP 后 |
+| 阶段 4 | feat-012 Marketing Studio | 4-5 周 | 🔵 待启动 |
+| 阶段 5 | feat-013 工程化与部署 | 5-7 周 | 🔵 待启动 |
+| **合计**（MVP 起算） | | **~6 个月** | |
 
-按这个节奏推，5-6 个月后能拿到一个完整、可上线、可演示的简历项目（含架构重构）。
+按这个节奏推，**MVP 8 周后即可有完整可演示产品**；继续推进 5-6 个月后能拿到一个完整、可上线、可演示的简历项目（含真 Agent + Studio + 工程化）。
 
 ---
 
-## 双轨并行执行模型
+## 双轨并行执行模型（2026-05-27 更新）
 
 ### 背景
-原计划是串行（先做 feat-006/008 收尾 → 再做架构重构 → 再做 agent）。但 RAG 实验调优是**长期、不确定**的工作（query 跑一轮要几小时、参数组合多），与架构重构、产品功能开发并不冲突。把它们拆成两条并行轨道更高效。
 
-### 双轨模型
+阶段 2.5 架构重构已完成，主流程进入阶段 3 MVP 8 周冲刺。RAG 实验调优是**长期、不确定**的工作（query 跑一轮要几小时、参数组合多），与 MVP 产品功能开发并不冲突 —— 继续保持双轨并行。
+
+### 双轨模型（当前）
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  轨道 A：主流程（一个 session / worktree）                      │
+│  轨道 A：主流程（claude/mvp-week-N worktree）                   │
 │                                                                  │
-│  阶段 2.5 架构重构 (feat-100 epic + feat-100.1~100.4, 4-5 周)   │
-│      → 阶段 3 Agent (feat-010 + feat-011)                       │
-│      → 阶段 4 Studio (feat-012)                                 │
-│      → 阶段 5 工程化 (feat-013)                                 │
-│                                                                  │
+│  阶段 3 MVP：feat-200.1~8（8 周）                               │
+│      Week 1: API 基础设施 + 项目 CRUD                           │
+│      Week 2: 文档 + Ingestion Job + SSE                         │
+│      Week 3: Pipeline Orchestrator + Generate ← 冲突高风险窗口  │
+│      Week 4: 自动生成 + 反馈 + 历史 API                         │
+│      Week 5-8: 前端 + 反馈 + 历史 + 笔记库 + 平台规则 + 部署    │
+│      ↓                                                           │
+│  阶段 3.5 真 Agent (feat-010 + feat-011)                        │
+│      ↓                                                           │
+│  阶段 4 Studio (feat-012) → 阶段 5 工程化 (feat-013)            │
 └─────────────────────────────────────────────────────────────────┘
                             ↑
-                            │ 选择性 PR 合入
-                            │ （仅确认有效的优化）
+                            │ 选择性 PR 合入（指标提升的小 PR）
                             │
 ┌─────────────────────────────────────────────────────────────────┐
-│  轨道 B：RAG 实验调优（用户在另一个 session）                   │
+│  轨道 B：RAG 实验调优（claude/experiments/<topic>）             │
 │                                                                  │
-│  feat-006 / feat-008 收尾                                       │
-│      + 持续 RAG 算法实验（新方法 / 调参 / prompt 优化）          │
-│      + section-citation 已上 main，可继续扩展                   │
-│                                                                  │
-│  默认产出：scripts/eval-matrix/results/run-XXX/ 报告            │
-│           + .interview/ 面试题                                  │
+│  feat-006 / feat-008 收尾 + 持续算法实验                        │
+│      （新方法 / 调参 / prompt 优化）                            │
+│      默认产出：scripts/eval-matrix/results/run-XXX/             │
+│              + .interview/ 面试题                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -621,17 +780,17 @@ app = "marketing-rag-playground"
 | 决策 | 规则 |
 |------|------|
 | **实验代码合入策略** | **选择性合入**：实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main |
-| **Wave 2 冻结窗口** | 主流程做 Wave 2（feat-100.2，抽 rag-core，~1-2 周）期间，**实验流只调参不动算法核心代码**。可以做：跑新 query 组合 / 调 chunk size / threshold / topK / 生成报告。不可以做：改 chunk.ts、rerank.ts 等算法实现 |
-| **主流程 rebase 节奏** | 每个 Wave 开始前 rebase main，把实验流合入的最新算法拉进来 |
-| **实验流 base** | 实验流持续在 **main 顶端**（即重构期间也是 monolithic 结构）跑，保证实验环境稳定 |
-| **实验迁移到新结构** | Wave 4 完成（feat-100.4，旧 Next.js API routes 删除）后，实验流才必须迁到 packages/rag-core；之前可选 |
+| **Week 3 冻结窗口** | 主流程做 Week 3（feat-200.3，集成 Pipeline Orchestrator + YAML 编排，~1 周）期间，**实验流只调参不动算法核心代码**。可以做：跑新 query 组合 / 调 chunk size / threshold / topK / 生成报告。不可以做：改 packages/rag-core/src/ 下的算法实现 |
+| **主流程 rebase 节奏** | 每个 Week 开始前 rebase main，把实验流合入的最新算法拉进来 |
+| **实验流 base** | 实验流持续在 **main 顶端**跑，保证实验环境稳定 |
+| **实验入口** | 实验流直接在 `packages/rag-core/` 上跑（阶段 2.5 已完成迁移）；调用入口走 `apps/api` 端点 |
 
 ### 分支约定
 
 | 分支 | 用途 | 基于 |
 |------|------|------|
 | `main` | 唯一合并入口（实验 PR + 主流程 PR 都合入这里） | - |
-| `claude/refactor-monorepo`（或类似名） | 主流程：feat-100.x 架构 + feat-010~013 产品 feature | main 顶端，每 Wave 开始 rebase |
+| `claude/mvp-week-N`（N=1..8） | 主流程：feat-200.N 当周 milestone | main 顶端，每 Week 开始 rebase |
 | `claude/experiments/<topic>` | 实验流（每个实验主题一个短命分支） | main 顶端 |
 
 ### Feature 编号约定（避免冲突）
@@ -639,32 +798,33 @@ app = "marketing-rag-playground"
 | 编号段 | 归属 | 示例 |
 |--------|------|------|
 | `feat-006.x` / `feat-008.x` / `feat-009.x` | 轨道 B 实验流 | feat-006.1 评估指标补充、feat-008.1 新增 query 维度 |
-| `feat-010 ~ feat-013`（业务段位）与 `feat-100.x`（100+ 架构段位）| 轨道 A 主流程 | feat-010.1 Pipeline Agent 核心、feat-100.1 monorepo 骨架 |
+| `feat-200.x` | 轨道 A 主流程（MVP，当前主线） | feat-200.1 Week 1 API 基础设施 |
+| `feat-010 ~ feat-013`（业务段位）与 `feat-100.x`（已完成的架构段位） | 轨道 A 主流程（MVP 之后） | feat-010 Phase 3.5 真 Agent |
 
 ### 风险与缓解
 
 | 风险 | 缓解 |
 |------|------|
-| 实验改了算法导致 Playground evidence drift | 实验流 PR 必须附带 eval 指标对比（hitRate / citationCoverage / confidenceScore 不退化）|
-| 主流程 Wave 2 期间冲突 | 1-2 周内实验冻结算法改动，只调参；冻结开始/结束在 session-handoff.md 明确写明 |
-| 实验流在旧结构上跑、主流程在新结构上写 | Wave 4 完成前两套并存（旧 monolith 作为「实验沙盒」保留）；Wave 4 后实验流统一迁到 packages/rag-core |
-| 实验流 PR 与主流程 rebase 时序混乱 | 主流程在每个 Wave 开始前 rebase main，避免实验 PR 堆积 |
+| 实验改了算法导致 MVP evidence drift | 实验流 PR 必须附带 eval 指标对比（hitRate / citationCoverage / confidenceScore 不退化）|
+| 主流程 Week 3 期间冲突 | Week 3（~1 周）内实验冻结算法改动，只调参；冻结开始/结束在 session-handoff.md 明确写明 |
+| 实验流 PR 与主流程 rebase 时序混乱 | 主流程在每个 Week 开始前 rebase main，避免实验 PR 堆积 |
+| MVP 周末验收时被实验改动干扰 | 周末验收（Week N Friday）前 24 小时不接受实验 PR；validator 失败时优先回退实验 PR |
 
 ### 同步触发点（关键节点通知）
 
 | 时机 | 实验流应感知（写入 session-handoff.md） |
 |------|------------|
-| Wave 1 完成 | apps/web/ 路径已就绪，但 app/api/* 暂未迁；实验流继续在 apps/web/app/api/ 跑 |
-| Wave 2 开始 | **冻结算法改动**通知；实验流仅调参 |
-| Wave 2 完成 | rag-core 已抽离；实验流可选迁移 |
-| Wave 4 完成 | 旧 Next.js API routes 删除；实验流必须迁到 packages/rag-core |
+| Week 3 开始（feat-200.3 启动） | **冻结算法改动**通知；实验流仅调参 |
+| Week 3 完成 | Pipeline Orchestrator 已就位；实验流恢复算法改动；后续每周末验收前 24h 冻结 |
+| Week 8 完成 | MVP 上线到测试环境；实验流可以基于真实用户反馈数据做新一轮调优 |
+| Phase 3.5 启动 | 真 Agent 介入后，实验流的"调参"工作可能被 Agent 自动决策替代；实验流转向"prompt 模板优化"和"few-shot example 库构建" |
 
 ### 实验流默认工作流
 
 1. 用户在另一个 session 启动 worktree：`git worktree add .claude/worktrees/exp-<topic> -b claude/experiments/<topic> main`
-2. 修改算法 / 调参 / 跑实验
+2. 修改 `packages/rag-core/` 算法 / 调参 / 跑实验
 3. 输出 `scripts/eval-matrix/results/run-XXX/` 报告 + `.interview/` 面试题（如适用）
 4. 评估指标对比基线：通过则提小 PR 合入 main；不通过则归档报告，分支可删
-5. 主流程下次 Wave 开始时 rebase main 拉取已合入的优化
+5. 主流程下次 Week 开始时 rebase main 拉取已合入的优化
 
-> **重要原则**：RAG 算法的进化（实验流）独立于结构演进（主流程），二者通过 main 分支异步同步。Wave 2 是唯一的高冲突窗口，需要明确的冻结约定。
+> **重要原则**：RAG 算法的进化（实验流）独立于产品形态演进（主流程 MVP），二者通过 main 分支异步同步。Week 3 是唯一的高冲突窗口，需要明确的冻结约定。
