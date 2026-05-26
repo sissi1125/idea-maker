@@ -633,8 +633,8 @@
       "dependencies": [
         "feat-100.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in-progress",
+      "evidence": "2026-05-26 基础设施 + 1/18 stage 完成（idempotency 作样板）：装 vitest（packages/rag-core/vitest.config.ts，13 测全过）；建 PipelineError（统一错误类型，路由层翻译 HTTP envelope）；shared-types 加 pipeline/idempotency.ts（zod IdempotencyParamsSchema / IdempotencyMethodId enum + Input/Output/Trace 接口）；checkIdempotency 纯函数（无 HTTP，doc 注入）；apps/web idempotency/route.ts 改薄路由（含完整错误翻译）；packages/rag-core/README.md 写「提取模式」给后续 stage 复制。修复关键：next.config.ts 加 transpilePackages: ['@harness/rag-core','@harness/shared-types']（缺失导致 Next.js 反复尝试解析 workspace TS 源、postcss 子进程风暴、机器假死）。Playground 端到端验证：3 种 method 全过，内存稳定 765MB，trace 字段完整。剩余 17 stage 待复制模式。"
     },
     {
       "id": "feat-100.3",

@@ -10,7 +10,11 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@harness/shared-types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5",

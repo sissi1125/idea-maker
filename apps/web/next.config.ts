@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -11,6 +12,20 @@ const nextConfig: NextConfig = {
    *     会尝试打包并失败（"could not resolve @node-rs/jieba-darwin-arm64"）。
    */
   serverExternalPackages: ["@node-rs/jieba"],
+
+  /**
+   * transpilePackages：workspace 内 TS 源码包必须列出。pnpm symlink 也算 node_modules，
+   * Next.js 默认不编译 node_modules 内的 TS，Turbopack 遇到未编译的 .ts 反复尝试解析，
+   * 可能触发子进程风暴 / 内存暴涨 / 机器假死（feat-100.2 首次启动遇到过）。
+   * 每加一个 workspace 包都要登记。
+   */
+  transpilePackages: ["@harness/rag-core", "@harness/shared-types"],
+
+  /**
+   * outputFileTracingRoot：monorepo 下让 Next.js 正确追踪依赖到 repo 根，
+   * 避免 build 时 missing files 警告，也避免 dev 期反复扫整个 workspace。
+   */
+  outputFileTracingRoot: path.join(__dirname, "../.."),
 };
 
 export default nextConfig;

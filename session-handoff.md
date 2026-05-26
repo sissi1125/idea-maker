@@ -2,7 +2,26 @@
 
 ## 最后更新
 
-2026-05-25（会话 20 — feat-100.1 完成：pnpm monorepo 骨架）
+2026-05-26（会话 21 — feat-100.2 启动：rag-core 基础设施 + idempotency 样板）
+
+## 本会话变更摘要
+
+阶段 2.5 Wave 2 启动。打造 rag-core 抽取工具链 + idempotency 作样板（1/18 stage）：
+- packages/rag-core：vitest 配置 + errors.ts (PipelineError) + ingestion/idempotency.ts（纯函数，13 测全过）+ README.md「提取模式」文档
+- packages/shared-types：zod IdempotencyParamsSchema + Input/Output/Trace 接口，加 zod 依赖
+- apps/web/app/api/pipeline/idempotency/route.ts：改薄路由（参数 → rag-core → 错误翻译）
+- 关键修复：next.config.ts 加 transpilePackages（缺失会让 Next.js 子进程风暴→机器假死，feat-100.2 启动时遇到）
+- Playground 端到端验证 3 种 method 全过，内存稳定 765MB
+
+**当前 worktree**：`.claude/worktrees/refactor-monorepo/`，分支 `claude/refactor-monorepo`，待 ff 合 main。
+
+**进度**：feat-100.2 status="in-progress"。剩余 17 stage 待复制 idempotency 模式（建议每 stage 一个 sub-PR）。冻结窗口持续。
+
+**新约定（写入 next.config.ts 注释）**：每加一个 workspace 包必须登记到 `transpilePackages`。
+
+---
+
+## 历史交接记录（会话 20 — feat-100.1 完成：pnpm monorepo 骨架）
 
 ## 本会话变更摘要
 
@@ -117,7 +136,7 @@ Marketing RAG Playground：一个可调试的 RAG 驱动产品运营 idea 生成
 
 ### 技术状态
 
-- **主分支**：`main`，当前 HEAD：`53fa467`（chore(harness): 把 track / phase / 段位约定落到 feature_list 结构 + 加一致性校验脚本）。本会话提交将使其前进 1 步。
+- **主分支**：`main`，当前 HEAD：`200a816`（合本会话前 = feat-100.1 + nlp.ts refactor）。本会话提交将使其前进若干步。
 - **工作树**：干净，无进行中的 worktree
 - **Dev server**：`cd app && npm run dev`（端口 3000；若被占用自动升至 3001）
 - **文档存储**：`app/data/documents.json`（本地 JSON，dev 阶段）

@@ -1,5 +1,54 @@
 # 进度记录
 
+## 2026-05-26（会话 21 — feat-100.2 启动：rag-core 基础设施 + idempotency 样板）
+
+### 已完成（feat-100.2 in-progress，1/18 stage）
+
+阶段 2.5 架构重构 Wave 2 启动。打造 rag-core 抽取的工具链 + 完成 idempotency 作为后续 17 个 stage 复制的样板。
+
+#### 基础设施
+
+- `packages/rag-core/vitest.config.ts`：vitest 配置（node 环境，匹配 `__tests__/*.test.ts`）
+- `packages/rag-core/src/errors.ts`：`PipelineError(code, message, details?)` 统一错误类型 + `isPipelineError` 类型守卫。设计：rag-core 不感知 HTTP，路由层翻译 code → status
+- `packages/shared-types/src/pipeline/idempotency.ts`：zod schema（`IdempotencyMethodId` enum、`IdempotencyParamsSchema` 带默认值）+ Input/Output/Trace/Result TypeScript 接口
+- `packages/shared-types` 加 zod ^3.23.8 依赖
+- `packages/rag-core/README.md`：「提取模式」文档，定义 5 条规则（函数签名、I/O 注入、错误处理、路由层职责、测试）
+- 根 `package.json` 加 `test: pnpm -r test` 脚本
+
+#### Idempotency 样板抽取
+
+- `packages/rag-core/src/ingestion/idempotency.ts`：`checkIdempotency(input): IdempotencyResult` 纯函数。三种 hash 方法（sha256-content / normalized-sha256 / file-signature）+ versionPolicy（new-version / skip-existing / replace-existing）+ includeFileName 全部保留语义
+- `apps/web/app/api/pipeline/idempotency/route.ts`：改为薄路由（解析请求 → 加载 targetDoc/otherDocs → 调 checkIdempotency → 包装 durationMs + 错误翻译）
+- `packages/rag-core/src/ingestion/__tests__/idempotency.test.ts`：13 个单测（3 method 主路径 + versionPolicy 三态 + includeFileName 边界 + PipelineError 错误路径）
+
+#### 关键修复：next.config.ts transpilePackages
+
+**事故**：第一次 `pnpm dev` 启动后机器假死，需强制重启。
+
+**根因**：apps/web 通过 pnpm symlink 引用 `@harness/rag-core`（TS 源码）。Next.js 默认不编译 node_modules 内的 TS。Turbopack 反复尝试解析未编译的 `.ts` → 子进程 spawn 风暴（pgrep 看到大量 postcss.js workers）→ 内存暴涨 → 系统假死。
+
+**修复**：`apps/web/next.config.ts` 加 `transpilePackages: ["@harness/rag-core", "@harness/shared-types"]` + `outputFileTracingRoot`。修复后内存稳定 765MB / postcss 子进程 1 个。
+
+**约定**：feat-100.2 起每新增一个 workspace 包，必须在 `transpilePackages` 登记，写入 next.config.ts 注释。
+
+#### 验收
+
+- `pnpm --filter @harness/rag-core test`：13/13 全过
+- `pnpm -r typecheck`：4 包全过
+- Playground 端到端：3 种 method 测试，trace 字段完整，POST /api/pipeline/idempotency 200 / 16ms，与抽取前完全一致
+
+#### 下一步
+
+复制 idempotency 模式到剩余 17 个 stage。建议批次：
+1. **简单同步类**（hash/字符串处理）：preprocess（5种 parser）、transform（heading-context / summary-keywords）
+2. **算法类**：chunk（3 method）、filter（mmr-diversity）、citation（snippet 截取）
+3. **I/O 重类**（注入 client）：embedding（4 provider）、retrieval（pg+vec）、storage（pg）、rerank（HF/LLM）、generation（LLM）、evaluation
+4. **新步骤**：query-rewrite、intent-recognition、context-management、multi-recall-merge、fallback、prompt-build
+
+每个 stage 单独提一个 sub-PR（小步快跑、易回滚）。冻结窗口持续到全部完成。
+
+---
+
 ## 2026-05-25（会话 20 — feat-100.1 完成：pnpm monorepo 骨架）
 
 ### 已完成
