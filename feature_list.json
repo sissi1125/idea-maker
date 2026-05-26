@@ -371,6 +371,174 @@
       "evidence": "docs/feat-009_lib-standardization.md; scripts/eval-matrix/results/feat-009-impact-assessment.md; AGENTS.md#交付前代码审查"
     },
     {
+      "id": "feat-100",
+      "name": "架构重构（pnpm monorepo + NestJS 前后端分离）",
+      "phase": "2.5",
+      "track": "A-main",
+      "description": "把当前 Next.js 单体重构为「pnpm monorepo + 独立 NestJS 后端 + Next.js 前端 + 纯 RAG 库」清晰分层架构。所有后续 feature（feat-010~013）都在新架构下开发。**编号约定**：采用 100+ 段位标识此类跨阶段的架构/基础设施重构（与 001~099 业务功能区分），便于一眼区分「业务开发」vs「架构调整」。分 4 个 Wave 渐进迁移。",
+      "dependencies": [
+        "feat-008"
+      ],
+      "status": "epic",
+      "evidence": "父级聚合 feat-100.1~100.4；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-25-架构重构"
+    },
+    {
+      "id": "feat-100.1",
+      "name": "架构重构 Wave 1：pnpm monorepo 骨架",
+      "phase": "2.5",
+      "track": "A-main",
+      "description": "根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。先建立工程基座，不动算法。",
+      "dependencies": [
+        "feat-100"
+      ],
+      "status": "done",
+      "evidence": "2026-05-25 完成：根 pnpm-workspace.yaml + package.json + .npmrc；git mv app → apps/web 保留历史；删除 npm package-lock.json 切换 pnpm；apps/web/package.json name → @harness/web；apps/api 最小 NestJS 骨架（main + AppModule + HealthController + eslint.config.mjs）；packages/rag-core + packages/shared-types 占位（仅 package.json + tsconfig + index.ts version 常量）；init.sh 改为 pnpm -r typecheck / lint。验收：pnpm install 通过；pnpm -r typecheck 4 包全过；pnpm -r lint 4 包全过；pnpm dev 启 web 后 GET / → 200、GET /api/documents 返回历史文档列表、POST /api/pipeline/idempotency 返回正确 error envelope。"
+    },
+    {
+      "id": "feat-100.2",
+      "name": "架构重构 Wave 2：抽 packages/rag-core 纯库",
+      "phase": "2.5",
+      "track": "A-main",
+      "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。**冲突高风险窗口**（1-2 周）：实验流（轨道 B）应冻结算法改动只调参。",
+      "dependencies": [
+        "feat-100.1"
+      ],
+      "status": "done",
+      "evidence": "2026-05-26 ✅ 全部 18 stage 抽取完成。【Ingestion 链 6/6】idempotency / preprocess / chunk / transform / embedding / storage。【Retrieval 链 8/8】query-rewrite / intent-recognition / retrieval / multi-recall-merge / filter / rerank / citation / fallback。【Generation 链 3/3】context-management / prompt-build / generation。【Evaluation 1/1】evaluation。【I/O 注入契约三类】OpenAICompatibleClient（embeddings）/ LLMChatClient（chat，含 usage）/ PgClient（query）— shared-types 零外部依赖。【7 种 idiom】（1）upstreamQuery 跨 stage 字段提取；（2）双 provider 注入（rerank）；（3）三重 client 注入（retrieval = pg + openai + tei）；（4）missing 降级 vs missing 失败语义；（5）per-chunk 失败收集；（6）预定义 canonical types；（7）evidencePack 跨 stage 透传（citation → prompt-build → generation → evaluation）。【单测 238/238】。【路由减幅】2344+1132+1340+760 行 → 各 60-130 行薄路由。下一步：feat-100.3（Wave 3 NestJS 端点迁移）。"
+    },
+    {
+      "id": "feat-100.3",
+      "name": "架构重构 Wave 3：搭 NestJS 后端 + 5 端点迁移 + 双跑期",
+      "phase": "2.5",
+      "track": "A-main",
+      "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
+      "dependencies": [
+        "feat-100.2"
+      ],
+      "status": "done",
+      "evidence": "NestJS apps/api 启动：health + /docs Swagger UI 200；5 端点（chunk/embedding/retrieval/generation/documents）已迁入并 DI 注入 ProvidersService/DocStoreService 验证通过；apps/web 加 lib/api-base.ts 切换层（NEXT_PUBLIC_USE_NEST_API + NEXT_PUBLIC_API_URL）；PipelineExceptionFilter 统一翻译 PipelineError/ZodError/NotFoundException；ts-node-dev 解决 decorator metadata 问题；238/238 单测；pnpm -r typecheck/lint 全过。"
+    },
+    {
+      "id": "feat-100.4",
+      "name": "架构重构 Wave 4：迁完剩余端点 + 清理 + 部署调整",
+      "phase": "2.5",
+      "track": "A-main",
+      "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。完成后 feat-010 起所有主流程业务 feature 才可启动。",
+      "dependencies": [
+        "feat-100.3"
+      ],
+      "status": "done",
+      "evidence": "剩余 14 stage + snapshots + pipeline-runs 全部迁到 NestJS（apps/api 共 25 路径）；删除 apps/web/app/api/* + providers.ts + snapshotDb.ts；docStore.ts 缩成类型存根（DocumentRecord 类型）；apps/web/lib/api-base.ts 取消白名单全部路由到 NestJS；pnpm -r typecheck/lint 全过；rag-core 238/238 单测；NestJS 自测 18 个 stage（含 idempotency hash 检测 / preprocess 真实文档抽文本）+ snapshots/pipeline-runs 路由全部 OK。"
+    },
+    {
+      "id": "feat-200",
+      "name": "Idea-Maker MVP（8 周快速交付）",
+      "phase": "3",
+      "track": "A-main",
+      "description": "从纯 RAG Playground 升级到完整产品 MVP：用户可登录 → 建项目 → 传文档 → 自动生成产品卡片 → 提问 → 看 Pipeline Trace（透明 11-stage 执行过程） → 多维反馈 → 历史回放 → 笔记库复用。核心架构：Pipeline Orchestrator（YAML 配置驱动，非真 Agent）+ 成本追踪 + 反馈采集（为 Phase 4 学习系统准备）。排期：8 周（周 1-8），每周一个 milestone。",
+      "dependencies": [
+        "feat-100.4"
+      ],
+      "status": "epic",
+      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。详见 `.claude/memory/mvp-plan-2026-05-27.md` 和 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`。"
+    },
+    {
+      "id": "feat-200.1",
+      "name": "Week 1：API 基础设施 + 项目 CRUD",
+      "phase": "3",
+      "track": "A-main",
+      "description": "搭建 MVP 后端骨架：JWT auth / projects CRUD / project settings / TracingInterceptor + TraceContext。数据库新增表：users / projects / project_settings。端点：/auth/{login,register,me} / /projects CRUD / /projects/:id/settings。验收：Postman 跑通登录 + 建项目 + 修改设置。",
+      "dependencies": [
+        "feat-200"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.2",
+      "name": "Week 2：文档 + Ingestion Job + SSE 进度",
+      "phase": "3",
+      "track": "A-main",
+      "description": "documents 表加 category 字段；新建 ingestion_jobs 表；异步 job 管理；SSE 进度推送。端点：POST /projects/:id/documents (category=product|compete|history) / GET /projects/:id/ingestion/:jobId/events (SSE)。验收：上传 PDF，前端实时看进度 0→100。",
+      "dependencies": [
+        "feat-200.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.3",
+      "name": "Week 3：Pipeline Orchestrator + Generations + Generate 端点",
+      "phase": "3",
+      "track": "A-main",
+      "description": "新建 pipeline-orchestrator 模块；YAML 配置驱动 11-stage 编排（非 Agent）。新建 generations 表（含 pipeline_trace / retrieved_chunks / result_notes / cost_breakdown）。核心端点：POST /projects/:id/generate（返回完整 pipeline_trace）。集成 TraceContext 累计成本。验收：mock LLM key 跑通一次 generate，JSON 含 4 段 trace + cost。",
+      "dependencies": [
+        "feat-200.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.4",
+      "name": "Week 4：自动生成 + 反馈 + 成本统计 + 历史 API",
+      "phase": "3",
+      "track": "A-main",
+      "description": "新建 auto_generations 表；监听 ingestion.completed 事件自动生成 intro + compete 卡片。新建 feedbacks 表（4 维评分 + edit_diff）。新建 cost_summary 表（daily upsert）。端点：POST /generations/:id/feedback / GET /projects/:id/cost/summary / GET /projects/:id/generations (cursor 分页)。验收：后端全部 MVP 端点跑通 e2e。",
+      "dependencies": [
+        "feat-200.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.5",
+      "name": "Week 5：前端骨架 + 登录 + 项目管理",
+      "phase": "3",
+      "track": "A-main",
+      "description": "新建前端页面：(auth)/login / (workspace)/layout + Sidebar / projects/page。全局状态（zustand）：currentUser / currentProjectId / settings cache。API client（按域拆：auth/projects/documents/generations）。CSS 变量迁入 globals.css。迁移原型组件 Login / Projects / Sidebar（.jsx → .tsx）对接真实 API。验收：走通'登录 → 看项目列表 → 建项目 → 切换项目'。",
+      "dependencies": [
+        "feat-200.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.6",
+      "name": "Week 6：文档上传 + 自动卡片 + Chat 主界面 + PipelineTrace",
+      "phase": "3",
+      "track": "A-main",
+      "description": "前端 projects/[id]/knowledge/page：Upload 组件 + 三 Tab 分类 + 轮询进度。projects/[id]/page：ProjectInfoCards + PresetGrid + 输入框 + generate 调用。components/pipeline/PipelineTrace：把原型 AgentThinking.jsx 迁过来，接 generate 返回的 pipeline_trace。4 阶段进度可视化 + 简/详细视图切换。验收：端到端'传文档 → 自动卡片 → 提问 → 看 trace → 看结果'。",
+      "dependencies": [
+        "feat-200.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.7",
+      "name": "Week 7：多维反馈 + 历史 + 笔记库 + Settings",
+      "phase": "3",
+      "track": "A-main",
+      "description": "components/feedback/MultiDimRating（4 维评分）+ GenerationEditor（编辑 textarea + diff）。生成结果旁成本分解行。projects/[id]/history：列表 + 详情模态框 + 过滤。projects/[id]/notes：笔记库页面 + 'Add to Library' 按钮。projects/[id]/settings：BYOK（密码输入 + 测试连接）+ 模型参数 + 平台规则 Tab。验收：反馈后能在历史看评分；笔记加入库能复用。",
+      "dependencies": [
+        "feat-200.6"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-200.8",
+      "name": "Week 8：平台规则验证 + 流式化 + 联调打磨 + 部署",
+      "phase": "3",
+      "track": "A-main",
+      "description": "后端：platform_rules CRUD + generate 时注入规则进 prompt + validator 检测违规返回 violations。前端：违规提示横幅。错误处理统一化 → toast。Loading / Empty / Error 状态 review。把 18-stage 关键节点映射成 4 SSE 事件，前端从伪动画切到真实事件驱动。部署到 Fly.io 测试环境。验收：MVP 7 个成功指标全部勾选；e2e smoke test 通过；部署成功。",
+      "dependencies": [
+        "feat-200.7"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
       "id": "feat-010",
       "name": "Pipeline Orchestration Agent（Phase 3.5 真 Agent）",
       "phase": "3.5",
@@ -595,174 +763,6 @@
       "description": "Fly.io 多服务部署：apps/web (Next.js Dockerfile) + apps/api (NestJS Dockerfile) + services/pymupdf (Python) + Fly Postgres（内置 pgvector）。根 fly.toml 定义多 service。GitHub Actions CI：PR 时跑 monorepo 全量 typecheck + lint + 各 app 独立 build。备选混合部署：apps/web 上 Vercel + apps/api + pymupdf 上 Fly。",
       "dependencies": [
         "feat-013.4"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-100",
-      "name": "架构重构（pnpm monorepo + NestJS 前后端分离）",
-      "phase": "2.5",
-      "track": "A-main",
-      "description": "把当前 Next.js 单体重构为「pnpm monorepo + 独立 NestJS 后端 + Next.js 前端 + 纯 RAG 库」清晰分层架构。所有后续 feature（feat-010~013）都在新架构下开发。**编号约定**：采用 100+ 段位标识此类跨阶段的架构/基础设施重构（与 001~099 业务功能区分），便于一眼区分「业务开发」vs「架构调整」。分 4 个 Wave 渐进迁移。",
-      "dependencies": [
-        "feat-008"
-      ],
-      "status": "epic",
-      "evidence": "父级聚合 feat-100.1~100.4；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-25-架构重构"
-    },
-    {
-      "id": "feat-100.1",
-      "name": "架构重构 Wave 1：pnpm monorepo 骨架",
-      "phase": "2.5",
-      "track": "A-main",
-      "description": "根目录加 pnpm-workspace.yaml，把现有 app/ 移动到 apps/web/，创建空 apps/api/（NestJS init）和空 packages/rag-core/、packages/shared-types/。验收：pnpm dev 启动 web，pipeline 一切如旧。先建立工程基座，不动算法。",
-      "dependencies": [
-        "feat-100"
-      ],
-      "status": "done",
-      "evidence": "2026-05-25 完成：根 pnpm-workspace.yaml + package.json + .npmrc；git mv app → apps/web 保留历史；删除 npm package-lock.json 切换 pnpm；apps/web/package.json name → @harness/web；apps/api 最小 NestJS 骨架（main + AppModule + HealthController + eslint.config.mjs）；packages/rag-core + packages/shared-types 占位（仅 package.json + tsconfig + index.ts version 常量）；init.sh 改为 pnpm -r typecheck / lint。验收：pnpm install 通过；pnpm -r typecheck 4 包全过；pnpm -r lint 4 包全过；pnpm dev 启 web 后 GET / → 200、GET /api/documents 返回历史文档列表、POST /api/pipeline/idempotency 返回正确 error envelope。"
-    },
-    {
-      "id": "feat-100.2",
-      "name": "架构重构 Wave 2：抽 packages/rag-core 纯库",
-      "phase": "2.5",
-      "track": "A-main",
-      "description": "把 ingestion / retrieval / generation 各 stage 的核心逻辑（非 HTTP 部分）从 apps/web/app/api/pipeline/*/route.ts 抽到 packages/rag-core/src/。pure functions 无 HTTP 无 framework 依赖。Next.js routes 改为薄路由（仅参数解析 + 调 rag-core + 包装 trace）。同步在 packages/shared-types 定义所有 DTOs（zod schema）。验收：rag-core 有独立 vitest 单测可跑，Playground 行为零回归。**冲突高风险窗口**（1-2 周）：实验流（轨道 B）应冻结算法改动只调参。",
-      "dependencies": [
-        "feat-100.1"
-      ],
-      "status": "done",
-      "evidence": "2026-05-26 ✅ 全部 18 stage 抽取完成。【Ingestion 链 6/6】idempotency / preprocess / chunk / transform / embedding / storage。【Retrieval 链 8/8】query-rewrite / intent-recognition / retrieval / multi-recall-merge / filter / rerank / citation / fallback。【Generation 链 3/3】context-management / prompt-build / generation。【Evaluation 1/1】evaluation。【I/O 注入契约三类】OpenAICompatibleClient（embeddings）/ LLMChatClient（chat，含 usage）/ PgClient（query）— shared-types 零外部依赖。【7 种 idiom】（1）upstreamQuery 跨 stage 字段提取；（2）双 provider 注入（rerank）；（3）三重 client 注入（retrieval = pg + openai + tei）；（4）missing 降级 vs missing 失败语义；（5）per-chunk 失败收集；（6）预定义 canonical types；（7）evidencePack 跨 stage 透传（citation → prompt-build → generation → evaluation）。【单测 238/238】。【路由减幅】2344+1132+1340+760 行 → 各 60-130 行薄路由。下一步：feat-100.3（Wave 3 NestJS 端点迁移）。"
-    },
-    {
-      "id": "feat-100.3",
-      "name": "架构重构 Wave 3：搭 NestJS 后端 + 5 端点迁移 + 双跑期",
-      "phase": "2.5",
-      "track": "A-main",
-      "description": "apps/api 初始化 NestJS，按 Phase 划分 Modules（pipeline / agent / studio / auth）。先迁 5 个最简单端点（document upload / chunk / embed / retrieve / generate）到 NestJS。apps/web 通过 NEXT_PUBLIC_API_URL fetch 调用 NestJS。双跑期：Next.js routes 暂留作 fallback，feature flag USE_NEST_API 切换。验收：迁移端点可通过 NestJS + Swagger UI 调通。",
-      "dependencies": [
-        "feat-100.2"
-      ],
-      "status": "done",
-      "evidence": "NestJS apps/api 启动：health + /docs Swagger UI 200；5 端点（chunk/embedding/retrieval/generation/documents）已迁入并 DI 注入 ProvidersService/DocStoreService 验证通过；apps/web 加 lib/api-base.ts 切换层（NEXT_PUBLIC_USE_NEST_API + NEXT_PUBLIC_API_URL）；PipelineExceptionFilter 统一翻译 PipelineError/ZodError/NotFoundException；ts-node-dev 解决 decorator metadata 问题；238/238 单测；pnpm -r typecheck/lint 全过。"
-    },
-    {
-      "id": "feat-100.4",
-      "name": "架构重构 Wave 4：迁完剩余端点 + 清理 + 部署调整",
-      "phase": "2.5",
-      "track": "A-main",
-      "description": "剩余 ~15 个端点全部迁完到 NestJS。删除 apps/web/app/api/* 路由目录。部署架构调整为多服务：apps/web (Next.js) + apps/api (NestJS) + services/pymupdf (Python) + Fly Postgres。GitHub Actions CI 调整为 monorepo 全量 typecheck + lint + 各 app 独立 build。验收：完整 RAG 链路在分离架构下通过，删除所有 Next.js API route 代码。完成后 feat-010 起所有主流程业务 feature 才可启动。",
-      "dependencies": [
-        "feat-100.3"
-      ],
-      "status": "done",
-      "evidence": "剩余 14 stage + snapshots + pipeline-runs 全部迁到 NestJS（apps/api 共 25 路径）；删除 apps/web/app/api/* + providers.ts + snapshotDb.ts；docStore.ts 缩成类型存根（DocumentRecord 类型）；apps/web/lib/api-base.ts 取消白名单全部路由到 NestJS；pnpm -r typecheck/lint 全过；rag-core 238/238 单测；NestJS 自测 18 个 stage（含 idempotency hash 检测 / preprocess 真实文档抽文本）+ snapshots/pipeline-runs 路由全部 OK。"
-    },
-    {
-      "id": "feat-200",
-      "name": "Idea-Maker MVP（8 周快速交付）",
-      "phase": "3",
-      "track": "A-main",
-      "description": "从纯 RAG Playground 升级到完整产品 MVP：用户可登录 → 建项目 → 传文档 → 自动生成产品卡片 → 提问 → 看 Pipeline Trace（透明 11-stage 执行过程） → 多维反馈 → 历史回放 → 笔记库复用。核心架构：Pipeline Orchestrator（YAML 配置驱动，非真 Agent）+ 成本追踪 + 反馈采集（为 Phase 4 学习系统准备）。排期：8 周（周 1-8），每周一个 milestone。",
-      "dependencies": [
-        "feat-100.4"
-      ],
-      "status": "epic",
-      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。详见 `.claude/memory/mvp-plan-2026-05-27.md` 和 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`。"
-    },
-    {
-      "id": "feat-200.1",
-      "name": "Week 1：API 基础设施 + 项目 CRUD",
-      "phase": "3",
-      "track": "A-main",
-      "description": "搭建 MVP 后端骨架：JWT auth / projects CRUD / project settings / TracingInterceptor + TraceContext。数据库新增表：users / projects / project_settings。端点：/auth/{login,register,me} / /projects CRUD / /projects/:id/settings。验收：Postman 跑通登录 + 建项目 + 修改设置。",
-      "dependencies": [
-        "feat-200"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.2",
-      "name": "Week 2：文档 + Ingestion Job + SSE 进度",
-      "phase": "3",
-      "track": "A-main",
-      "description": "documents 表加 category 字段；新建 ingestion_jobs 表；异步 job 管理；SSE 进度推送。端点：POST /projects/:id/documents (category=product|compete|history) / GET /projects/:id/ingestion/:jobId/events (SSE)。验收：上传 PDF，前端实时看进度 0→100。",
-      "dependencies": [
-        "feat-200.1"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.3",
-      "name": "Week 3：Pipeline Orchestrator + Generations + Generate 端点",
-      "phase": "3",
-      "track": "A-main",
-      "description": "新建 pipeline-orchestrator 模块；YAML 配置驱动 11-stage 编排（非 Agent）。新建 generations 表（含 pipeline_trace / retrieved_chunks / result_notes / cost_breakdown）。核心端点：POST /projects/:id/generate（返回完整 pipeline_trace）。集成 TraceContext 累计成本。验收：mock LLM key 跑通一次 generate，JSON 含 4 段 trace + cost。",
-      "dependencies": [
-        "feat-200.2"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.4",
-      "name": "Week 4：自动生成 + 反馈 + 成本统计 + 历史 API",
-      "phase": "3",
-      "track": "A-main",
-      "description": "新建 auto_generations 表；监听 ingestion.completed 事件自动生成 intro + compete 卡片。新建 feedbacks 表（4 维评分 + edit_diff）。新建 cost_summary 表（daily upsert）。端点：POST /generations/:id/feedback / GET /projects/:id/cost/summary / GET /projects/:id/generations (cursor 分页)。验收：后端全部 MVP 端点跑通 e2e。",
-      "dependencies": [
-        "feat-200.3"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.5",
-      "name": "Week 5：前端骨架 + 登录 + 项目管理",
-      "phase": "3",
-      "track": "A-main",
-      "description": "新建前端页面：(auth)/login / (workspace)/layout + Sidebar / projects/page。全局状态（zustand）：currentUser / currentProjectId / settings cache。API client（按域拆：auth/projects/documents/generations）。CSS 变量迁入 globals.css。迁移原型组件 Login / Projects / Sidebar（.jsx → .tsx）对接真实 API。验收：走通'登录 → 看项目列表 → 建项目 → 切换项目'。",
-      "dependencies": [
-        "feat-200.4"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.6",
-      "name": "Week 6：文档上传 + 自动卡片 + Chat 主界面 + PipelineTrace",
-      "phase": "3",
-      "track": "A-main",
-      "description": "前端 projects/[id]/knowledge/page：Upload 组件 + 三 Tab 分类 + 轮询进度。projects/[id]/page：ProjectInfoCards + PresetGrid + 输入框 + generate 调用。components/pipeline/PipelineTrace：把原型 AgentThinking.jsx 迁过来，接 generate 返回的 pipeline_trace。4 阶段进度可视化 + 简/详细视图切换。验收：端到端'传文档 → 自动卡片 → 提问 → 看 trace → 看结果'。",
-      "dependencies": [
-        "feat-200.5"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.7",
-      "name": "Week 7：多维反馈 + 历史 + 笔记库 + Settings",
-      "phase": "3",
-      "track": "A-main",
-      "description": "components/feedback/MultiDimRating（4 维评分）+ GenerationEditor（编辑 textarea + diff）。生成结果旁成本分解行。projects/[id]/history：列表 + 详情模态框 + 过滤。projects/[id]/notes：笔记库页面 + 'Add to Library' 按钮。projects/[id]/settings：BYOK（密码输入 + 测试连接）+ 模型参数 + 平台规则 Tab。验收：反馈后能在历史看评分；笔记加入库能复用。",
-      "dependencies": [
-        "feat-200.6"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-200.8",
-      "name": "Week 8：平台规则验证 + 流式化 + 联调打磨 + 部署",
-      "phase": "3",
-      "track": "A-main",
-      "description": "后端：platform_rules CRUD + generate 时注入规则进 prompt + validator 检测违规返回 violations。前端：违规提示横幅。错误处理统一化 → toast。Loading / Empty / Error 状态 review。把 18-stage 关键节点映射成 4 SSE 事件，前端从伪动画切到真实事件驱动。部署到 Fly.io 测试环境。验收：MVP 7 个成功指标全部勾选；e2e smoke test 通过；部署成功。",
-      "dependencies": [
-        "feat-200.7"
       ],
       "status": "todo",
       "evidence": ""
