@@ -15,11 +15,18 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { json, urlencoded } from "express";
 import { AppModule } from "./app.module";
 import { PipelineExceptionFilter } from "./common/pipeline-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 调大 body limit：默认 100kb 对 RAG pipeline 上游产物（cleanText / chunks /
+  // embedding 向量）不够用。BODY_LIMIT 可通过 env 覆盖（默认 50mb）。
+  const bodyLimit = process.env.BODY_LIMIT ?? "50mb";
+  app.use(json({ limit: bodyLimit }));
+  app.use(urlencoded({ extended: true, limit: bodyLimit }));
 
   // CORS：开发期允许 Playground (3000) / NestJS dev (3001) / 任意预览口
   app.enableCors({
