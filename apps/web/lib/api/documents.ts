@@ -1,64 +1,89 @@
 /**
  * Documents API — feat-200.6 Week 6
  *
+ * 对接 MvpDocumentsController（/projects/:pid/documents）
+ * 注意：不是旧的 /documents（Playground 遗留）
+ *
  * 端点（Week 2 后端）：
- *   GET    /documents                               列表
- *   POST   /documents                               上传（multipart/form-data 或 JSON text）
- *   DELETE /documents/:id                           删除
- *   GET    /projects/:pid/ingestion                 列出 ingestion jobs
- *   GET    /projects/:pid/ingestion/:jobId          轮询 job 状态
- *   GET    /projects/:pid/ingestion/:jobId/events   SSE 进度流
+ *   POST   /projects/:pid/documents          上传（multipart + category）→ 自动触发 ingestion
+ *   GET    /projects/:pid/documents?category= 列表
+ *   GET    /projects/:pid/documents/:docId    单条
+ *   DELETE /projects/:pid/documents/:docId    删除
+ *   GET    /projects/:pid/ingestion           列出 ingestion jobs
+ *   GET    /projects/:pid/ingestion/:jobId    轮询 job 状态
+ *   GET    /projects/:pid/ingestion/:jobId/events  SSE 进度流
  *
  * 设计：
- *   - 上传用 FormData（支持真实文件 + multipart）
- *   - SSE 用原生 EventSource（浏览器内建，自动重连）
- *   - ingestion 进度轮询作为 SSE 的降级方案
+ *   - 上传走 FormData（multipart），返回 {document, ingestionJobId}
+ *   - 前端拿 ingestionJobId 轮询或 SSE 订阅进度
+ *   - category 必填（product / compete / history）
  */
 
 import { apiFetch } from "./client";
 
-// ── 类型 ──────────────────────────────────────────────────────────────────
+// ── 类型（镜像后端 mvp-documents.types.ts） ────────────────────────────────
 
-export interface Document {
+export type DocumentCategory = "product" | "compete" | "history";
+
+export interface MvpDocument {
   id: string;
+  projectId: string;
+  category: DocumentCategory;
   fileName: string;
   mimeType: string;
-  sizeBytes: number;
+  fileSize: number;
+  hash: string;
+  version: number;
+  processingStatus: "queued" | "processing" | "ready" | "error";
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface IngestionJob {
   id: string;
-  documentId: string;
   projectId: string;
+  documentId: string;
   status: "queued" | "processing" | "completed" | "failed";
   progress: number;
-  stage: string | null;
-  chunksCount: number;
+  currentStage: string | null;
+  chunksDone: number;
+  chunksTotal: number;
+  costUsd: number;
   error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 // ── 文档 CRUD ─────────────────────────────────────────────────────────────
 
-/** 获取文档列表 */
-export async function listDocuments(): Promise<{ documents: Document[] }> {
-  return apiFetch<{ documents: Document[] }>("/documents");
+/** 获取项目文档列表（可按 category 过滤） */
+export async function listDocuments(
+  projectId: string,
+  category?: DocumentCategory,
+): Promise<{ documents: MvpDocument[] }> {
+  const qs = category ? `?category=${category}` : "";
+  return apiFetch<{ documents: MvpDocument[] }>(
+    `/projects/${projectId}/documents${qs}`,
+  );
 }
 
 /**
- * 上传文件（multipart/form-data）。
- * 不走 apiFetch 的 JSON 封装，直接用 fetch + FormData。
+ * 上传文件到项目（multipart/form-data）。
+ * 后端自动触发 ingestion job，返回 {document, ingestionJobId}。
+ *
+ * 不走 apiFetch 的 JSON 封装——FormData 需要浏览器自动设 boundary。
  */
 export async function uploadDocument(
+  projectId: string,
   file: File,
-  category?: string,
-): Promise<{ document: Document }> {
+  category: DocumentCategory,
+): Promise<{ document: MvpDocument; ingestionJobId: string }> {
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
   const formData = new FormData();
   formData.append("file", file);
-  if (category) formData.append("category", category);
+  formData.append("category", category);
 
   // 手动构建 headers（不设 Content-Type，让浏览器自动加 boundary）
   const token =
@@ -69,7 +94,7 @@ export async function uploadDocument(
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}/documents`, {
+  const res = await fetch(`${BASE_URL}/projects/${projectId}/documents`, {
     method: "POST",
     headers,
     body: formData,
@@ -83,9 +108,14 @@ export async function uploadDocument(
   return res.json();
 }
 
-/** 删除文档 */
-export async function deleteDocument(id: string): Promise<void> {
-  return apiFetch<void>(`/documents/${id}`, { method: "DELETE" });
+/** 删除项目文档 */
+export async function deleteDocument(
+  projectId: string,
+  docId: string,
+): Promise<void> {
+  return apiFetch<void>(`/projects/${projectId}/documents/${docId}`, {
+    method: "DELETE",
+  });
 }
 
 // ── Ingestion ─────────────────────────────────────────────────────────────
@@ -111,10 +141,8 @@ export async function getIngestionJob(
 
 /**
  * 连接 ingestion SSE 流。
- * 返回 EventSource 实例，调用者可监听 message / error 事件。
- *
  * 注意：EventSource 不支持 Authorization header，
- * 后端 SSE 端点改用 query param ?token=xxx（Week 2 已支持）。
+ * 后端 SSE 端点用 query param ?token=xxx。
  */
 export function connectIngestionSSE(
   projectId: string,

@@ -13,5 +13,5 @@ export * as generationsApi from "./generations";
 export { ApiError, setTokenGetter } from "./client";
 export type { User } from "./auth";
 export type { Project, ProjectSettings } from "./projects";
-export type { Document, IngestionJob } from "./documents";
+export type { MvpDocument, DocumentCategory, IngestionJob } from "./documents";
 export type { GenerationRow, GenerateResponse, PipelineTrace, StageResult, CostBreakdown } from "./generations";

@@ -16,16 +16,12 @@ import { apiFetch } from "./client";
 // ── 类型（镜像后端 pipeline-orchestrator.types.ts） ────────────────────────
 
 export interface CostBreakdown {
-  totalCostUsd: number;
-  totalTokensIn: number;
-  totalTokensOut: number;
-  stages: Array<{
-    stageId: string;
-    model?: string;
-    costUsd: number;
-    tokensIn: number;
-    tokensOut: number;
-  }>;
+  costUsd: number;
+  llmTokensPrompt: number;
+  llmTokensCompletion: number;
+  embeddingCalls: number;
+  retrievalCalls: number;
+  rerankerCalls: number;
 }
 
 export interface StageResult {

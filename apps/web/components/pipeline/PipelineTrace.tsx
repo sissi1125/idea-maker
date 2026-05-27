@@ -209,8 +209,8 @@ function ThinkingTraceDetail({ trace }: { trace: PipelineTraceType | null }) {
       <div className="pt-3 flex gap-3 flex-wrap text-[11.5px] mono"
            style={{ borderTop: "1px solid var(--line-2)", color: "var(--ink-3)" }}>
         <span>⏱ {trace.totalDurationMs}ms</span>
-        <span>💰 ${trace.cost.totalCostUsd.toFixed(4)}</span>
-        <span>in {trace.cost.totalTokensIn} / out {trace.cost.totalTokensOut}</span>
+        <span>💰 ${trace.cost.costUsd.toFixed(4)}</span>
+        <span>prompt {trace.cost.llmTokensPrompt} / completion {trace.cost.llmTokensCompletion}</span>
       </div>
     </div>
   );

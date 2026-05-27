@@ -1,16 +1,17 @@
 /**
  * Knowledge 知识库页 — feat-200.6 Week 6
  *
- * 迁移自原型 Upload.jsx。对接真实 API：
- *   - 文档 CRUD：documentsApi.listDocuments / uploadDocument / deleteDocument
- *   - Ingestion 进度：轮询 ingestionApi（SSE 为 Week 8 增强）
+ * 迁移自原型 Upload.jsx。对接 MVP 后端：
+ *   - POST   /projects/:pid/documents（multipart + category）→ 自动触发 ingestion
+ *   - GET    /projects/:pid/documents?category= 列表
+ *   - DELETE /projects/:pid/documents/:docId
+ *   - GET    /projects/:pid/ingestion/:jobId 轮询进度
  *
- * 功能：
- *   - 三分类 Tab（产品资料 / 竞品资料 / 历史宣传物料）
- *   - Dropzone 拖拽上传（真实调 POST /documents multipart）
- *   - 文件列表按分类分组，显示文件名 / 大小 / 状态 / chunks
- *   - 处理中的文件显示进度条
- *   - 底部"完成，去对话"按钮跳转 chat 主界面
+ * 流程：
+ *   1. 用户选分类 → 拖拽/点击上传文件
+ *   2. 后端返回 {document, ingestionJobId}
+ *   3. 前端用 ingestionJobId 轮询进度（每 2s），更新进度条
+ *   4. ingestion 完成 → 文件状态变为 ready
  */
 
 "use client";
@@ -22,11 +23,19 @@ import {
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { documentsApi } from "@/lib/api";
-import type { Document as ApiDocument } from "@/lib/api";
+import type { MvpDocument, DocumentCategory, IngestionJob } from "@/lib/api";
 
 // ── 分类定义 ──────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
+const CATEGORIES: Array<{
+  id: DocumentCategory;
+  label: string;
+  hint: string;
+  icon: string;
+  color: string;
+  bg: string;
+  border: string;
+}> = [
   { id: "product", label: "产品资料",     hint: "产品手册、规格书、卖点稿", icon: "📦",
     color: "var(--brand)", bg: "var(--brand-soft)", border: "rgba(79,168,154,.28)" },
   { id: "compete", label: "竞品资料",     hint: "对标竞品的产品页、评测",   icon: "🎯",
@@ -35,7 +44,7 @@ const CATEGORIES = [
     color: "var(--gen)",   bg: "var(--gen-bg)",     border: "rgba(214,180,80,.25)" },
 ];
 
-// ── 文件扩展名样式 ─────────────────────────────────────────────────────────
+// ── 工具函数 ──────────────────────────────────────────────────────────────
 
 function getExtStyle(fileName: string) {
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -50,17 +59,26 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// ── 本地文件条目类型（包含上传状态） ───────────────────────────────────────
+function stageLabel(stage: string | null): string {
+  if (!stage) return "等待中";
+  const map: Record<string, string> = {
+    preprocess: "解析中", chunk: "Chunking", embedding: "Embedding",
+    storage: "建索引", complete: "已索引",
+  };
+  return map[stage] ?? stage;
+}
+
+// ── 本地文件条目（合并 document + ingestion 状态） ──────────────────────────
 
 interface FileEntry {
   id: string;
   name: string;
   size: string;
-  status: "uploading" | "processing" | "done" | "failed";
+  category: DocumentCategory;
+  status: "uploading" | "queued" | "processing" | "ready" | "error";
   progress: number;
   stage: string;
-  chunks: number;
-  category: string;
+  ingestionJobId: string | null;
 }
 
 // ── 组件 ──────────────────────────────────────────────────────────────────
@@ -71,79 +89,118 @@ export default function KnowledgePage() {
   const { currentProject: getCurrent, setCurrentProject } = useProjectsStore();
   const project = getCurrent();
 
-  const [category, setCategory] = useState("product");
+  const [category, setCategory] = useState<DocumentCategory>("product");
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 正在轮询的 jobId 集合
+  const pollingRef = useRef<Set<string>>(new Set());
 
   // 同步 project
   useEffect(() => {
     if (projectId) setCurrentProject(projectId);
   }, [projectId, setCurrentProject]);
 
+  // ── 加载文档列表 ─────────────────────────────────────────────────────────
+
   const loadDocuments = useCallback(async () => {
+    if (!projectId) return;
     try {
-      const { documents } = await documentsApi.listDocuments();
-      setFiles(documents.map((d: ApiDocument) => ({
+      const { documents } = await documentsApi.listDocuments(projectId);
+      setFiles(documents.map((d: MvpDocument) => ({
         id: d.id,
         name: d.fileName,
-        size: formatSize(d.sizeBytes),
-        status: "done" as const,
-        progress: 100,
-        stage: "已索引",
-        chunks: 0, // 后端暂不返回 chunks 数（Week 8 增强）
-        category: guessCategoryFromName(d.fileName),
+        size: formatSize(d.fileSize),
+        category: d.category,
+        status: d.processingStatus,
+        progress: d.processingStatus === "ready" ? 100 : 0,
+        stage: d.processingStatus === "ready" ? "已索引" : stageLabel(null),
+        ingestionJobId: null,
       })));
     } catch {
-      // 静默失败，空列表即可
+      // 静默
     }
-  }, []);
+  }, [projectId]);
 
-  // 初始化：拉文档列表
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
 
-  /** 根据文件名猜测分类（简单启发式，后续可改为用户选择） */
-  function guessCategoryFromName(name: string): string {
-    const lower = name.toLowerCase();
-    if (lower.includes("compet") || lower.includes("竞品") || lower.includes("对比")) return "compete";
-    if (lower.includes("histor") || lower.includes("案例") || lower.includes("宣传")) return "history";
-    return "product";
-  }
+  // ── Ingestion 轮询 ──────────────────────────────────────────────────────
+
+  const pollIngestion = useCallback((jobId: string, docTempId: string) => {
+    if (!projectId || pollingRef.current.has(jobId)) return;
+    pollingRef.current.add(jobId);
+
+    const timer = setInterval(async () => {
+      try {
+        const { job } = await documentsApi.getIngestionJob(projectId, jobId);
+        // 更新对应文件条目
+        setFiles(prev => prev.map(f => {
+          if (f.id !== docTempId && f.ingestionJobId !== jobId) return f;
+          return {
+            ...f,
+            status: job.status === "completed" ? "ready"
+                  : job.status === "failed" ? "error"
+                  : job.status as FileEntry["status"],
+            progress: job.progress,
+            stage: job.status === "completed" ? "已索引"
+                 : job.status === "failed" ? (job.error ?? "处理失败")
+                 : stageLabel(job.currentStage),
+          };
+        }));
+
+        // 完成或失败 → 停止轮询
+        if (job.status === "completed" || job.status === "failed") {
+          clearInterval(timer);
+          pollingRef.current.delete(jobId);
+        }
+      } catch {
+        // 静默，下次重试
+      }
+    }, 2000);
+
+    // 返回清理函数（组件卸载时用）
+    return () => {
+      clearInterval(timer);
+      pollingRef.current.delete(jobId);
+    };
+  }, [projectId]);
 
   // ── 上传处理 ─────────────────────────────────────────────────────────────
 
   const handleFileSelect = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+    if (!fileList || fileList.length === 0 || !projectId) return;
 
     for (const file of Array.from(fileList)) {
-      // 先加一个 uploading 状态的条目
       const tempId = `temp-${Date.now()}-${file.name}`;
       const entry: FileEntry = {
         id: tempId,
         name: file.name,
         size: formatSize(file.size),
-        status: "uploading",
-        progress: 30,
-        stage: "上传中",
-        chunks: 0,
         category,
+        status: "uploading",
+        progress: 0,
+        stage: "上传中",
+        ingestionJobId: null,
       };
       setFiles(prev => [entry, ...prev]);
 
       try {
-        const { document: doc } = await documentsApi.uploadDocument(file, category);
-        // 更新为 done
+        const { document: doc, ingestionJobId } = await documentsApi.uploadDocument(
+          projectId, file, category,
+        );
+        // 更新为 queued/processing 并开始轮询
         setFiles(prev => prev.map(f =>
           f.id === tempId
-            ? { ...f, id: doc.id, status: "done", progress: 100, stage: "已索引" }
+            ? { ...f, id: doc.id, status: "queued", progress: 0, stage: "排队中", ingestionJobId }
             : f,
         ));
+        pollIngestion(ingestionJobId, doc.id);
       } catch (err) {
         setFiles(prev => prev.map(f =>
           f.id === tempId
-            ? { ...f, status: "failed", stage: err instanceof Error ? err.message : "上传失败" }
+            ? { ...f, status: "error", stage: err instanceof Error ? err.message : "上传失败" }
             : f,
         ));
       }
@@ -157,12 +214,13 @@ export default function KnowledgePage() {
   };
 
   const handleDelete = async (fileId: string) => {
+    if (!projectId) return;
     if (fileId.startsWith("temp-")) {
       setFiles(prev => prev.filter(f => f.id !== fileId));
       return;
     }
     try {
-      await documentsApi.deleteDocument(fileId);
+      await documentsApi.deleteDocument(projectId, fileId);
       setFiles(prev => prev.filter(f => f.id !== fileId));
     } catch {
       // 静默
@@ -172,7 +230,8 @@ export default function KnowledgePage() {
   // ── 渲染 ─────────────────────────────────────────────────────────────────
 
   const active = CATEGORIES.find(c => c.id === category)!;
-  const countByCat = (catId: string) => files.filter(f => f.category === catId).length;
+  const countByCat = (catId: DocumentCategory) => files.filter(f => f.category === catId).length;
+  const processingCount = files.filter(f => f.status === "processing" || f.status === "queued").length;
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
@@ -261,6 +320,23 @@ export default function KnowledgePage() {
                  onChange={(e) => handleFileSelect(e.target.files)} />
         </div>
 
+        {/* Processing summary */}
+        {processingCount > 0 && (
+          <div className="card mt-3.5 flex items-center gap-3.5"
+               style={{ padding: "14px 16px" }}>
+            <div className="w-[22px] h-[22px] rounded-full flex-none"
+                 style={{ border: "2.5px solid rgba(79,168,154,.22)", borderTopColor: "var(--brand)", animation: "spin .9s linear infinite" }} />
+            <div className="flex-1">
+              <div className="text-[13.5px] font-semibold">
+                正在处理 {processingCount} 个文件
+              </div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: "var(--ink-3)" }}>
+                完成后将自动生成 <b>产品介绍</b> 与 <b>竞品分析</b> 卡片
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* File list grouped by category */}
         <div className="mt-[18px]">
           {CATEGORIES.map(c => {
@@ -281,10 +357,10 @@ export default function KnowledgePage() {
                   {list.map((f, i) => {
                     const ext = f.name.split(".").pop()?.toUpperCase() ?? "?";
                     const extStyle = getExtStyle(f.name);
+                    const isProcessing = f.status === "uploading" || f.status === "processing" || f.status === "queued";
                     return (
                       <div key={f.id} className="flex items-center gap-3 px-4 py-3"
                            style={{ borderTop: i === 0 ? "none" : "1px solid var(--line-2)" }}>
-                        {/* File type badge */}
                         <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center flex-none text-[11px] font-bold mono"
                               style={{ background: extStyle.bg, color: extStyle.color }}>
                           {ext}
@@ -295,19 +371,19 @@ export default function KnowledgePage() {
                             <div className="text-[13.5px] font-semibold truncate">{f.name}</div>
                             <div className="text-[11px] mono" style={{ color: "var(--ink-4)" }}>{f.size}</div>
                           </div>
-                          {f.status === "uploading" || f.status === "processing" ? (
+                          {isProcessing ? (
                             <div className="flex items-center gap-2.5 mt-1.5">
                               <div className="relative h-[6px] flex-1 rounded-full overflow-hidden"
                                    style={{ background: "rgba(11,17,32,.06)" }}>
                                 <div className="absolute inset-0 rounded-full"
                                      style={{ width: `${f.progress}%`, background: c.color, transition: "width .35s" }} />
                               </div>
-                              <span className="mono text-[11px] font-semibold min-w-[64px] text-right"
+                              <span className="mono text-[11px] font-semibold min-w-[80px] text-right"
                                     style={{ color: c.color }}>
                                 {f.progress}% · {f.stage}
                               </span>
                             </div>
-                          ) : f.status === "failed" ? (
+                          ) : f.status === "error" ? (
                             <div className="text-[11.5px] mt-[3px]" style={{ color: "var(--err)" }}>
                               ✕ {f.stage}
                             </div>
@@ -319,18 +395,17 @@ export default function KnowledgePage() {
                         </div>
 
                         {/* Status icon */}
-                        {f.status === "done" && (
+                        {f.status === "ready" && (
                           <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center"
                                 style={{ background: "var(--ok)", color: "#fff" }}>
                             <Check size={12} strokeWidth={2.5} />
                           </span>
                         )}
-                        {f.status === "uploading" && (
+                        {isProcessing && (
                           <span className="w-[22px] h-[22px] rounded-full flex-none"
                                 style={{ border: "2.5px solid rgba(79,168,154,.22)", borderTopColor: "var(--brand)", animation: "spin .9s linear infinite" }} />
                         )}
 
-                        {/* Delete */}
                         <button className="btn btn-sm btn-ghost px-1.5 h-6"
                                 onClick={() => handleDelete(f.id)}
                                 title="删除">

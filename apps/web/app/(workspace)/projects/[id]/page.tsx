@@ -204,8 +204,8 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
         <div className="flex gap-3 items-center flex-wrap text-[11.5px] mono pt-3"
              style={{ borderTop: "1px solid var(--line-2)", color: "var(--ink-3)" }}>
           <DollarSign size={11} strokeWidth={2} />
-          <span>${result.costBreakdown.totalCostUsd.toFixed(4)}</span>
-          <span>in {result.costBreakdown.totalTokensIn} / out {result.costBreakdown.totalTokensOut}</span>
+          <span>${result.costBreakdown.costUsd.toFixed(4)}</span>
+          <span>prompt {result.costBreakdown.llmTokensPrompt} / completion {result.costBreakdown.llmTokensCompletion}</span>
         </div>
       )}
     </div>
