@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.6（Week 6：上传 + 自动卡片 + 对话主界面，待启动；feat-200.5 已完成）",
+      "current": "feat-200.7（Week 7：反馈+历史+笔记库，待启动；feat-200.6 已完成）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -511,8 +511,8 @@
       "dependencies": [
         "feat-200.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-27 Session 44: Chat主界面+知识库+PipelineTrace 6新文件 typecheck+lint ✅"
     },
     {
       "id": "feat-200.7",

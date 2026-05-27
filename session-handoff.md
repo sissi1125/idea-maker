@@ -2,9 +2,60 @@
 
 ## 最后更新
 
-2026-05-27（会话 43 — feat-200.5 Week 5 完成 ✅ 前端骨架 + 登录 + 项目管理）
+2026-05-27（会话 44 — feat-200.6 Week 6 完成 ✅ Chat 主界面 + 知识库 + PipelineTrace）
 
-## 本会话变更摘要（Session 43 — Week 5 部分）
+## 本会话变更摘要（Session 44 — Week 6 部分）
+
+🎉 Week 6 完整闭环：6 新文件 + 3 修改 + Chat + Knowledge + PipelineTrace
+
+【交付】
+- `lib/api/documents.ts` — 文档 CRUD + ingestion 轮询 + SSE 连接函数
+- `lib/api/generations.ts` — generate / list / get + 完整类型镜像
+- `components/pipeline/PipelineTrace.tsx` — 4 阶段进度动画 + trace 详情 + chunk 展示
+- `app/(workspace)/projects/[id]/page.tsx` — Chat 主界面（InfoCards + PresetGrid + ChatInput + Generate）
+- `app/(workspace)/projects/[id]/knowledge/page.tsx` — 知识库（三分类 Tab + Dropzone + 文件列表）
+- `app/globals.css` — shimmer / spin / dot / fade-up 动画 + kbd + no-scroll
+
+【设计决策】
+- PipelineTrace: rAF 伪动画 + finished 后真实 trace 数据
+- Chat 状态机: idle → running → done，generate 同步等后端完整结果
+- Knowledge 上传: FormData multipart 直传（不经 apiFetch JSON 封装）
+- useStageProgress: useState + rAF callback 避免 set-state-in-effect lint 错误
+- 修复: tokenGetter 同步注入（解决 React effect bottom-up 导致的 401）
+
+【验证】
+- typecheck + lint 全过
+- 页面渲染：/login 200 / /projects 200 ✅
+
+**进度**：feat-200.6 status="done" ✅；feat-200.7（Week 7 反馈 + 历史 + 笔记库）待启动。
+
+---
+
+## Week 7 启动清单（feat-200.7，Session 44 → Session 45）
+
+**下一 Session 开工前必读**：
+1. `progress.md` Session 44 — feat-200.6 条目
+2. `feature_list.json` feat-200.7 条目
+
+**Week 7 边界**：
+- `app/projects/[id]/history/page.tsx`：Generation 历史列表 + cursor 分页
+- `app/projects/[id]/feedback/page.tsx`：反馈表单（4 维度评分 + editDiff + comment）
+- `components/chat/NoteCard.tsx`：可折叠笔记卡 + 评分 + 保存到内容资产
+- 笔记库页面（Week 7 增强）
+
+**Scope 红线**：
+- 不改后端 API（Week 1-4 端点已足够）
+- 不做平台规则验证（Week 8）
+
+**前端已就绪资产（Week 5-6）**：
+- API client：auth / projects / documents / generations
+- Stores：auth-store / projects-store
+- 组件：Sidebar + PipelineTrace + Chat + Knowledge
+- CSS：完整品牌色 + stage 色 + 动画
+
+---
+
+## 历史交接记录（会话 43 — feat-200.5 Week 5 完成 ✅）
 
 🎉 Week 5 完整闭环：15 新文件 + 3 修改 + zustand + lucide-react + 路由三分区
 

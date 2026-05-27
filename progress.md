@@ -1,5 +1,41 @@
 # 进度记录
 
+## 2026-05-27（会话 44 — feat-200.6 Week 6：Chat 主界面 + 知识库 + PipelineTrace）✅
+
+### 范围
+
+feat-200.6：前端 Chat 主界面 + 知识库上传 + PipelineTrace 可视化。
+
+### 交付
+
+| 文件 | 说明 |
+|------|------|
+| `lib/api/documents.ts` | 文档 CRUD + ingestion 轮询 + SSE 连接 |
+| `lib/api/generations.ts` | generate + list + get（镜像后端类型） |
+| `lib/api/index.ts` | 新增 documentsApi / generationsApi 导出 |
+| `components/pipeline/PipelineTrace.tsx` | 4 阶段进度动画 + trace 详情 + chunk 展示 |
+| `app/(workspace)/projects/[id]/page.tsx` | Chat 主界面：InfoCards + PresetGrid + Input + Generate |
+| `app/(workspace)/projects/[id]/knowledge/page.tsx` | 知识库：三分类 + Dropzone 上传 + 文件列表 |
+| `app/globals.css` | 新增 shimmer/spin/dot/fade-up 动画 + kbd + no-scroll |
+| `.interview/feat-200.6_chat-knowledge-trace.md` | 6 道面试题 |
+| `apps/api/package.json` | 加 dotenv 依赖 + dev 脚本 -r dotenv/config |
+| `apps/web/app/providers.tsx` | tokenGetter 同步注入修复 |
+
+### 验证
+
+- [x] typecheck ✅
+- [x] eslint --max-warnings 0 ✅
+- [x] 页面渲染 /login 200, /projects 200
+
+### 设计决策
+
+- PipelineTrace 用 rAF 驱动伪动画（running 时），finished 后展示真实 trace
+- Chat 状态机 idle→running→done，generate 同步等待后端返回
+- 知识库 Dropzone 上传走 FormData multipart，不经过 apiFetch 的 JSON 封装
+- useStageProgress 用 useState + rAF callback 避免 lint set-state-in-effect 错误
+
+---
+
 ## 2026-05-27（会话 43 — feat-200.5 Week 5：前端骨架 + 登录 + 项目管理）✅
 
 ### 范围
