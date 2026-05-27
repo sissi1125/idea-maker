@@ -1,12 +1,52 @@
-[{
-  "id": "T01",
-  "label": "smoke test：智谱 GLM + Ollama bge-m3",
-  "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-  "transform":    { "methodId": "none", "params": {} },
-  "queryRewrite": { "methodId": "none", "params": {} },
-  "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-  "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-  "rerank":       { "methodId": "score-only", "params": {} },
-  "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-  "scoreThreshold": 0.2
-}]
+[
+  {
+    "id": "T01",
+    "label": "基线：512/chunk-citation/全层级sourceRef",
+    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none", "params": {} },
+    "queryRewrite": { "methodId": "none", "params": {} },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "score-only", "params": {} },
+    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T02",
+    "label": "512/section-citation/全层级sourceRef（复现4.0：几乎不扩展）",
+    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none", "params": {} },
+    "queryRewrite": { "methodId": "none", "params": {} },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "score-only", "params": {} },
+    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T03",
+    "label": "512/section-citation/sourceRefDepth=1（关键：粗粒度##聚合）",
+    "preprocess":   { "methodId": "markdown-structure", "params": { "preserveHeadings": true, "removeBoilerplate": false, "maxChars": 0, "sourceRefDepth": 1 } },
+    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none", "params": {} },
+    "queryRewrite": { "methodId": "none", "params": {} },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "score-only", "params": {} },
+    "citation":     { "methodId": "section-citation", "params": { "expansionMode": "section", "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  },
+  {
+    "id": "T04",
+    "label": "512/chunk-citation/sourceRefDepth=1（控制组：粗粒度但不扩展）",
+    "preprocess":   { "methodId": "markdown-structure", "params": { "preserveHeadings": true, "removeBoilerplate": false, "maxChars": 0, "sourceRefDepth": 1 } },
+    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+    "transform":    { "methodId": "none", "params": {} },
+    "queryRewrite": { "methodId": "none", "params": {} },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "rerank":       { "methodId": "score-only", "params": {} },
+    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
+    "scoreThreshold": 0.2
+  }
+]

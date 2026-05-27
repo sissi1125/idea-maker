@@ -6,6 +6,8 @@ export interface StageConfig {
 export interface TestCase {
   id: string;
   label: string;
+  /** preprocess 阶段配置，不填则用 FIXED.preprocess（实验 4.2 用 sourceRefDepth） */
+  preprocess?: StageConfig;
   chunk: StageConfig;
   transform: StageConfig;
   queryRewrite: StageConfig;

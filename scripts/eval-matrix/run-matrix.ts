@@ -133,9 +133,11 @@ async function runIngestion(
 ): Promise<{ output: unknown; durationMs: number }> {
   const t0 = Date.now();
 
+  // preprocess：优先用 testCase.preprocess，否则用 FIXED.preprocess
+  const preprocessConfig = testCase.preprocess ?? FIXED.preprocess;
   const preprocess = await post("preprocess", {
-    methodId: FIXED.preprocess.methodId,
-    params: FIXED.preprocess.params,
+    methodId: preprocessConfig.methodId,
+    params: preprocessConfig.params,
     pipelineRun: { selectedDocumentId: documentId },
   }) as { output: unknown };
 

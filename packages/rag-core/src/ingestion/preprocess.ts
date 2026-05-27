@@ -30,7 +30,7 @@ import type {
  */
 function parseMarkdown(
   raw: string,
-  params: { preserveHeadings: boolean; removeBoilerplate: boolean; maxChars: number },
+  params: { preserveHeadings: boolean; removeBoilerplate: boolean; maxChars: number; sourceRefDepth?: number },
 ): PreprocessOutput {
   const lines = raw.split("\n");
   const headings: string[] = [];
@@ -39,6 +39,19 @@ function parseMarkdown(
   const cleanLines: string[] = [];
   const headingStack: string[] = new Array(6).fill("");
   let charCursor = 0;
+
+  // sourceRefDepth: 0 或 undefined = 保留全部层级；N = 截断到 N 层
+  // 实验 4.2：粗粒度 sourceRef 让多个 ### 子章节的 chunk 共享同一个 ## sourceRef
+  const depthLimit = params.sourceRefDepth || 0;
+
+  /** 根据 depthLimit 截断 heading path */
+  function buildSourceRefPath(): string {
+    const parts = headingStack.filter(Boolean);
+    if (depthLimit > 0 && parts.length > depthLimit) {
+      return parts.slice(0, depthLimit).join(" > ");
+    }
+    return parts.join(" > ");
+  }
 
   for (const line of lines) {
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
@@ -54,7 +67,7 @@ function parseMarkdown(
         charCursor += title.length + 1;
         sourceRefs.push({
           type: "heading",
-          value: headingStack.filter(Boolean).join(" > "),
+          value: buildSourceRefPath(),
           charStart: start,
           charEnd: charCursor,
         });
@@ -82,7 +95,7 @@ function parseMarkdown(
 
     const start = charCursor;
     charCursor += clean.length + 1;
-    const currentPath = headingStack.filter(Boolean).join(" > ");
+    const currentPath = buildSourceRefPath();
     if (currentPath) {
       sourceRefs.push({ type: "paragraph", value: currentPath, charStart: start, charEnd: charCursor });
     }
@@ -159,7 +172,7 @@ async function parseMarkitdown(
   rawContent: string,
   buffer: Buffer,
   mimeType: string,
-  params: { preserveHeadings: boolean; preserveTables: boolean; removeBoilerplate: boolean; maxChars: number },
+  params: { preserveHeadings: boolean; preserveTables: boolean; removeBoilerplate: boolean; maxChars: number; sourceRefDepth?: number },
 ): Promise<PreprocessOutput> {
   const warnings: string[] = [];
   const isPdf = mimeType === "application/pdf" || mimeType === "application/x-pdf";
@@ -216,7 +229,7 @@ async function parseMarkitdown(
       const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
       const markdown = td.turndown(html);
       warnings.push("markitdown: DOCX → HTML → Markdown 转换完成");
-      const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+      const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars, sourceRefDepth: params.sourceRefDepth });
       inner.warnings.unshift(...warnings);
       inner.rawText = rawContent;
       return inner;
@@ -232,7 +245,7 @@ async function parseMarkitdown(
     warnings.push("markitdown: 检测到 HTML，使用 turndown 转换为 Markdown");
     const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
     const markdown = td.turndown(rawContent);
-    const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+    const inner = parseMarkdown(markdown, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars, sourceRefDepth: params.sourceRefDepth });
     inner.warnings.unshift(...warnings);
     inner.rawText = rawContent;
     return inner;
@@ -240,7 +253,7 @@ async function parseMarkitdown(
 
   if (isMarkdown) {
     warnings.push("markitdown: 检测到 Markdown，直接解析");
-    const inner = parseMarkdown(rawContent, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars });
+    const inner = parseMarkdown(rawContent, { preserveHeadings: params.preserveHeadings, removeBoilerplate: params.removeBoilerplate, maxChars: params.maxChars, sourceRefDepth: params.sourceRefDepth });
     inner.warnings.unshift(...warnings);
     return inner;
   }
@@ -479,6 +492,7 @@ export async function runPreprocess(input: PreprocessInput): Promise<PreprocessR
         preserveHeadings: params.preserveHeadings,
         removeBoilerplate: params.removeBoilerplate,
         maxChars: params.maxChars,
+        sourceRefDepth: params.sourceRefDepth,
       });
       break;
   }

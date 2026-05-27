@@ -1,8 +1,0 @@
-{
-  "testId": "T01",
-  "label": "smoke test：智谱 GLM + SiliconFlow BGE",
-  "status": "failed",
-  "error": "embedding 失败 [500]: internal_error — 413 status code (no body)",
-  "queryResults": [],
-  "metrics": null
-}

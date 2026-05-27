@@ -1,6 +1,6 @@
 {
-  "testId": "T01",
-  "label": "smoke test：智谱 GLM + SiliconFlow BGE",
+  "testId": "T04",
+  "label": "512/chunk-citation/sourceRefDepth=1（控制组：粗粒度但不扩展）",
   "status": "success",
   "queryResults": [
     {
@@ -10,14 +10,14 @@
       "metrics": {
         "hitRate": 1,
         "citationCoverage": 1,
-        "confidenceScore": 0.49623333333333336,
+        "confidenceScore": 0.6017666666666667,
         "retrievedCount": 10,
-        "avgScore": 0.55487,
+        "avgScore": 0.55361,
         "ideaCount": 3,
-        "contextLength": 1354,
-        "avgEvidenceLength": 451,
+        "contextLength": 1715,
+        "avgEvidenceLength": 572,
         "evidenceCount": 3,
-        "durationMs": 44680.833333333336
+        "durationMs": 23701.166666666668
       }
     },
     {
@@ -26,15 +26,15 @@
       "status": "success",
       "metrics": {
         "hitRate": 1,
-        "citationCoverage": 1,
-        "confidenceScore": 0.9758666666666667,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.67595,
         "retrievedCount": 10,
-        "avgScore": 0.5522500000000001,
-        "ideaCount": 3,
-        "contextLength": 1483,
-        "avgEvidenceLength": 494,
+        "avgScore": 0.65501,
+        "ideaCount": 2,
+        "contextLength": 1737,
+        "avgEvidenceLength": 579,
         "evidenceCount": 3,
-        "durationMs": 34934.833333333336
+        "durationMs": 22441.166666666668
       }
     },
     {
@@ -44,14 +44,14 @@
       "metrics": {
         "hitRate": 1,
         "citationCoverage": 1,
-        "confidenceScore": 0.8582333333333333,
+        "confidenceScore": 0.7037333333333334,
         "retrievedCount": 10,
-        "avgScore": 0.50579,
+        "avgScore": 0.67649,
         "ideaCount": 3,
-        "contextLength": 1452,
-        "avgEvidenceLength": 484,
+        "contextLength": 1759,
+        "avgEvidenceLength": 586,
         "evidenceCount": 3,
-        "durationMs": 35418.833333333336
+        "durationMs": 32658.166666666668
       }
     },
     {
@@ -59,16 +59,16 @@
       "query": "产品的整体设计风格和主题色方案是什么？",
       "status": "success",
       "metrics": {
-        "hitRate": 0.3333333333333333,
-        "citationCoverage": 1,
-        "confidenceScore": 0.27643333333333336,
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.5184,
         "retrievedCount": 10,
-        "avgScore": 0.41317000000000004,
-        "ideaCount": 3,
-        "contextLength": 1430,
-        "avgEvidenceLength": 477,
+        "avgScore": 0.47043,
+        "ideaCount": 2,
+        "contextLength": 1774,
+        "avgEvidenceLength": 591,
         "evidenceCount": 3,
-        "durationMs": 30121.833333333332
+        "durationMs": 20486.166666666668
       }
     },
     {
@@ -77,15 +77,15 @@
       "status": "success",
       "metrics": {
         "hitRate": 1,
-        "citationCoverage": 0.6666666666666666,
-        "confidenceScore": 0.6831,
+        "citationCoverage": 1,
+        "confidenceScore": 0.6426333333333334,
         "retrievedCount": 10,
-        "avgScore": 0.5424499999999999,
+        "avgScore": 0.5705399999999999,
         "ideaCount": 3,
-        "contextLength": 1355,
-        "avgEvidenceLength": 452,
+        "contextLength": 1718,
+        "avgEvidenceLength": 573,
         "evidenceCount": 3,
-        "durationMs": 163376.83333333334
+        "durationMs": 16306.166666666666
       }
     },
     {
@@ -93,29 +93,29 @@
       "query": "用户数据如何存储与同步，后台有哪些自动行为？",
       "status": "success",
       "metrics": {
-        "hitRate": 0,
+        "hitRate": 1,
         "citationCoverage": 1,
-        "confidenceScore": 0.049100000000000005,
+        "confidenceScore": 0.5820333333333333,
         "retrievedCount": 10,
-        "avgScore": 0.46723,
+        "avgScore": 0.5659500000000001,
         "ideaCount": 3,
-        "contextLength": 1364,
-        "avgEvidenceLength": 455,
+        "contextLength": 1743,
+        "avgEvidenceLength": 581,
         "evidenceCount": 3,
-        "durationMs": 54246.833333333336
+        "durationMs": 26125.166666666668
       }
     }
   ],
   "metrics": {
-    "hitRate": 0.7222222222222223,
-    "citationCoverage": 0.9444444444444445,
-    "confidenceScore": 0.5564944444444445,
+    "hitRate": 1,
+    "citationCoverage": 0.8888888888888888,
+    "confidenceScore": 0.6207527777777778,
     "retrievedCount": 10,
-    "avgScore": 0.50596,
-    "ideaCount": 3,
-    "contextLength": 1406.3333333333333,
-    "avgEvidenceLength": 468.8333333333333,
+    "avgScore": 0.582005,
+    "ideaCount": 2.6666666666666665,
+    "contextLength": 1741,
+    "avgEvidenceLength": 580.3333333333334,
     "evidenceCount": 3,
-    "totalDurationMs": 362780
+    "totalDurationMs": 141718
   }
 }
