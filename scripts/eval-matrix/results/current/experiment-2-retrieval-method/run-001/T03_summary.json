@@ -1,0 +1,121 @@
+{
+  "testId": "T03",
+  "label": "hybrid-bm25-rrf（语义+关键词RRF融合）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "块式编辑器支持哪些内容块类型？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.031615,
+        "retrievedCount": 10,
+        "avgScore": 0.0301666,
+        "ideaCount": 4,
+        "contextLength": 1718,
+        "avgEvidenceLength": 573,
+        "evidenceCount": 3,
+        "durationMs": 21523.666666666668
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 0.3333333333333333,
+        "confidenceScore": 0.030886,
+        "retrievedCount": 10,
+        "avgScore": 0.0302633,
+        "ideaCount": 1,
+        "contextLength": 1718,
+        "avgEvidenceLength": 573,
+        "evidenceCount": 3,
+        "durationMs": 19184.666666666668
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "用户可以通过哪些系统入口快速进入 Bloomnote？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.0309275,
+        "retrievedCount": 10,
+        "avgScore": 0.029932600000000004,
+        "ideaCount": 2,
+        "contextLength": 1775,
+        "avgEvidenceLength": 592,
+        "evidenceCount": 3,
+        "durationMs": 25150.666666666668
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的整体设计风格和主题色方案是什么？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.0320185,
+        "retrievedCount": 10,
+        "avgScore": 0.030244699999999996,
+        "ideaCount": 2,
+        "contextLength": 1802,
+        "avgEvidenceLength": 601,
+        "evidenceCount": 3,
+        "durationMs": 23879.666666666668
+      }
+    },
+    {
+      "queryId": "Q5",
+      "query": "免费用户和 Pro 用户在功能权益上有哪些区别？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.032138,
+        "retrievedCount": 10,
+        "avgScore": 0.030364500000000006,
+        "ideaCount": 2,
+        "contextLength": 1730,
+        "avgEvidenceLength": 577,
+        "evidenceCount": 3,
+        "durationMs": 18358.666666666668
+      }
+    },
+    {
+      "queryId": "Q6",
+      "query": "用户数据如何存储与同步，后台有哪些自动行为？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.03144933333333333,
+        "retrievedCount": 10,
+        "avgScore": 0.030012299999999992,
+        "ideaCount": 3,
+        "contextLength": 1725,
+        "avgEvidenceLength": 575,
+        "evidenceCount": 3,
+        "durationMs": 17133.666666666668
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 1,
+    "citationCoverage": 0.7222222222222222,
+    "confidenceScore": 0.03150572222222222,
+    "retrievedCount": 10,
+    "avgScore": 0.030164,
+    "ideaCount": 2.3333333333333335,
+    "contextLength": 1744.6666666666667,
+    "avgEvidenceLength": 581.8333333333334,
+    "evidenceCount": 3,
+    "totalDurationMs": 125231.00000000001
+  }
+}
