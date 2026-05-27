@@ -1,0 +1,36 @@
+{
+  "testId": "T01",
+  "label": "smoke test：智谱 GLM + SiliconFlow BGE",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "块式编辑器支持哪些内容块类型？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.49623333333333336,
+        "retrievedCount": 10,
+        "avgScore": 0.55487,
+        "ideaCount": 3,
+        "contextLength": 1354,
+        "avgEvidenceLength": 451,
+        "evidenceCount": 3,
+        "durationMs": 38152
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 1,
+    "citationCoverage": 1,
+    "confidenceScore": 0.49623333333333336,
+    "retrievedCount": 10,
+    "avgScore": 0.55487,
+    "ideaCount": 3,
+    "contextLength": 1354,
+    "avgEvidenceLength": 451,
+    "evidenceCount": 3,
+    "totalDurationMs": 38152
+  }
+}

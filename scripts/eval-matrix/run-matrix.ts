@@ -72,7 +72,10 @@ const QUERIES: Array<{ id: string; text: string; type?: string; difficulty?: str
 // 固定参数
 const FIXED = {
   preprocess: { methodId: "markdown-structure", params: { preserveHeadings: true, removeBoilerplate: false, maxChars: 0 } },
-  embedding:  { methodId: "openai-3-small",     params: { model: "text-embedding-v4", dimension: 1024, batchSize: 10, baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" } },
+  // embedding 走 SiliconFlow BAAI/bge-large-zh-v1.5（OpenAI 兼容，新用户 30 元免费额度）
+  // 中文优化模型，1024 维。实际 API key / baseUrl 由 NestJS 进程从 .env.local 读取
+  // 切换其他 OpenAI 兼容服务时改 .env.local 的 EMBEDDING_* 三项 + 此处 model 即可
+  embedding:  { methodId: "openai-3-small",     params: { model: "BAAI/bge-large-zh-v1.5", dimension: 1024, batchSize: 4 } },
   storage:    { methodId: "pgvector-upsert-version", params: { truncateTable: true, conflictPolicy: "upsert", indexMode: "hnsw" } },
   intentRecognition: { methodId: "rule-based",   params: {} },
   rerank:     { methodId: "pipeline-rerank",     params: { boostPassN: 20, rerankTopN: 5 } },
