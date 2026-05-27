@@ -2,9 +2,71 @@
 
 ## 最后更新
 
-2026-05-27（会话 43 — feat-200.4 Week 4 完成 ✅ Feedbacks + Auto-Gen + Cost Summary + Cursor 分页）
+2026-05-27（会话 43 — feat-200.5 Week 5 完成 ✅ 前端骨架 + 登录 + 项目管理）
 
-## 本会话变更摘要（Session 43）
+## 本会话变更摘要（Session 43 — Week 5 部分）
+
+🎉 Week 5 完整闭环：15 新文件 + 3 修改 + zustand + lucide-react + 路由三分区
+
+【交付】
+- `apps/web/lib/api/` — 4 文件：client(fetch+tokenGetter) + auth + projects + index
+- `apps/web/lib/stores/` — 2 文件：auth-store(persist JWT) + projects-store(persist currentId)
+- `apps/web/app/providers.tsx` — tokenGetter 注入 + refreshUser hydrate
+- `apps/web/app/(auth)/login/page.tsx` — 登录/注册双模式表单，lucide 图标，ApiError 展示
+- `apps/web/app/(workspace)/layout.tsx` — AuthGuard + Sidebar 全屏布局
+- `apps/web/app/(workspace)/projects/page.tsx` — 项目卡片网格 + 内联新建 + 删除
+- `apps/web/app/(workspace)/projects/[id]/page.tsx` — Week 6 占位
+- `apps/web/components/layout/Sidebar.tsx` — 品牌+项目切换器+导航+成本+用户区
+- `apps/web/app/playground/page.tsx` — 旧 Playground 路由保留
+
+【设计决策】
+- API client 用原生 fetch（不引 axios）；tokenGetter 回调避免 store 循环依赖
+- zustand persist: auth 只存 token，projects 只存 currentProjectId；其余每次拉 API
+- route groups: (auth) 无 Sidebar / (workspace) 有 Sidebar / /playground 独立
+- globals.css 迁入原型全部 30+ CSS 变量 + card/btn/chip/fade-in 原子类
+- btn-primary:hover 改为 brand-2（原型误用了深蓝色 #16307a）
+
+【验证】
+- typecheck + lint 全过
+- curl：register + login + create project + list ✅
+- 页面渲染：/login 200（"欢迎回来"）/ /projects 200（"加载中"）/ /playground 200 ✅
+
+**进度**：feat-200.5 status="done" ✅；feat-200.6（Week 6 上传+卡片+对话）待启动。
+
+---
+
+## Week 6 启动清单（feat-200.6，Session 43 → Session 44）
+
+**下一 Session 开工前必读**：
+1. 上一周成果：`progress.md` Session 43 — feat-200.5 条目
+2. 本周任务：plan § "Week 6"
+3. `feature_list.json` feat-200.6 条目
+
+**Week 6 边界**：
+- `app/projects/[id]/knowledge/page.tsx`：Upload 组件 + 进度轮询
+- `app/projects/[id]/page.tsx`：ProjectInfoCards + PresetGrid + 输入框 + generate 调用
+- `components/pipeline/PipelineTrace.tsx`：Week 6 先用伪动画
+- 4 阶段可视化 + 结果展示
+- 验收：端到端跑一次"传文档 → 自动卡片 → 提问 → 看 Agent 思考 → 看结果"
+
+**Scope 红线**：
+- 不改后端 API（Week 1-4 端点已足够）
+- 不做反馈 / 历史 / 笔记库（Week 7）
+- 不做平台规则验证（Week 8）
+
+**前端已就绪资产（Week 5）**：
+- API client：`lib/api/` (auth / projects)
+- Stores：`lib/stores/` (auth-store / projects-store)
+- 路由骨架：(auth)/login + (workspace)/layout+Sidebar + projects/[id]
+- CSS 变量：globals.css 完整品牌色 + stage 色
+
+**Week 6 需新增 API client**：
+- `lib/api/documents.ts`（upload + list + delete + ingestion SSE）
+- `lib/api/generations.ts`（generate + list + get）
+
+---
+
+## 历史交接记录（会话 43 — feat-200.4 Week 4 完成 ✅）
 
 🎉 Week 4 完整闭环：3 张新表 + 3 个新 module + 5 个新端点 + e2e curl 验证通过
 

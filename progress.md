@@ -1,5 +1,44 @@
 # 进度记录
 
+## 2026-05-27（会话 43 — feat-200.5 Week 5：前端骨架 + 登录 + 项目管理）✅
+
+### 范围
+
+Week 5 核心：前端路由骨架（Next.js route groups）、登录/注册页、项目列表+CRUD、Sidebar、zustand 状态管理、API client 层、CSS 变量迁移。
+
+### 交付
+
+**新增文件（15 个）**：
+- `apps/web/lib/api/client.ts` — fetch 封装 + ApiError + tokenGetter 注入
+- `apps/web/lib/api/auth.ts` — login / register / getMe
+- `apps/web/lib/api/projects.ts` — CRUD + settings
+- `apps/web/lib/api/index.ts` — 统一导出
+- `apps/web/lib/stores/auth-store.ts` — zustand persist + JWT + refreshUser
+- `apps/web/lib/stores/projects-store.ts` — projects list + currentProjectId persist
+- `apps/web/app/providers.tsx` — Client Component wrapper（tokenGetter 注入 + hydrate）
+- `apps/web/app/(auth)/login/page.tsx` — 登录/注册双模式，lucide-react 图标，对接真实 API
+- `apps/web/app/(workspace)/layout.tsx` — AuthGuard + Sidebar 布局
+- `apps/web/app/(workspace)/projects/page.tsx` — 项目列表网格 + 内联新建 + 删除
+- `apps/web/app/(workspace)/projects/[id]/page.tsx` — 项目详情占位（Week 6 填充）
+- `apps/web/components/layout/Sidebar.tsx` — 品牌 + 项目切换器 + 导航 + 成本 + 用户区
+- `apps/web/app/playground/page.tsx` — 旧 Playground 保留入口
+
+**修改文件（3 个）**：
+- `apps/web/app/globals.css` — 迁入原型 CSS 变量（30+ 变量）+ 全局原子类
+- `apps/web/app/layout.tsx` — Providers 包裹 + metadata 更新
+- `apps/web/app/page.tsx` — 根路径 redirect → /projects
+
+**新增依赖**：zustand、lucide-react
+
+### 验证
+
+- pnpm -r typecheck / lint 全过
+- API 端点验证：register + login + create project + list ✅
+- 页面渲染验证（curl）：/login 200 + "欢迎回来" / /projects 200 + "加载中" / /playground 200 ✅
+- 路由结构：(auth)/login、(workspace)/projects、/playground 三分区正确
+
+---
+
 ## 2026-05-27（会话 43 — feat-200.4 Week 4：Feedbacks + Auto-Gen + Cost Summary + History API）✅
 
 ### 范围

@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.5（Week 5：前端骨架 + 登录 + 项目管理，待启动；feat-200.4 已完成）",
+      "current": "feat-200.6（Week 6：上传 + 自动卡片 + 对话主界面，待启动；feat-200.5 已完成）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -499,8 +499,8 @@
       "dependencies": [
         "feat-200.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Session 43-续：15 新文件 + 3 修改。API client（fetch wrapper + tokenGetter 注入）; zustand stores（auth persist + projects persist）; 路由 route groups: (auth)/login + (workspace)/layout+Sidebar + projects list + [id] placeholder; globals.css 迁入 30+ CSS 变量 + 原子类（card/btn/chip）; lucide-react 图标库。验证：typecheck+lint 全过；API smoke（register+login+create+list）；页面渲染验证 /login 200 + /projects 200 + /playground 200。面试题：.interview/feat-200.5_frontend-skeleton.md。"
     },
     {
       "id": "feat-200.6",

@@ -1,8 +1,60 @@
+/**
+ * globals.css — feat-200.5 Week 5
+ *
+ * 从原型 index.html 迁入 CSS 变量 + 全局原子类。
+ * Tailwind 4 通过 @import "tailwindcss" 加载；
+ * 品牌色 / stage 色 / 阴影通过 CSS 变量维护（不入 Tailwind theme，
+ * 因为原型组件大量用 inline style var()，保持兼容）。
+ */
+
 @import "tailwindcss";
 
+/* ── 品牌 / 语义色 ──────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --bg: #FAFBF7;
+  --bg-2: #FFFFFF;
+  --bg-rail: #ECEFE6;
+  --bg-rail-2: #DDE2D5;
+  --bg-tint: #EEF4EE;
+  --ink: #1F2D34;
+  --ink-2: #3D4D55;
+  --ink-3: #6B7B80;
+  --ink-4: #9AA6A8;
+  --line: #EAEAE1;
+  --line-2: #F0F0E8;
+  --line-strong: #DDDCCF;
+
+  /* Brand — sage teal */
+  --brand: #4FA89A;
+  --brand-2: #3D8C7F;
+  --brand-soft: #E4F1ED;
+  --brand-ink: #1F4A42;
+
+  /* Pipeline stage colors */
+  --think: #5B8DD6;
+  --think-bg: #E8F0FA;
+  --search: #38B0B0;
+  --search-bg: #E0F2F1;
+  --tool: #E08C5A;
+  --tool-bg: #FCEEE2;
+  --gen: #D6B450;
+  --gen-bg: #F8F0D2;
+
+  /* Status */
+  --ok: #4FA88A;
+  --warn: #C28A3F;
+  --err: #C9756B;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 0 rgba(31,45,52,.025), 0 1px 2px rgba(31,45,52,.03);
+  --shadow-md: 0 2px 8px rgba(31,45,52,.04), 0 1px 2px rgba(31,45,52,.03);
+  --shadow-lg: 0 18px 50px -16px rgba(31,45,52,.14), 0 4px 12px rgba(31,45,52,.05);
+
+  /* Tailwind compatibility aliases */
+  --background: var(--bg);
+  --foreground: var(--ink);
 }
 
 @theme inline {
@@ -12,15 +64,82 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── 基础 reset ──────────────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans SC", "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+*::-webkit-scrollbar { width: 10px; height: 10px }
+*::-webkit-scrollbar-track { background: transparent }
+*::-webkit-scrollbar-thumb {
+  background: rgba(11,17,32,.12);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(11,17,32,.22);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ── 原子组件 ──────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: .15s;
+  cursor: pointer;
+}
+.btn:hover { background: #fafaf7; border-color: #c6c3b8 }
+.btn-primary { background: var(--brand); color: #fff; border-color: var(--brand) }
+.btn-primary:hover { background: var(--brand-2); border-color: var(--brand-2) }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--ink-3) }
+.btn-ghost:hover { background: rgba(11,17,32,.04); color: var(--ink) }
+.btn-sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: rgba(11,17,32,.05);
+  color: var(--ink-2);
+}
+
+/* ── Animation ──────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px) }
+  to   { opacity: 1; transform: none }
+}
+.fade-in { animation: fadeIn .2s ease-out }
