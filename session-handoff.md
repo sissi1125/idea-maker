@@ -2,71 +2,78 @@
 
 ## 最后更新
 
-2026-05-27（会话 41 — feat-200.2 Week 2 完成 ✅ Documents + Ingestion + SSE 进度 0→100）
+2026-05-27（会话 42 — feat-200.3 Week 3 完成 ✅ Pipeline Orchestrator + Generations + Generate 端点）
 
 ## 本会话变更摘要
 
-🎉 Week 2 完整闭环：8 个新文件 + 7 个新端点 + curl SSE 全流程通过
+🎉 Week 3 完整闭环：8 个新文件 + 3 个新端点 + YAML 11-stage 编排 + curl 验证通过
 
 【交付】
-- `apps/api/src/db/schema.ts` 加 `DDL_DOCUMENTS` / `DDL_INGESTION_JOBS`（追加到 FEAT_200_DDL_BLOCKS 序列）
-- `apps/api/src/mvp-documents/` — 5 文件：types / file-storage / service / controller / module（multipart 上传 → 本地 fs + PG 元数据）
-- `apps/api/src/ingestion/` — 5 文件：types / service / job-runner / controller (SSE) / module
-- `EventEmitterModule.forRoot()` 接到 `app.module.ts`；新模块挂全局
+- `apps/api/src/pipeline-orchestrator/` — 4 文件：types / service / module / pipelines/default.yaml
+- `apps/api/src/generations/` — 3 文件：service / controller / module
+- `apps/api/src/db/schema.ts` 加 `DDL_GENERATIONS`（pipeline_trace / retrieved_chunks / cost_breakdown JSONB）
+- `.interview/feat-200.3_pipeline-orchestrator-generate.md`（6 题）
 
-【7 新端点】
-- 4 个 documents：POST/GET (list)/GET (single)/DELETE
-- 3 个 ingestion：GET list / GET single（轮询）/ GET :jobId/events（SSE）
+【3 新端点】
+- `POST /projects/:projectId/generate` — 执行完整 11-stage RAG pipeline
+- `GET /projects/:projectId/generations` — 历史列表
+- `GET /projects/:projectId/generations/:id` — 详情
 
-【5-stage runner】
-- idempotency → preprocess (按 mime 选 markdown-structure/pdf-pages/markitdown) → chunk (recursive) → embedding (debug-deterministic, dim=1024) → storage (pgvector-replace-version)
-- 权重：0→10→35→45→85→100；每 stage 入口和完成都写一次 progress
+【Pipeline Orchestrator 设计】
+- YAML 配置驱动 11 stage：context-management → query-rewrite → intent-recognition → retrieval → filter → rerank → citation → prompt-build → generation → evaluation + 条件 fallback
+- 错误容忍：runStage catch 不抛，downstream 可继续或走 fallback
+- Fallback：retrieval 返回 0 结果 → 跳过 filter~evaluation → reject-answer
+- TraceContextService.addCost() 在 retrieval/rerank/generation 后累计
 
 【bug 修】
-1. TracingInterceptor 与 @Sse 冲突：SSE 头在 interceptor 之前写完导致 setHeader 抛错链；修：headersSent 短路 + SSE 路由不挂 tap
-2. IngestionController const-decorator TDZ：装饰器声明从文件末尾移到 class 上方
-3. rag-core schema 漂移：method id / params 全部对齐到 packages/shared-types 当前 schema
-4. Dimension Guard 冲突：dim 改 1024 + storage 用 replace-version
+1. GenerationsModule 缺 AuthModule → DI 失败
+2. FallbackOutput.fallbackAnswer → fallbackResponse
+3. RerankOutput fallback upstream 缺必填字段
+4. EvaluationUpstream.evidencePack 需要 EvidenceItem[]
 
 【验证】
-- pnpm -r typecheck/lint 全过
-- 完整 SSE 流截屏：snapshot + 6 progress + completed，progress 真的从 0 涨到 100，currentStage 切换 preprocess → chunk → embedding → storage
-- 终态：status=succeeded / progress=100 / chunksDone=1
+- pnpm -r typecheck / lint 全过
+- curl：5 stage trace（3 success + 1 error(mock key) + 1 fallback）+ generations 列表正确
 
-**进度**：feat-200.2 status="done" ✅；feat-200.3（Week 3：Pipeline Orchestrator + Generations + Generate 端点）启动。
+**进度**：feat-200.3 status="done" ✅；feat-200.4（Week 4）待启动。
 
 ---
 
-## Week 3 启动清单（feat-200.3，2026-05-27 Session 41 → Session 42）
+## Week 4 启动清单（feat-200.4，2026-05-27 Session 42 → Session 43）
 
 **下一 Session 开工前必读**：
-1. 上一周成果：`progress.md` 2026-05-27 Session 41 条目
-2. 本周任务：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` § "Week 3"
-3. `feature_list.json` feat-200.3 条目
+1. 上一周成果：`progress.md` 2026-05-27 Session 42 条目
+2. 本周任务：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` § "Week 4"
+3. `feature_list.json` feat-200.4 条目
 
-**Week 3 边界**：
-- 新建 `apps/api/src/pipeline-orchestrator/` 模块（YAML 配置驱动 11-stage 编排，非 Agent）
-- 新建 `generations` 表（含 `pipeline_trace` / `retrieved_chunks` / `result_notes` / `cost_breakdown`）
-- 端点：`POST /projects/:id/generate` 返回完整 pipeline_trace
-- 集成 TraceContext 累计 cost（Week 1 已搭骨架，Week 3 真往里塞数据）
-- 验收：mock LLM key 跑通一次 generate，JSON 含 4 段 trace + cost
+**Week 4 边界**：
+- AutoGenerationService 监听 `ingestion.completed` → 自动 generate intro/compete 卡片
+- DB：`feedbacks` 表（4 维评分 + edit_diff）
+- `POST /generations/:id/feedback`
+- `GET /projects/:id/generations`（cursor 分页 + 过滤）
+- `GET /projects/:id/cost/summary`
+- 验收：后端全部 MVP 端点跑通
 
 **Scope 红线**：
-- 不动 Week 1-2 已做的 auth / projects / documents / ingestion（除非发现 bug）
-- 不做前端生成界面（Week 5-6）
-- 不动 packages/rag-core 算法核心
+- 不动 Week 1-3 已做的模块（除非发现 bug）
+- 不做前端界面（Week 5-6）
+- 不动 packages/rag-core
 
 **复用资产**：
-- `DbService.withClient` + 自动 DDL 初始化
-- `TraceContextService` ALS（addCost 接口待第一次真正调用）
-- `EventEmitter2`（Week 3 generation 进度可走相同 SSE 模式）
-- ingestion 写入的 pgvector chunks 表（generate 时检索它）
+- `GenerationsService.generate()` — auto-gen 直接调
+- `EventEmitter2` — 监听 `ingestion.completed`（feat-200.2 已有事件）
+- `PipelineOrchestratorService.run()` — 编排完全复用
+- `TraceContextService.addCost()` — 已接好
 
-**已知 SSE 兼容点**（feat-200.2 踩过的坑，Week 3 复用 SSE 时记得）：
-- TracingInterceptor 已处理 SSE 路由短路（路径以 `/events` 结尾自动跳过 tap）
-- PipelineExceptionFilter 已加 `headersSent` 兜底
-- @Sse 路由用 `defer + switchMap` 包 async 校验
-- 客户端用 EventSource 时通过 `?token=` 传 JWT（header 不能塞）
+**已知注意点**：
+- ALS 在 EventEmitter 回调不自动继承上下文 → auto-gen 需手动启 ALS context
+- cost_summary 表需 daily upsert（ON CONFLICT）
+
+---
+
+## 历史交接记录（会话 41 — feat-200.2 Week 2 完成 ✅ Documents + Ingestion + SSE）
+
+**进度**：feat-200.2 完成。详见 progress.md 2026-05-27 Session 41。
 
 ---
 

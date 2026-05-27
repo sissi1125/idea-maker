@@ -1,5 +1,52 @@
 # 进度记录
 
+## 2026-05-27（会话 42 — feat-200.3 Week 3：Pipeline Orchestrator + Generations + Generate 端点）✅
+
+### 范围
+
+Week 3 核心：YAML 配置驱动 11-stage 编排（Pipeline Orchestrator），generations 表 + POST /generate 端点。
+
+### 交付
+
+**新增文件（8 个）**：
+- `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.types.ts` — PipelineConfig / StageResult / PipelineTrace / GenerateRequest / GenerateResponse / GenerationRow 类型
+- `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.service.ts` — 核心编排逻辑：加载 YAML → 按序调 rag-core → 错误容忍 → 累计 cost → fallback 路径
+- `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.module.ts` — NestJS module
+- `apps/api/src/pipeline-orchestrator/pipelines/default.yaml` — 默认 11-stage 配置
+- `apps/api/src/generations/generations.service.ts` — generate + list + getOne + 项目归属校验
+- `apps/api/src/generations/generations.controller.ts` — 3 端点
+- `apps/api/src/generations/generations.module.ts` — NestJS module
+- `.interview/feat-200.3_pipeline-orchestrator-generate.md` — 6 题面试题
+
+**修改文件**：
+- `apps/api/src/db/schema.ts` — 新增 DDL_GENERATIONS（pipeline_trace JSONB / retrieved_chunks JSONB / cost_breakdown JSONB）
+- `apps/api/src/app.module.ts` — 注册 GenerationsModule
+- `apps/api/package.json` + `pnpm-lock.yaml` — 新增 yaml 依赖
+
+**3 新端点**：
+- `POST /projects/:projectId/generate` — 执行完整 RAG pipeline，返回 pipeline_trace + cost_breakdown
+- `GET /projects/:projectId/generations` — 历史列表（最新 50 条）
+- `GET /projects/:projectId/generations/:id` — 单条详情
+
+**11-stage 编排顺序**：
+context-management → query-rewrite → intent-recognition → retrieval → filter → rerank → citation → prompt-build → generation → evaluation → fallback（条件触发）
+
+### Bug 修
+
+1. GenerationsModule 缺 AuthModule 导入 → DI 找不到 JwtAuthGuard 的 AuthService → 添加 imports: [AuthModule]
+2. FallbackOutput.fallbackAnswer 不存在 → 改用 fallbackResponse
+3. RerankOutput 缺 rankChanges/method/warnings 必填字段 → 补齐 fallback 路径的假 upstream
+4. EvaluationUpstream.evidencePack 需要 EvidenceItem[] 而非简单 {content, score}[] → 从 citationOutput 取
+
+### 验证
+
+- pnpm -r typecheck / lint 全过
+- curl smoke：register → create project → POST /generate → 5 stage 成功 + retrieval error（mock key 预期） + fallback 触发 → generations 列表 1 条
+- pipeline_trace 包含 5 个 stage result（3 success + 1 error + 1 fallback success），每个含 stageId / methodId / status / durationMs
+- costBreakdown 结构完整（6 字段全 0，因为 mock key 没真正调 LLM）
+
+---
+
 ## 2026-05-27（会话 41 — feat-200.2 Week 2 收尾：Documents + Ingestion + SSE 全链路打通）✅
 
 ### 范围

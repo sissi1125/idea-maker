@@ -118,8 +118,41 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status_updated
 `;
 
 /**
- * 顺序：users → projects → project_settings → documents → ingestion_jobs。
- * 受外键依赖约束（documents.project_id → projects；ingestion_jobs 双向 FK）。
+ * ── feat-200.3 Week 3：generations ───────────────────────────────────────────
+ *
+ * generations：每次 generate 调用产出的完整记录。
+ *   - query：用户原始提问
+ *   - pipeline_trace (JSONB)：11-stage 编排的完整执行轨迹
+ *     结构：{ stages: Array<{ stageId, methodId, durationMs, output?, trace?, warnings? }> }
+ *   - retrieved_chunks (JSONB)：检索阶段命中的 chunks 快照（脱离向量表存一份，方便回放）
+ *   - result_notes (TEXT)：最终生成的营销文案 / 笔记内容
+ *   - cost_breakdown (JSONB)：本次请求的 token / 调用次数 / 美元明细
+ *   - status：'running' → 'succeeded' | 'failed'
+ *   - error：失败时的错误信息
+ */
+
+export const DDL_GENERATIONS = `
+CREATE TABLE IF NOT EXISTS generations (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  query             TEXT NOT NULL,
+  status            TEXT NOT NULL DEFAULT 'running',
+  pipeline_trace    JSONB,
+  retrieved_chunks  JSONB,
+  result_notes      TEXT,
+  cost_breakdown    JSONB,
+  error             TEXT,
+  duration_ms       INTEGER,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_generations_project_id ON generations (project_id);
+CREATE INDEX IF NOT EXISTS idx_generations_created_at ON generations (project_id, created_at DESC);
+`;
+
+/**
+ * 顺序：users → projects → project_settings → documents → ingestion_jobs → generations。
+ * 受外键依赖约束。
  *
  * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
  * 依赖 CREATE TABLE IF NOT EXISTS 的幂等性。
@@ -130,4 +163,5 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_PROJECT_SETTINGS,
   DDL_DOCUMENTS,
   DDL_INGESTION_JOBS,
+  DDL_GENERATIONS,
 ];

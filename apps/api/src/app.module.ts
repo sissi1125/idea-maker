@@ -10,6 +10,7 @@ import { AuthModule } from "./auth/auth.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { MvpDocumentsModule } from "./mvp-documents/mvp-documents.module";
 import { IngestionModule } from "./ingestion/ingestion.module";
+import { GenerationsModule } from "./generations/generations.module";
 
 @Module({
   controllers: [HealthController],
@@ -29,6 +30,8 @@ import { IngestionModule } from "./ingestion/ingestion.module";
     // feat-200.2 MVP 业务模块
     MvpDocumentsModule,
     IngestionModule,
+    // feat-200.3 Pipeline Orchestrator + Generate
+    GenerationsModule,
   ],
 })
 export class AppModule {}

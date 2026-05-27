@@ -1,0 +1,69 @@
+# default.yaml — MVP 默认 11-stage retrieval + generation 编排
+#
+# 每个 stage 的 methodId / params 是"出厂默认"——
+# 实际运行时 project_settings 会覆盖（Week 5 Settings 页面接入）。
+#
+# 注意：这不是 Agent（没有 LLM 决策循环 / 工具自主选择 / 自评估迭代）。
+# 是固定顺序的 Pipeline Orchestrator，等价于 YAML 写死的 DAG。
+
+name: default
+description: "MVP 默认 RAG pipeline：检索 → 生成 → 评估"
+version: "1.0.0"
+
+stages:
+  - id: query-rewrite
+    method: rule-keyword-expansion
+    params:
+      maxExpansions: 3
+
+  - id: intent-recognition
+    method: rule-based
+    params: {}
+
+  - id: retrieval
+    method: dense-vector
+    params:
+      topK: 10
+      embeddingProvider: openai
+      tableName: chunks
+      contentColumn: content
+      embeddingColumn: embedding
+
+  - id: filter
+    method: score-threshold
+    params:
+      minScore: 0.3
+
+  - id: rerank
+    method: llm-relevance-rerank
+    params:
+      topN: 5
+
+  - id: citation
+    method: inline-citation
+    params: {}
+
+  - id: context-management
+    method: session-history
+    params: {}
+
+  - id: prompt-build
+    method: marketing-template
+    params:
+      systemPrompt: "你是一位专业的营销文案策划师。基于以下参考资料，为用户生成高质量的营销内容。"
+      outputFormat: markdown
+
+  - id: generation
+    method: marketing-ideas
+    params:
+      temperature: 0.7
+      maxTokens: 2000
+
+  - id: evaluation
+    method: rag-metrics-only
+    params: {}
+
+  - id: fallback
+    method: reject-answer
+    params:
+      fallbackMessage: "抱歉，当前信息不足以生成高质量内容。请补充更多参考资料后重试。"
