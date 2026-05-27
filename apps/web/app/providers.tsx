@@ -19,12 +19,16 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 export function Providers({ children }: { children: React.ReactNode }) {
   const initialized = useRef(false);
 
+  // ⚠️ 同步注入 token getter（不能放 useEffect！）
+  // React effect 执行顺序是 child → parent（bottom-up），
+  // 如果放 useEffect，子组件 WorkspaceLayout 的 fetchProjects() 会先执行，
+  // 此时 tokenGetter 还是 null → 401 Unauthorized。
+  // 同步调用确保在任何子组件 effect 之前就已注入。
+  setTokenGetter(() => useAuthStore.getState().token);
+
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-
-    // 注入 token getter：apiFetch 在每次请求时调此函数读 token
-    setTokenGetter(() => useAuthStore.getState().token);
 
     // hydrate 后尝试刷新 user（验证 token 是否还有效）
     void useAuthStore.getState().refreshUser();

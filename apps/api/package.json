@@ -4,7 +4,7 @@
   "private": true,
   "description": "NestJS 后端：feat-100.3 起承接 RAG pipeline 端点；当前仅 health 端点占位",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/main.ts",
+    "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config -r tsconfig-paths/register src/main.ts",
     "build": "nest build",
     "start": "node dist/main.js",
     "start:once": "ts-node -r tsconfig-paths/register src/main.ts",
@@ -22,6 +22,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
+    "dotenv": "^17.4.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "openai": "^6.38.0",
