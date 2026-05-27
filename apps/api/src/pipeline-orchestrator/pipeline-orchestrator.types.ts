@@ -73,6 +73,8 @@ export interface GenerationRow {
   projectId: string;
   query: string;
   status: string;
+  /** feat-200.4：manual（用户主动 generate）/ auto（ingestion 完成自动触发） */
+  source: string;
   pipelineTrace: PipelineTrace | null;
   retrievedChunks: unknown[] | null;
   resultNotes: string | null;

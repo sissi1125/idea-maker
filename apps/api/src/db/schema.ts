@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS generations (
   project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
   query             TEXT NOT NULL,
   status            TEXT NOT NULL DEFAULT 'running',
+  source            TEXT NOT NULL DEFAULT 'manual',
   pipeline_trace    JSONB,
   retrieved_chunks  JSONB,
   result_notes      TEXT,
@@ -148,6 +149,84 @@ CREATE TABLE IF NOT EXISTS generations (
 );
 CREATE INDEX IF NOT EXISTS idx_generations_project_id ON generations (project_id);
 CREATE INDEX IF NOT EXISTS idx_generations_created_at ON generations (project_id, created_at DESC);
+-- feat-200.4：补 source 列（已有库幂等加列）
+ALTER TABLE generations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+`;
+
+/**
+ * ── feat-200.4 Week 4：feedbacks / auto_generations / cost_summary ──────────
+ *
+ * feedbacks：用户对 generation 的多维反馈。
+ *   - 4 维评分：relevance / accuracy / creativity / overall（1-5 整数，NULL 表示该维未评分）
+ *   - edit_diff：用户在 GenerationEditor 里改完保存的最终文本（保留原始作为差异 base 在前端比对）
+ *   - comment：可选自由文本
+ *   - 单 generation 一条 feedback（UNIQUE(generation_id)），再次提交走 ON CONFLICT 更新
+ *     ↳ 避免列表里出现"同一 generation 多评分"的脏数据
+ *
+ * auto_generations：自动生成触发记录。
+ *   - 监听 ingestion.completed，对 category=product / compete 各触发一次 generate
+ *   - generation_id 指向 generations 表的实际产物；status 提供独立的 queued/succeeded/failed
+ *     ↳ 即便后续 generation 被删，触发记录仍可保留作审计
+ *   - 同一 document_id 多次 ingestion 完成会插多条；前端按 created_at DESC 取最新
+ *
+ * cost_summary：按天聚合的项目级成本视图。
+ *   - 主键 (project_id, day)；generate 完成后做 ON CONFLICT upsert
+ *   - 不是事实表，单纯加速 /cost/summary 查询；明细仍在 generations.cost_breakdown
+ *   - day 用 DATE（UTC），跨时区按需在前端转换
+ */
+
+export const DDL_FEEDBACKS = `
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id                TEXT PRIMARY KEY,
+  generation_id     TEXT NOT NULL UNIQUE REFERENCES generations (id) ON DELETE CASCADE,
+  user_id           TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  relevance         SMALLINT,
+  accuracy          SMALLINT,
+  creativity        SMALLINT,
+  overall           SMALLINT,
+  edit_diff         TEXT,
+  comment           TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (relevance  IS NULL OR (relevance  BETWEEN 1 AND 5)),
+  CHECK (accuracy   IS NULL OR (accuracy   BETWEEN 1 AND 5)),
+  CHECK (creativity IS NULL OR (creativity BETWEEN 1 AND 5)),
+  CHECK (overall    IS NULL OR (overall    BETWEEN 1 AND 5))
+);
+CREATE INDEX IF NOT EXISTS idx_feedbacks_user_id ON feedbacks (user_id);
+`;
+
+export const DDL_AUTO_GENERATIONS = `
+CREATE TABLE IF NOT EXISTS auto_generations (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  document_id       TEXT NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+  card_type         TEXT NOT NULL,
+  generation_id     TEXT REFERENCES generations (id) ON DELETE SET NULL,
+  status            TEXT NOT NULL DEFAULT 'queued',
+  error             TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_auto_generations_project_id ON auto_generations (project_id);
+CREATE INDEX IF NOT EXISTS idx_auto_generations_document_id ON auto_generations (document_id);
+`;
+
+export const DDL_COST_SUMMARY = `
+CREATE TABLE IF NOT EXISTS cost_summary (
+  project_id              TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  day                     DATE NOT NULL,
+  generations_count       INTEGER NOT NULL DEFAULT 0,
+  llm_tokens_prompt       BIGINT NOT NULL DEFAULT 0,
+  llm_tokens_completion   BIGINT NOT NULL DEFAULT 0,
+  embedding_calls         INTEGER NOT NULL DEFAULT 0,
+  retrieval_calls         INTEGER NOT NULL DEFAULT 0,
+  reranker_calls          INTEGER NOT NULL DEFAULT 0,
+  cost_usd                NUMERIC(12, 6) NOT NULL DEFAULT 0,
+  updated_at              TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (project_id, day)
+);
+CREATE INDEX IF NOT EXISTS idx_cost_summary_day ON cost_summary (project_id, day DESC);
 `;
 
 /**
@@ -164,4 +243,8 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_DOCUMENTS,
   DDL_INGESTION_JOBS,
   DDL_GENERATIONS,
+  // feat-200.4
+  DDL_FEEDBACKS,
+  DDL_AUTO_GENERATIONS,
+  DDL_COST_SUMMARY,
 ];

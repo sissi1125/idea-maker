@@ -11,6 +11,9 @@ import { ProjectsModule } from "./projects/projects.module";
 import { MvpDocumentsModule } from "./mvp-documents/mvp-documents.module";
 import { IngestionModule } from "./ingestion/ingestion.module";
 import { GenerationsModule } from "./generations/generations.module";
+import { FeedbacksModule } from "./feedbacks/feedbacks.module";
+import { CostModule } from "./cost/cost.module";
+import { AutoGenerationsModule } from "./auto-generations/auto-generations.module";
 
 @Module({
   controllers: [HealthController],
@@ -32,6 +35,10 @@ import { GenerationsModule } from "./generations/generations.module";
     IngestionModule,
     // feat-200.3 Pipeline Orchestrator + Generate
     GenerationsModule,
+    // feat-200.4 Week 4
+    FeedbacksModule,
+    CostModule,
+    AutoGenerationsModule,
   ],
 })
 export class AppModule {}

@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.4（Week 4：自动生成 + 反馈 + 成本统计 + 历史 API，待启动；feat-200.3 已完成）",
+      "current": "feat-200.5（Week 5：前端骨架 + 登录 + 项目管理，待启动；feat-200.4 已完成）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -487,8 +487,8 @@
       "dependencies": [
         "feat-200.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Session 43：12 新文件 + 5 修改文件 + 5 新端点 + 3 DDL 表。FeedbacksModule（upsert ON CONFLICT + CHECK 1-5 + editDiff）; CostModule（cost_summary daily upsert + range 查询）; AutoGenerationsModule（@OnEvent ingestion.completed → product→intro / compete→compete 卡片 + tracer.run 手动 ALS）; GenerationsService 改造（cursor 分页 keyset + source/status 过滤 + cost_summary upsert）。验证：typecheck+lint 全过；12 项 curl smoke 全过（generate + feedback upsert/覆盖/validation/cross-user + cost summary + source filter + empty body）。面试题：.interview/feat-200.4_feedback-autogen-cost.md。"
     },
     {
       "id": "feat-200.5",

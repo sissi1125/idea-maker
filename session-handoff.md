@@ -2,9 +2,57 @@
 
 ## 最后更新
 
-2026-05-27（会话 42 — feat-200.3 Week 3 完成 ✅ Pipeline Orchestrator + Generations + Generate 端点）
+2026-05-27（会话 43 — feat-200.4 Week 4 完成 ✅ Feedbacks + Auto-Gen + Cost Summary + Cursor 分页）
 
-## 本会话变更摘要
+## 本会话变更摘要（Session 43）
+
+🎉 Week 4 完整闭环：3 张新表 + 3 个新 module + 5 个新端点 + e2e curl 验证通过
+
+【交付】
+- `apps/api/src/db/schema.ts` — DDL_FEEDBACKS / DDL_AUTO_GENERATIONS / DDL_COST_SUMMARY；generations 加 `source` 列（ALTER ADD COLUMN IF NOT EXISTS 幂等）
+- `apps/api/src/feedbacks/` — 4 文件（types / service / controller / module）
+- `apps/api/src/cost/` — 4 文件
+- `apps/api/src/auto-generations/` — 4 文件
+- `apps/api/src/generations/generations.service.ts` — cursor 分页 + source/status 过滤 + cost_summary upsert + `assertOwnedByUser` + `generate(opts)`
+- `apps/api/src/generations/generations.controller.ts` — 接 cursor/limit/status/source query
+- `.interview/feat-200.4_feedback-autogen-cost.md`（7 题）
+
+【5 新端点】
+- `POST /generations/:id/feedback`（upsert，UNIQUE(generation_id)）
+- `GET  /generations/:id/feedback`
+- `GET  /projects/:id/cost/summary?from&to`（默认最近 30 天）
+- `GET  /projects/:id/documents/:docId/auto-generations`
+- `GET  /projects/:id/generations` 改造为 cursor + 过滤（含 limit）
+
+【AutoGenerations 设计】
+- `@OnEvent('ingestion.completed', { async: true })`
+- 用 `setImmediate` 每张卡独立调度，不阻塞 emit 路径
+- `tracer.run('auto-gen:<autoGenId>', ...)` 起独立 ALS context（不继承上游 HTTP trace）
+- `generate({ source: 'auto', skipOwnerCheck: true })`（事件源可信，无 userId）
+- product → intro 卡 / compete → compete 卡；history 不触发
+- 失败不抛：落 `auto_generations.error`，不影响 ingestion 主路径
+
+【cost_summary 写入】
+- generate succeeded 分支末尾，按 UTC day 做 ON CONFLICT upsert
+- 即便 costUsd=0 也 +1 generations_count（活跃度指标）
+
+【cursor 设计】
+- `(created_at DESC, id DESC)` keyset
+- cursor = base64url(JSON({createdAt, id}))；解析失败抛 400
+- `LIMIT N+1` 多取一条决定 hasMore，省 COUNT 查询
+
+【验证】
+- pnpm -r typecheck / lint 全过
+- curl 12 项端到端：register/project/generate×2/list 默认/limit+cursor 翻页/source 过滤/feedback POST+upsert+GET/bad rating 400/cost summary/bad date 400/invalid cursor 400/跨用户 404
+- 上传 product PDF → ingestion succeeded → auto-gen intro succeeded（含 generationId 反写）
+
+**进度**：feat-200.4 status="done" ✅；feat-200.5（Week 5 前端骨架）待启动。
+
+---
+
+## 历史交接记录（会话 42 — feat-200.3 Week 3 完成 ✅ Pipeline Orchestrator + Generations + Generate 端点）
+
+## 本会话变更摘要（Session 42）
 
 🎉 Week 3 完整闭环：8 个新文件 + 3 个新端点 + YAML 11-stage 编排 + curl 验证通过
 
@@ -39,35 +87,40 @@
 
 ---
 
-## Week 4 启动清单（feat-200.4，2026-05-27 Session 42 → Session 43）
+## Week 5 启动清单（feat-200.5，2026-05-27 Session 43 → Session 44）
 
 **下一 Session 开工前必读**：
-1. 上一周成果：`progress.md` 2026-05-27 Session 42 条目
-2. 本周任务：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` § "Week 4"
-3. `feature_list.json` feat-200.4 条目
+1. 上一周成果：`progress.md` 2026-05-27 Session 43 条目 + `.interview/feat-200.4_feedback-autogen-cost.md`
+2. 本周任务：`/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` § "Week 5"
+3. `feature_list.json` feat-200.5 条目
 
-**Week 4 边界**：
-- AutoGenerationService 监听 `ingestion.completed` → 自动 generate intro/compete 卡片
-- DB：`feedbacks` 表（4 维评分 + edit_diff）
-- `POST /generations/:id/feedback`
-- `GET /projects/:id/generations`（cursor 分页 + 过滤）
-- `GET /projects/:id/cost/summary`
-- 验收：后端全部 MVP 端点跑通
+**Week 5 边界（前端骨架）**：
+- `apps/web/app/(auth)/login` + `(workspace)/layout.tsx` + Sidebar
+- 全局状态（zustand）：`currentUser / currentProjectId / settings cache`
+- API client（`lib/api/*.ts`，按域拆：auth / projects / documents / generations / feedbacks / cost）
+- 把原型 CSS 变量（`--brand --think --search --tool --gen`）迁到 `globals.css`
+- 把原型 Login / Projects / Sidebar 组件 `.jsx → .tsx`，对接 Week 1-4 真实 API
+- 验收：走通"登录 → 看项目列表 → 建项目 → 切换项目"
 
 **Scope 红线**：
-- 不动 Week 1-3 已做的模块（除非发现 bug）
-- 不做前端界面（Week 5-6）
+- 不改后端 API 形状（如需新端点单开 feat）
+- 不做 Chat 主界面 / 上传 UI / Pipeline 可视化（Week 6）
+- 不做反馈 / 历史 / 笔记库（Week 7）
 - 不动 packages/rag-core
 
-**复用资产**：
-- `GenerationsService.generate()` — auto-gen 直接调
-- `EventEmitter2` — 监听 `ingestion.completed`（feat-200.2 已有事件）
-- `PipelineOrchestratorService.run()` — 编排完全复用
-- `TraceContextService.addCost()` — 已接好
+**后端已就绪资产（Week 1-4 全部 19 端点）**：
+- auth：register/login/me
+- projects：CRUD + settings
+- documents：upload/list/get/delete + ingestion/SSE
+- generations：generate + list(cursor + 过滤) + get
+- feedbacks：upsert/get
+- cost：summary
+- auto-generations：list by document
 
 **已知注意点**：
-- ALS 在 EventEmitter 回调不自动继承上下文 → auto-gen 需手动启 ALS context
-- cost_summary 表需 daily upsert（ON CONFLICT）
+- API 列表分页结构变了：`{ generations, nextCursor }`，前端需写无限滚动 / load-more
+- generation.source 字段区分 manual/auto，前端可考虑用不同卡片样式
+- Cost summary `daily: []` 在没数据日返回空数组，前端要兜底显示
 
 ---
 

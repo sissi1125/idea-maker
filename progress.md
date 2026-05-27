@@ -1,5 +1,65 @@
 # 进度记录
 
+## 2026-05-27（会话 43 — feat-200.4 Week 4：Feedbacks + Auto-Gen + Cost Summary + History API）✅
+
+### 范围
+
+Week 4 核心：自动生成卡片（ingestion.completed 事件驱动）、反馈系统（4 维评分 + edit_diff）、成本统计（按天 upsert）、generations cursor 分页 + 过滤。
+
+### 交付
+
+**新增文件（12 个）**：
+- `apps/api/src/feedbacks/feedbacks.types.ts` — FeedbackInput / FeedbackRow / 4 维评分类型
+- `apps/api/src/feedbacks/feedbacks.service.ts` — upsert（ON CONFLICT 覆盖式） + getByGeneration
+- `apps/api/src/feedbacks/feedbacks.controller.ts` — POST + GET /generations/:id/feedback
+- `apps/api/src/feedbacks/feedbacks.module.ts` — NestJS module
+- `apps/api/src/cost/cost.types.ts` — CostDailyRow / CostSummaryResponse
+- `apps/api/src/cost/cost.service.ts` — 按日期范围查询 cost_summary + totals 聚合
+- `apps/api/src/cost/cost.controller.ts` — GET /projects/:id/cost/summary
+- `apps/api/src/cost/cost.module.ts` — NestJS module
+- `apps/api/src/auto-generations/auto-generations.types.ts` — AutoGenCardType / category→cards 映射 / query 模板
+- `apps/api/src/auto-generations/auto-generations.service.ts` — @OnEvent(ingestion.completed) 监听 + 自动调 generate
+- `apps/api/src/auto-generations/auto-generations.controller.ts` — GET /projects/:id/documents/:docId/auto-generations
+- `apps/api/src/auto-generations/auto-generations.module.ts` — NestJS module
+
+**修改文件（5 个）**：
+- `apps/api/src/db/schema.ts` — 新增 DDL_FEEDBACKS / DDL_AUTO_GENERATIONS / DDL_COST_SUMMARY + generations 加 source 列
+- `apps/api/src/generations/generations.service.ts` — cursor 分页 + source/status 过滤 + cost_summary upsert + skipOwnerCheck
+- `apps/api/src/generations/generations.controller.ts` — Query params: cursor/limit/status/source
+- `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.types.ts` — GenerationRow 加 source 字段
+- `apps/api/src/app.module.ts` — 注册 FeedbacksModule / CostModule / AutoGenerationsModule
+
+**5 新端点**：
+- `POST /generations/:id/feedback` — upsert 4 维评分 + edit_diff（ON CONFLICT 覆盖）
+- `GET /generations/:id/feedback` — 查询反馈（不存在返回 null）
+- `GET /projects/:id/cost/summary?from=&to=` — 日级成本汇总（默认 30 天）
+- `GET /projects/:id/documents/:docId/auto-generations` — 自动生成历史
+- `GET /projects/:id/generations?cursor=&limit=&status=&source=` — 改造为 cursor 分页 + 过滤
+
+**3 新 DDL 表**：
+- `feedbacks` — UNIQUE(generation_id) + CHECK(1-5) + edit_diff TEXT
+- `auto_generations` — document_id FK + card_type + generation_id FK
+- `cost_summary` — PK(project_id, day) + ON CONFLICT upsert
+
+### 验证
+
+- pnpm -r typecheck / lint 全过
+- 12 项 curl smoke 全过：
+  1. register / login / create project ✅
+  2. POST /generate → succeeded + generationId ✅
+  3. GET /generations?limit=2 → count=1, nextCursor=null ✅
+  4. POST /feedback → id + relevance=4 + overall=4 ✅
+  5. GET /feedback → editDiff + comment 正确 ✅
+  6. GET /cost/summary → genCount=1, range 30 天 ✅
+  7. Invalid feedback rating=6 → 400 ✅
+  8. Upsert feedback 覆盖 → overall=1 ✅
+  9. Filter source=auto → 0 条 / source=manual → 1 条 ✅
+  10. Cost summary from/to 同天 → daily_len=1 ✅
+  11. Empty feedback body → 400 "至少需提供一项" ✅
+  12. 跨用户 feedback → 404 "Generation 不存在" ✅
+
+---
+
 ## 2026-05-27（会话 42 — feat-200.3 Week 3：Pipeline Orchestrator + Generations + Generate 端点）✅
 
 ### 范围
