@@ -1,12 +1,12 @@
 [{
   "id": "T01",
-  "label": "smoke test：智谱 GLM + SiliconFlow BGE",
-  "chunk":        { "methodId": "recursive", "params": { "chunkSize": 400, "overlap": 50, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
+  "label": "smoke test：智谱 GLM + Ollama bge-m3",
+  "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
   "transform":    { "methodId": "none", "params": {} },
   "queryRewrite": { "methodId": "none", "params": {} },
-  "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "BAAI/bge-large-zh-v1.5", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+  "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
   "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-  "rerank":       { "methodId": "pipeline-rerank", "params": { "boostPassN": 20, "rerankTopN": 5 } },
+  "rerank":       { "methodId": "score-only", "params": {} },
   "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
   "scoreThreshold": 0.2
 }]
