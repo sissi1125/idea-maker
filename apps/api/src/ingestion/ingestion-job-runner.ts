@@ -140,6 +140,8 @@ export class IngestionJobRunner {
           pdfPageRange: "",
           preserveLayout: true,
           extractImages: false,
+          // feat-experiment-4.1：0 = 保留完整 heading 层级，与历史 ingestion 行为一致
+          sourceRefDepth: 0,
         },
         doc: {
           rawContent,

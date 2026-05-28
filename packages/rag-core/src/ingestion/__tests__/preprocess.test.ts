@@ -10,6 +10,8 @@ const defaultParams: PreprocessParams = {
   pdfPageRange: "",
   preserveLayout: true,
   extractImages: false,
+  // feat-experiment-4.1：sourceRefDepth=0 表示保留全部 heading 层级（默认行为）
+  sourceRefDepth: 0,
 };
 
 function makeInput(over: Partial<PreprocessInput> = {}): PreprocessInput {
