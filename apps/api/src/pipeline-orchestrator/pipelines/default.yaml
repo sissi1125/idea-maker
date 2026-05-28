@@ -1,16 +1,49 @@
-# default.yaml — MVP 默认 11-stage retrieval + generation 编排
+# default.yaml — MVP 默认 RAG pipeline 编排
 #
-# 每个 stage 的 methodId / params 是"出厂默认"——
-# 实际运行时 project_settings 会覆盖（Week 5 Settings 页面接入）。
+# 两条 pipeline 共用一份配置：
+#
+#   Ingestion Pipeline（文档 → 向量）：
+#     idempotency → preprocess → chunk → embedding → storage
+#     由 IngestionJobRunner 硬编码调用，此处仅做文档记录。
+#
+#   Generation Pipeline（查询 → 结果）：
+#     context-management → query-rewrite → intent-recognition → retrieval
+#     → filter → rerank → citation → prompt-build → generation → evaluation → fallback
+#     由 PipelineOrchestratorService 按 stages[] 顺序执行。
 #
 # 注意：这不是 Agent（没有 LLM 决策循环 / 工具自主选择 / 自评估迭代）。
 # 是固定顺序的 Pipeline Orchestrator，等价于 YAML 写死的 DAG。
+#
+# 环境变量依赖：
+#   OPENAI_API_KEY — embedding（ingestion + retrieval）+ LLM（rewrite / rerank / generation）
+#   DATABASE_URL   — pgvector 存取
 
 name: default
 description: "MVP 默认 RAG pipeline：检索 → 生成 → 评估"
-version: "1.0.0"
+version: "1.1.0"
+
+# ── Ingestion（文档记录，IngestionJobRunner 硬编码） ──────────────────────────
+# ingestion:
+#   - id: idempotency
+#     method: sha256-content
+#   - id: preprocess
+#     method: auto (markdown-structure / pdf-pages / markitdown)
+#   - id: chunk
+#     method: recursive
+#     params: { chunkSize: 600, overlap: 80 }
+#   - id: embedding
+#     method: openai-3-small
+#     params: { dimension: 1024, batchSize: 16 }
+#   - id: storage
+#     method: pgvector-replace-version
+
+# ── Generation Pipeline（PipelineOrchestratorService 按序执行） ───────────────
 
 stages:
+  - id: context-management
+    method: session-history
+    params: {}
+
   - id: query-rewrite
     method: rule-keyword-expansion
     params:
@@ -35,16 +68,12 @@ stages:
       minScore: 0.3
 
   - id: rerank
-    method: llm-relevance-rerank
+    method: score-only
     params:
       topN: 5
 
   - id: citation
-    method: inline-citation
-    params: {}
-
-  - id: context-management
-    method: session-history
+    method: chunk-citation
     params: {}
 
   - id: prompt-build

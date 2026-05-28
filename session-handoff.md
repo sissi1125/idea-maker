@@ -2,6 +2,29 @@
 
 ## 最后更新
 
+2026-05-28（feat-200.6 补丁 ✅ Ingestion 阶段输出可视化 + 项目级摘要接入 Chat 页）
+
+## 本次变更摘要（feat-200.6 补丁，非新 feature）
+
+【核心】
+- 后端 ingestion runner 在 5 个 stage 各写一份"输出摘要"进 `ingestion_jobs.stage_outputs`（JSONB）；
+- 前端知识库文件行加折叠面板展示 5 个 stage 的 method / 耗时 / metrics；
+- 后端新增 `GET /projects/:pid/auto-generations/latest`（DISTINCT ON 取每种 card_type 最新成功）；
+- 前端 Chat 页 `ProjectInfoCards` 不再显示写死的占位文案，而是真实读 auto_generations 的 resultNotes 渲染产品介绍 / 竞品分析。
+
+【已知前提】
+- 自动摘要依赖 LLM：`apps/api/.env` 需配 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`；
+- 不配也不阻塞——ingestion 5 stage 全程跑通（embedding 走 mock，UI 显示 ⚠ 提示），auto-gen 触发后 generate 失败，latest 端点返回空，UI 自然降级到引导文案。
+
+【验证】
+- pnpm -r typecheck ✅
+- pnpm -F @harness/web lint：本次改动 0 报错（settings/page.tsx 那条 lint 错是 untracked 文件预存问题）
+- 面试题：`.interview/feat-200.6_patch_stage-outputs-and-summaries.md`（5 题）
+
+---
+
+## 上一次更新（Session 44）
+
 2026-05-27（会话 44 — feat-200.6 Week 6 完成 ✅ Chat 主界面 + 知识库 + PipelineTrace）
 
 ## 本会话变更摘要（Session 44 — Week 6 部分）

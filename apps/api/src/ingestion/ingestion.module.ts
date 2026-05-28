@@ -13,12 +13,13 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { MvpDocumentsModule } from "../mvp-documents/mvp-documents.module";
+import { PipelineModule } from "../pipeline/pipeline.module";
 import { IngestionController } from "./ingestion.controller";
 import { IngestionJobRunner } from "./ingestion-job-runner";
 import { IngestionService } from "./ingestion.service";
 
 @Module({
-  imports: [AuthModule, forwardRef(() => MvpDocumentsModule)],
+  imports: [AuthModule, forwardRef(() => MvpDocumentsModule), PipelineModule],
   providers: [IngestionService, IngestionJobRunner],
   controllers: [IngestionController],
   exports: [IngestionService],

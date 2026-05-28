@@ -1,5 +1,78 @@
 # 进度记录
 
+## 2026-05-28（feat-200.6 补丁 — Ingestion 阶段输出可视化 + 项目级摘要接入）✅
+
+### 范围
+
+feat-200.6 完成性修补，**不开新 feature 编号**。补齐 Week 6 验收里"端到端传文档 → 自动卡片 → 看 trace"中"看到 ingestion 真的跑了什么"和"自动卡片真实展示"两环：
+
+1. **Ingestion 阶段输出** — runner 在 5 个 stage 结束时各写一份输出摘要进 `ingestion_jobs.stage_outputs` JSONB；前端知识库展示折叠面板。
+2. **项目级自动摘要接入** — 后端已存在的 `auto_generations` 机制（监听 ingestion.completed → product 触发 intro 卡 / compete 触发 compete 卡）被前端 Chat 页 `ProjectInfoCards` 真正读到——以前是写死占位文案。新增 `/projects/:pid/auto-generations/latest` 端点用 DISTINCT ON 取每种 card_type 最新成功摘要。
+
+### 交付
+
+| 文件 | 说明 |
+|------|------|
+| `apps/api/src/db/schema.ts` | `ingestion_jobs` 加 `stage_outputs JSONB`（幂等 ADD COLUMN IF NOT EXISTS） |
+| `apps/api/src/ingestion/ingestion.types.ts` | 新增 `IngestionStageOutput` / `IngestionStageOutputs`；`IngestionJobRow.stageOutputs` |
+| `apps/api/src/ingestion/ingestion.service.ts` | 新增 `setStageOutput(jobId, stage, output)`（jsonb_set 写入） |
+| `apps/api/src/ingestion/ingestion-job-runner.ts` | 5 个 stage 各加 startTime + 完成时 `setStageOutput`：idempotency(hash 前8位/decision)、preprocess(charsExtracted/sourceRefs/pageCount)、chunk(chunksTotal/avgChunkSize)、embedding(model/dimension/batchCount/mock)、storage(rowsInserted/indexMode) |
+| `apps/api/src/auto-generations/auto-generations.types.ts` | 新增 `ProjectAutoGenLatest` 类型 |
+| `apps/api/src/auto-generations/auto-generations.service.ts` | 新增 `getLatestByProject(projectId)` — DISTINCT ON (card_type) JOIN generations 取最新成功 |
+| `apps/api/src/auto-generations/auto-generations.controller.ts` | 新增 `ProjectAutoGenerationsController`：GET `/projects/:projectId/auto-generations/latest` |
+| `apps/api/src/auto-generations/auto-generations.module.ts` | 注册新 controller |
+| `apps/web/lib/api/documents.ts` | `IngestionJob` 加 `stageOutputs`；导出 `IngestionStage` / `IngestionStageOutput` / `IngestionStageOutputs` |
+| `apps/web/lib/api/auto-generations.ts` | 新文件：`getLatestProjectAutoGen` + `ProjectAutoGenLatest` 类型 |
+| `apps/web/lib/api/index.ts` | barrel 导出 |
+| `apps/web/app/(workspace)/projects/[id]/knowledge/page.tsx` | 新增 `StageOutputsPanel` + 文件行折叠按钮；处理中自动展开，完成后默认收起 |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | `ProjectInfoCards` 接受 `summaries` props；进入页面拉一次 + generate 完后再拉；有 resultNotes 替换 body，无则保留引导文案 |
+
+### 设计决策
+
+- **不另建 project_summaries 表**：发现 `auto_generations`（feat-200.4 已交付）正好就是这件事的事实表——监听 ingestion.completed、按 category 触发 generate、resultNotes 就是卡片正文。新建表会重复且让两套真值并存。
+- **DISTINCT ON 而非"先 list 再前端过滤"**：单查询命中，less round-trip。
+- **stageOutputs 是"摘要"不是"trace"**：method + 耗时 + 几个 metric chip，前端按 key=value 渲染；不暴露完整 input/output JSON，避免成 Playground 的克隆。
+- **embedding 降级有 note 字段提示**：无 LLM API key 时走 debug-deterministic（FNV-1a hash 伪向量），UI 显示 ⚠ 提示，避免"看着完成了但实际没真嵌入"的隐性问题。
+- **触发摘要不需要新代码**：复用已有 `AutoGenerationsService.handleIngestionCompleted`。LLM 调用前提：apps/api/.env 需要配 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`（否则 generate 阶段会失败，`/auto-generations/latest` 返回空数组，UI 自然降级到引导文案）。
+
+### 验证
+
+- [x] `pnpm -r typecheck` ✅
+- [x] `pnpm -F @harness/web lint --max-warnings 0`：本次改动 0 报错（settings/page.tsx 那条 set-state-in-effect 是 untracked 文件的预存问题，与本补丁无关）
+- [x] DDL 用 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 保证向后兼容
+- [ ] 真实 LLM 流程：依赖用户配 LLM_API_KEY 后端到端验证（产品介绍卡片真实渲染）
+
+### 已知前提（需用户配置）
+
+- `apps/api/.env` 需补：`LLM_API_KEY=...` / `LLM_BASE_URL=...` / `LLM_MODEL=...`（智谱/SiliconFlow/OpenAI 兼容均可）；
+- 不配也不阻塞：ingestion 5 stage 全程跑通（storage 写 pgvector），只是 embedding 用 mock + 自动摘要会失败 → ProjectInfoCards 走引导文案。
+
+### 后续端到端联调修复（同次会话）
+
+用户配 .env 后实测发现 4 个隐性 bug，已逐个修复：
+
+| 文件 | 问题 | 根因 | 修法 |
+|------|------|------|------|
+| `apps/api/src/main.ts` | LLM/Embedding env 没加载 → embedding 全走 mock | `ts-node-dev` 的 wrapper 把 `-r dotenv/config` flag 吃掉了，只保留 `tsconfig-paths/register` | 在 main.ts 顶部 `try { require('dotenv').config() } catch {}` 显式加载 |
+| `apps/api/src/ingestion/ingestion-job-runner.ts` | embedding 阶段对 Ollama / 智谱发 `model: "text-embedding-3-small"` → 404 | 写死了 model 名 | 改成从 `ProvidersService.createEmbeddingClient().defaultModel` 拿（读 EMBEDDING_MODEL env） |
+| `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.service.ts` | retrieval 阶段同样问题：默认 embeddingModel='text-embedding-v4' 但 Ollama 只有 bge-m3 | YAML 不写时走 zod schema 默认值 | orchestrator 在 parse 前注入 env 默认值，YAML 显式写过的优先 |
+| `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.service.ts` | result_notes 是 `{"generatedContent": "..."}` JSON 原文，UI 显示原始 JSON | `extractResultText` 只识别 `ideas[]` / `result` 字段，marketing-ideas 输出 `generatedContent` 落到 `JSON.stringify` 兜底 | 按 4 种 GenerationOutput 形态分支：generatedContent / sellingPoints / targetSegment / ideas + summary 兜底，最后才 JSON.stringify |
+
+### 用户体验补强
+
+| 文件 | 补强点 |
+|------|--------|
+| `apps/api/src/auto-generations/{types,service,controller}.ts` | `/auto-generations/latest` 端点增加 `inFlight: ProjectAutoGenInFlight[]`——每种 card_type 取最新一行的 queued/running/failed，让前端能展示"LLM 生成中"状态 |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | ProjectInfoCards 三态：生成中（转圈 chip + 绿色提示行 + dot 跳动）/ 失败（红色 error 行）/ 已生成；存在 in-flight 时自动 3s 轮询直到结束 |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | `normalizeSummaryText` 容错——result_notes 以 `{` 开头时尝试 JSON.parse 抽 generatedContent/summary，保护历史脏数据 |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | 卡片正文 `maxHeight: 14em + overflowY: auto`——超长时卡片**内部**滚动，不撑歪两列等高 |
+
+### 用户验证
+
+- ✅ 端到端：上传文件 → ingestion 5 stage 正常 → embedding 走真实 bge-m3 → auto-gen 触发 → LLM 生成 markdown → Chat 页卡片显示自然语言（不再是 JSON）+ 期间显示 "LLM 生成中…" 转圈
+
+---
+
 ## 2026-05-27（会话 44 — feat-200.6 Week 6：Chat 主界面 + 知识库 + PipelineTrace）✅
 
 ### 范围

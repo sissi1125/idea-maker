@@ -8,13 +8,16 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { GenerationsModule } from "../generations/generations.module";
-import { AutoGenerationsController } from "./auto-generations.controller";
+import {
+  AutoGenerationsController,
+  ProjectAutoGenerationsController,
+} from "./auto-generations.controller";
 import { AutoGenerationsService } from "./auto-generations.service";
 
 @Module({
   imports: [AuthModule, GenerationsModule],
   providers: [AutoGenerationsService],
-  controllers: [AutoGenerationsController],
+  controllers: [AutoGenerationsController, ProjectAutoGenerationsController],
   exports: [AutoGenerationsService],
 })
 export class AutoGenerationsModule {}

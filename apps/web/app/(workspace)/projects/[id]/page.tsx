@@ -25,8 +25,10 @@ import {
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { generationsApi } from "@/lib/api";
-import type { GenerateResponse } from "@/lib/api";
+import { generationsApi, autoGenerationsApi } from "@/lib/api";
+import type {
+  GenerateResponse, ProjectAutoGenLatest, ProjectAutoGenInFlight, AutoGenCardType,
+} from "@/lib/api";
 import { PipelineTraceView } from "@/components/pipeline/PipelineTrace";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
@@ -43,57 +45,198 @@ const PRESET_QUESTIONS = [
 
 /**
  * 自动生成的项目摘要卡片（产品介绍 + 竞品分析）。
- * MVP 阶段用占位内容提示用户先上传文档。
+ *
+ * 数据来源：GET /projects/:pid/auto-generations/latest，按 cardType 索引：
+ *   intro   → 产品介绍卡（ingestion product 类完成后自动生成）
+ *   compete → 竞品分析卡
+ *
+ * 渲染策略：
+ *   - 该 kind 存在 succeeded summary → 显示真实 resultNotes（截断显示，超长 fade）
+ *   - 不存在 → 保留引导文案（提示用户去知识库上传对应类别资料）
+ *
+ * 不在这里展示完整 Markdown 排版；最朴素的 white-space:pre-line 即可，
+ * Phase 4 再考虑接 react-markdown。
  */
-function ProjectInfoCards() {
-  const cards = [
+/**
+ * 兼容历史 result_notes：有些早期生成把整个 GenerationOutput JSON.stringify 写进了 result_notes
+ * （bug 已在 orchestrator.extractResultText 修复，但 DB 里可能还残留）。
+ * 如果发现是 JSON 形式且有 generatedContent / summary 字段，提取出来；否则原样返回。
+ */
+function normalizeSummaryText(raw: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{")) return raw;
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    if (typeof parsed.generatedContent === "string") return parsed.generatedContent;
+    if (typeof parsed.summary === "string") return parsed.summary;
+  } catch { /* 不是合法 JSON 就原样返回 */ }
+  return raw;
+}
+
+function ProjectInfoCards({
+  summaries,
+  inFlight,
+  loading,
+}: {
+  summaries: Partial<Record<AutoGenCardType, ProjectAutoGenLatest>>;
+  inFlight: Partial<Record<AutoGenCardType, ProjectAutoGenInFlight>>;
+  loading: boolean;
+}) {
+  const cards: Array<{
+    kind: AutoGenCardType;
+    title: string;
+    accent: boolean;
+    emptyBody: string;
+    chips: string[];
+    Icon: typeof FileText;
+  }> = [
     { kind: "intro",   title: "产品介绍", accent: true,
-      body: "上传产品资料后，Agent 会自动提取核心卖点、受众画像、产品参数等关键信息。",
+      emptyBody: "上传产品资料后，Agent 会自动提取核心卖点、受众画像、产品参数等关键信息。",
       chips: ["自动生成", "产品资料驱动"],
       Icon: FileText },
     { kind: "compete", title: "竞品分析", accent: false,
-      body: "上传竞品资料后，Agent 会自动对比差异化、定价策略、功能缺口。",
+      emptyBody: "上传竞品资料后，Agent 会自动对比差异化、定价策略、功能缺口。",
       chips: ["自动生成", "竞品资料驱动"],
       Icon: Layers },
   ];
 
   return (
     <div className="flex gap-3.5">
-      {cards.map(c => (
-        <div key={c.kind} className="card flex-1 min-w-0 p-[16px_18px] flex flex-col gap-2.5"
-             style={{
-               borderColor: c.accent ? "rgba(79,168,154,.25)" : "var(--line)",
-               background: c.accent ? "linear-gradient(180deg, rgba(79,168,154,.05), #fff 40%)" : "#fff",
-             }}>
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-[6px] flex items-center justify-center"
-                  style={{
-                    background: c.accent ? "var(--brand-soft)" : "rgba(180,83,9,.1)",
-                    color: c.accent ? "var(--brand)" : "var(--tool)",
-                  }}>
-              <c.Icon size={13} strokeWidth={1.8} />
-            </span>
-            <div className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>{c.title}</div>
-            <span className="chip text-[10.5px]"
-                  style={{
-                    background: c.accent ? "var(--brand-soft)" : "rgba(224,140,90,.1)",
-                    color: c.accent ? "var(--brand)" : "var(--tool)",
-                  }}>
-              <Sparkles size={10} strokeWidth={2} /> Agent 自动生成
-            </span>
+      {cards.map(c => {
+        const summary = summaries[c.kind];
+        const flight = inFlight[c.kind];
+        const normalizedNotes = normalizeSummaryText(summary?.resultNotes ?? null);
+        const hasContent = !!normalizedNotes;
+
+        // 三种状态：
+        //   1. flight.status='running' / 'queued' → 显示"LLM 生成中"横幅，正文有旧摘要就保留
+        //   2. flight.status='failed' → 显示红色"上次生成失败"横幅 + error
+        //   3. 无 flight → 走旧逻辑（hasContent 显示，否则引导文案）
+        const isGenerating = flight?.status === "running" || flight?.status === "queued";
+        const isFailed = flight?.status === "failed";
+
+        const body = hasContent ? normalizedNotes! : c.emptyBody;
+        const chips = hasContent
+          ? [
+              `生成于 ${formatRelativeTime(summary!.generatedAt)}`,
+              `${summary!.durationMs ?? 0}ms`,
+            ]
+          : c.chips;
+
+        // header 右上角的状态徽章
+        let badge: { text: string; bg: string; color: string; spin?: boolean };
+        if (isGenerating) {
+          badge = {
+            text: flight!.status === "queued" ? "排队中…" : "LLM 生成中…",
+            bg: "rgba(79,168,154,.12)",
+            color: "var(--brand)",
+            spin: true,
+          };
+        } else if (isFailed) {
+          badge = { text: "上次生成失败", bg: "rgba(179,38,30,.08)", color: "var(--err)" };
+        } else if (hasContent) {
+          badge = {
+            text: "Agent 已生成",
+            bg: c.accent ? "var(--brand-soft)" : "rgba(224,140,90,.1)",
+            color: c.accent ? "var(--brand)" : "var(--tool)",
+          };
+        } else {
+          badge = {
+            text: "Agent 自动生成",
+            bg: c.accent ? "var(--brand-soft)" : "rgba(224,140,90,.1)",
+            color: c.accent ? "var(--brand)" : "var(--tool)",
+          };
+        }
+
+        return (
+          <div key={c.kind} className="card flex-1 min-w-0 p-[16px_18px] flex flex-col gap-2.5"
+               style={{
+                 borderColor: c.accent ? "rgba(79,168,154,.25)" : "var(--line)",
+                 background: c.accent ? "linear-gradient(180deg, rgba(79,168,154,.05), #fff 40%)" : "#fff",
+               }}>
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-[6px] flex items-center justify-center"
+                    style={{
+                      background: c.accent ? "var(--brand-soft)" : "rgba(180,83,9,.1)",
+                      color: c.accent ? "var(--brand)" : "var(--tool)",
+                    }}>
+                <c.Icon size={13} strokeWidth={1.8} />
+              </span>
+              <div className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>{c.title}</div>
+              <span className="chip text-[10.5px] inline-flex items-center gap-1"
+                    style={{ background: badge.bg, color: badge.color }}>
+                {badge.spin ? (
+                  <span className="inline-block w-[10px] h-[10px] rounded-full flex-none"
+                        style={{
+                          border: "1.5px solid rgba(79,168,154,.3)",
+                          borderTopColor: "var(--brand)",
+                          animation: "spin .9s linear infinite",
+                        }} />
+                ) : (
+                  <Sparkles size={10} strokeWidth={2} />
+                )}
+                {badge.text}
+              </span>
+            </div>
+
+            {/* 进行中提示行——独立于正文，让用户即便有旧摘要也清楚知道正在重生成 */}
+            {isGenerating && (
+              <div className="text-[12px] leading-[1.5] flex items-center gap-2 rounded-md px-2 py-1.5"
+                   style={{ background: "rgba(79,168,154,.06)", color: "var(--brand)" }}>
+                <span className="inline-block w-2 h-2 rounded-full"
+                      style={{
+                        background: "var(--brand)",
+                        animation: "dot 1.4s infinite",
+                      }} />
+                {hasContent
+                  ? "Agent 正在基于新文档重新生成摘要…（旧版本仍在下方显示）"
+                  : "Agent 正在分析知识库内容生成摘要，预计 10–30 秒…"}
+              </div>
+            )}
+
+            {/* 失败提示行 */}
+            {isFailed && flight?.error && (
+              <div className="text-[12px] leading-[1.5] rounded-md px-2 py-1.5"
+                   style={{ background: "rgba(179,38,30,.06)", color: "var(--err)" }}>
+                ⚠ {flight.error}
+              </div>
+            )}
+
+            {/* 正文：超长内容内部滚动，不撑高卡片；引导文案不需要滚动 */}
+            <div className="text-[13px] leading-[1.65] whitespace-pre-line pr-1"
+                 style={{
+                   color: hasContent ? "var(--ink)" : "var(--ink-2)",
+                   maxHeight: hasContent ? "14em" : undefined,
+                   overflowY: hasContent ? "auto" : "visible",
+                   // 细滚动条 + 留点右边距防止贴到卡片边缘
+                   scrollbarWidth: "thin",
+                   scrollbarColor: "rgba(11,17,32,.18) transparent",
+                 }}>
+              {loading ? "加载中…" : body}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {chips.map(ch => (
+                <span key={ch} className="chip" style={{ background: "rgba(11,17,32,.04)" }}>{ch}</span>
+              ))}
+            </div>
           </div>
-          <div className="text-[13px] leading-[1.65]" style={{ color: "var(--ink-2)" }}>
-            {c.body}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {c.chips.map(ch => (
-              <span key={ch} className="chip" style={{ background: "rgba(11,17,32,.04)" }}>{ch}</span>
-            ))}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
+}
+
+/** 简化的相对时间：分钟/小时/天，足够 MVP 用；避免引入 dayjs */
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "刚刚";
+  if (min < 60) return `${min} 分钟前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} 小时前`;
+  const d = Math.floor(hr / 24);
+  return `${d} 天前`;
 }
 
 // ── PresetGrid ────────────────────────────────────────────────────────────
@@ -233,6 +376,63 @@ export default function ProjectChatPage() {
     if (projectId) setCurrentProject(projectId);
   }, [projectId, setCurrentProject]);
 
+  // ── 项目级自动摘要（产品介绍 / 竞品对比） ──────────────────────────────
+  //
+  // 进入页面拉一次；同时通过 reloadTick 计数器允许其他事件（如 generate 完）触发重拉。
+  // 失败静默——卡片自然降级到引导文案。
+  // 用 cancelled 标记 + cleanup 避免 strict-mode 双调用 / 切项目时写过期数据。
+  const [summaries, setSummaries] = useState<Partial<Record<AutoGenCardType, ProjectAutoGenLatest>>>({});
+  const [inFlight, setInFlight] = useState<Partial<Record<AutoGenCardType, ProjectAutoGenInFlight>>>({});
+  const [summariesLoading, setSummariesLoading] = useState(true);
+  const [summariesReloadTick, setSummariesReloadTick] = useState(0);
+
+  /**
+   * 拉一次 + 如果发现有 running/queued auto-gen，启动 3s 轮询直到全部结束。
+   * tick 改变会重新走整套流程，所以 generate 完后 setSummariesReloadTick 即可强制刷新。
+   */
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchOnce = async () => {
+      try {
+        const { items, inFlight: flights } =
+          await autoGenerationsApi.getLatestProjectAutoGen(projectId);
+        if (cancelled) return { hasRunning: false };
+        const nextSummaries: Partial<Record<AutoGenCardType, ProjectAutoGenLatest>> = {};
+        for (const it of items) nextSummaries[it.cardType] = it;
+        const nextFlight: Partial<Record<AutoGenCardType, ProjectAutoGenInFlight>> = {};
+        for (const f of flights) nextFlight[f.cardType] = f;
+        setSummaries(nextSummaries);
+        setInFlight(nextFlight);
+        const hasRunning = flights.some(
+          (f) => f.status === "running" || f.status === "queued",
+        );
+        return { hasRunning };
+      } catch {
+        return { hasRunning: false };
+      } finally {
+        if (!cancelled) setSummariesLoading(false);
+      }
+    };
+
+    const loop = async () => {
+      const { hasRunning } = await fetchOnce();
+      if (cancelled) return;
+      if (hasRunning) {
+        // 还有进行中的，3 秒后再拉一次（auto-gen 一般 10-30s 完成）
+        pollTimer = setTimeout(loop, 3000);
+      }
+    };
+    loop();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [projectId, summariesReloadTick]);
+
   const startGenerate = async (text: string) => {
     if (!text.trim() || !projectId) return;
     setLastPrompt(text.trim());
@@ -245,6 +445,9 @@ export default function ProjectChatPage() {
       const res = await generationsApi.generate(projectId, text.trim());
       setResult(res);
       setPhase("done");
+      // 生成完后用户可能刚在隔壁知识库上传了新文档，重拉摘要，
+      // 让 auto-gen 的新结果可被看到
+      setSummariesReloadTick(t => t + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成失败");
       setPhase("done");
@@ -273,8 +476,8 @@ export default function ProjectChatPage() {
           </p>
         </div>
 
-        {/* Auto-generated info cards */}
-        <ProjectInfoCards />
+        {/* Auto-generated info cards（项目级最新成功摘要 + 进行中状态） */}
+        <ProjectInfoCards summaries={summaries} inFlight={inFlight} loading={summariesLoading} />
 
         {/* Conversation thread */}
         {lastPrompt && (

@@ -130,8 +130,15 @@ export class PipelineOrchestratorService {
       // LLM 不可用时 generation/rerank/evaluation 会降级
     }
 
+    // 记下 env 里的默认模型 / 维度，retrieval stage 用它覆盖 YAML 里的 zod 默认值
+    // （否则 retrieval 永远向后端发 "text-embedding-v4"——但用户配的可能是 bge-m3）
+    let embeddingDefaultModel: string | undefined;
+    let embeddingDefaultDimension: number | undefined;
     try {
-      embeddingClient = this.providers.createEmbeddingClient().client;
+      const cfg = this.providers.createEmbeddingClient();
+      embeddingClient = cfg.client;
+      embeddingDefaultModel = cfg.defaultModel;
+      embeddingDefaultDimension = cfg.defaultDimension;
     } catch {
       // embedding 不可用时 retrieval 会报错
     }
@@ -203,7 +210,18 @@ export class PipelineOrchestratorService {
       const queries = queryRewriteOutput?.rewrittenQueries ?? [resolvedQuery];
       retrievalOutput = await this.runStage(stages, "retrieval", async (cfg) => {
         const methodId = RetrievalMethodId.parse(cfg.method);
-        const params = RetrievalParamsSchema.parse(cfg.params);
+        // YAML 不写 embeddingModel/Dimension 时，注入 EMBEDDING_MODEL / EMBEDDING_DIMENSION
+        // env 默认值（与 ingestion 保持一致，避免查询用 v4 但 chunk 用 bge-m3 这种空间错位）。
+        // 用户 YAML 显式写过的值优先——只在 missing 时填充。
+        const yamlParams = (cfg.params ?? {}) as Record<string, unknown>;
+        const mergedParams: Record<string, unknown> = { ...yamlParams };
+        if (mergedParams.embeddingModel === undefined && embeddingDefaultModel) {
+          mergedParams.embeddingModel = embeddingDefaultModel;
+        }
+        if (mergedParams.embeddingDimension === undefined && embeddingDefaultDimension) {
+          mergedParams.embeddingDimension = embeddingDefaultDimension;
+        }
+        const params = RetrievalParamsSchema.parse(mergedParams);
         const result = await runRetrieval({
           methodId,
           params,
@@ -440,17 +458,74 @@ export class PipelineOrchestratorService {
   }
 
   /**
-   * 从 GenerationOutput（多态：marketing-ideas / product-persona / selling-points / content-ideas）
-   * 提取可读文本。MVP 做简单 JSON.stringify，Week 6 前端负责格式化。
+   * 从 GenerationOutput 提取可读 markdown/text，用于写入 generations.result_notes
+   * 和前端直接渲染。
+   *
+   * GenerationOutput 是 4 个 method 的判别联合：
+   *   - marketing-ideas    → { generatedContent: string, ... }     ← 主要路径（含 ProductInfoCards 的"产品介绍"卡）
+   *   - selling-points     → { sellingPoints[], summary, ... }
+   *   - product-persona    → { targetSegment, painPoints[], coreNeeds[], summary, ... }
+   *   - content-ideas      → { ideas[], summary, ... }
+   *
+   * 之前的实现只 cover ideas[] 和 result 字段，命中不上时落到 JSON.stringify 整对象，
+   * 表现为前端显示 `{"generatedContent": "...", ...}` 这种原始 JSON——
+   * 这是用户看到的 bug 根因。这里按 method 形态分别 markdown 化。
    */
   private extractResultText(output: GenerationOutput | undefined): string | null {
     if (!output) return null;
-    // marketing-ideas 有 ideas[]；其他有 result / text 字段
-    if ("ideas" in output && Array.isArray(output.ideas)) {
-      return output.ideas.map((idea, i) => `${i + 1}. ${(idea as { title?: string; content?: string }).title ?? (idea as { content?: string }).content ?? JSON.stringify(idea)}`).join("\n");
+
+    // 1. marketing-ideas / 产品介绍卡：generatedContent 已经是 LLM 给的 markdown，原样返回
+    if ("generatedContent" in output && typeof output.generatedContent === "string") {
+      return output.generatedContent;
     }
-    if ("result" in output && typeof output.result === "string") {
-      return output.result;
+
+    // 2. selling-points：渲染成 markdown 列表 + summary 收尾
+    if ("sellingPoints" in output && Array.isArray(output.sellingPoints)) {
+      const lines: string[] = [];
+      if (output.summary) lines.push(output.summary, "");
+      lines.push("**核心卖点：**");
+      for (const sp of output.sellingPoints) {
+        lines.push(`- **${sp.title}**：${sp.description}`);
+      }
+      if (output.differentiators?.length) {
+        lines.push("", "**差异化优势：**");
+        for (const d of output.differentiators) lines.push(`- ${d}`);
+      }
+      return lines.join("\n");
+    }
+
+    // 3. product-persona：目标人群结构化展示
+    if ("targetSegment" in output && typeof output.targetSegment === "string") {
+      const lines: string[] = [`**目标人群：** ${output.targetSegment}`];
+      if (output.painPoints?.length) {
+        lines.push("", "**核心痛点：**");
+        for (const p of output.painPoints) lines.push(`- ${p}`);
+      }
+      if (output.coreNeeds?.length) {
+        lines.push("", "**核心需求：**");
+        for (const n of output.coreNeeds) lines.push(`- ${n}`);
+      }
+      if (output.summary) lines.push("", output.summary);
+      return lines.join("\n");
+    }
+
+    // 4. content-ideas：内容创意编号列表
+    if ("ideas" in output && Array.isArray(output.ideas)) {
+      const lines: string[] = [];
+      if ("summary" in output && output.summary) lines.push(output.summary, "");
+      output.ideas.forEach((idea, i) => {
+        const item = idea as { title?: string; angle?: string; format?: string; content?: string };
+        const head = item.title ?? item.content ?? JSON.stringify(idea);
+        lines.push(`${i + 1}. **${head}**`);
+        if (item.angle) lines.push(`   - 视角：${item.angle}`);
+        if (item.format) lines.push(`   - 形式：${item.format}`);
+      });
+      return lines.join("\n");
+    }
+
+    // 5. 兜底：如果有 summary 就只返 summary；否则才 JSON.stringify
+    if ("summary" in output && typeof output.summary === "string") {
+      return output.summary;
     }
     return JSON.stringify(output, null, 2);
   }

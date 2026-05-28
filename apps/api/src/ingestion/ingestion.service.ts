@@ -22,6 +22,8 @@ import {
   type IngestionCompletedEvent,
   type IngestionFailedEvent,
   type IngestionStage,
+  type IngestionStageOutput,
+  type IngestionStageOutputs,
   type IngestionStatus,
 } from "./ingestion.types";
 
@@ -40,6 +42,7 @@ interface DbJobRow {
   finished_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  stage_outputs: IngestionStageOutputs | null;
 }
 
 function mapJob(row: DbJobRow): IngestionJobRow {
@@ -58,11 +61,13 @@ function mapJob(row: DbJobRow): IngestionJobRow {
     finishedAt: row.finished_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    stageOutputs: row.stage_outputs ?? {},
   };
 }
 
 const SELECT_COLS = `id, project_id, document_id, status, progress, current_stage,
-  chunks_done, chunks_total, cost_usd, error, started_at, finished_at, created_at, updated_at`;
+  chunks_done, chunks_total, cost_usd, error, started_at, finished_at, created_at, updated_at,
+  stage_outputs`;
 
 @Injectable()
 export class IngestionService {
@@ -231,6 +236,34 @@ export class IngestionService {
     };
     this.events.emit(INGESTION_EVENT.progress, event);
     return job;
+  }
+
+  /**
+   * Runner 在每个 stage 完成时调一次，把摘要写进 stage_outputs JSONB。
+   *
+   * 用 jsonb_set 而不是整列替换，保证并发安全（虽然单 runner 串行，但写法更稳）；
+   * 缺省 stage_outputs 为 NULL 时先 COALESCE 成 '{}' 再 set。
+   * 不发 SSE 事件——progress 事件已足够前端轮询触发拉取详情。
+   */
+  async setStageOutput(
+    jobId: string,
+    stage: IngestionStage,
+    output: IngestionStageOutput,
+  ): Promise<void> {
+    await this.db.withClient(async (client) => {
+      await client.query(
+        `UPDATE ingestion_jobs
+         SET stage_outputs = jsonb_set(
+               COALESCE(stage_outputs, '{}'::jsonb),
+               $1::text[],
+               $2::jsonb,
+               true
+             ),
+             updated_at = NOW()
+         WHERE id = $3`,
+        [`{${stage}}`, JSON.stringify(output), jobId],
+      );
+    });
   }
 
   /** runner 标记任务开始（写 started_at）。 */

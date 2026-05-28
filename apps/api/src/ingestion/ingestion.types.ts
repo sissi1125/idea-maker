@@ -17,6 +17,24 @@ export const INGESTION_STAGES = [
 ] as const;
 export type IngestionStage = (typeof INGESTION_STAGES)[number];
 
+/**
+ * 单个 stage 的输出摘要（不是完整 trace；是供前端展示"做了什么"的精炼版）。
+ * 每个 stage 自己决定填哪些字段，前端按存在性渲染。
+ *
+ * - method：rag-core 选用的 methodId（如 "markdown-structure" / "openai-3-small"）
+ * - durationMs：本 stage 在 runner 内的真实耗时
+ * - metrics：扁平的 key→value，供前端 chip 展示（如 chunkSize=600, dimension=1024）
+ * - note：可选一行人类可读补充（如 "mock embedding（无 API key）"）
+ */
+export interface IngestionStageOutput {
+  method: string;
+  durationMs: number;
+  metrics?: Record<string, string | number | boolean>;
+  note?: string;
+}
+
+export type IngestionStageOutputs = Partial<Record<IngestionStage, IngestionStageOutput>>;
+
 export interface IngestionJobRow {
   id: string;
   projectId: string;
@@ -32,6 +50,8 @@ export interface IngestionJobRow {
   finishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** 5 个 stage 各自的输出摘要（completed 后填齐；失败时只有已跑完的 stage） */
+  stageOutputs: IngestionStageOutputs;
 }
 
 /**

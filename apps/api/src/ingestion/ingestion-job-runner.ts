@@ -37,6 +37,7 @@ import {
 import { DbService } from "../db/db.service";
 import { MvpDocumentsService } from "../mvp-documents/mvp-documents.service";
 import { FileStorageService } from "../mvp-documents/file-storage.service";
+import { ProvidersService } from "../pipeline/providers.service";
 import { IngestionService } from "./ingestion.service";
 import type { IngestionStage } from "./ingestion.types";
 
@@ -60,6 +61,7 @@ export class IngestionJobRunner {
     private readonly db: DbService,
     private readonly storage: FileStorageService,
     private readonly mvpDocs: MvpDocumentsService,
+    private readonly providers: ProvidersService,
     @Inject(forwardRef(() => IngestionService))
     private readonly jobs: IngestionService,
   ) {}
@@ -82,11 +84,12 @@ export class IngestionJobRunner {
         currentStage,
         progress: MILESTONES[0].progressBefore,
       });
+      const idempStart = Date.now();
       const buffer = this.storage.read(doc.storageRef);
       const rawContent = doc.isBinary
         ? buffer.toString("base64")
         : buffer.toString("utf-8");
-      checkIdempotency({
+      const idempResult = checkIdempotency({
         methodId: "sha256-content",
         params: {
           normalizeWhitespace: false,
@@ -103,6 +106,17 @@ export class IngestionJobRunner {
         },
         otherDocs: [], // MVP Week 2 不做跨 document 判重（PG 已按 hash 索引，未来从 PG 拉）
       });
+      await this.jobs.setStageOutput(jobId, "idempotency", {
+        method: "sha256-content",
+        durationMs: Date.now() - idempStart,
+        metrics: {
+          // 走判重结论：是否已存在（同一文件再传） / 推荐动作 / 内容 hash 前 8 位
+          exists: idempResult.output.exists,
+          recommendedAction: idempResult.output.recommendedAction,
+          hashPrefix: idempResult.output.hash.slice(0, 8),
+          fileBytes: doc.fileSize,
+        },
+      });
       await this.jobs.updateProgress(jobId, {
         progress: MILESTONES[0].progressAfter,
       });
@@ -113,9 +127,11 @@ export class IngestionJobRunner {
         currentStage,
         progress: MILESTONES[1].progressBefore,
       });
+      const preprocessStart = Date.now();
+      const preprocessMethod = this.pickPreprocessMethod(doc.mimeType, doc.isBinary);
       const preprocessed = await runPreprocess({
         // 文本 → markdown-structure；PDF → pdf-pages；DOCX → markitdown（含 mammoth）
-        methodId: this.pickPreprocessMethod(doc.mimeType, doc.isBinary),
+        methodId: preprocessMethod,
         params: {
           preserveHeadings: true,
           preserveTables: true,
@@ -134,6 +150,17 @@ export class IngestionJobRunner {
         },
         pymupdfServiceUrl: process.env.PYMUPDF_SERVICE_URL,
       });
+      await this.jobs.setStageOutput(jobId, "preprocess", {
+        method: preprocessMethod,
+        durationMs: Date.now() - preprocessStart,
+        metrics: {
+          charsExtracted: preprocessed.output.charCount,
+          sourceRefs: preprocessed.output.sourceRefs.length,
+          pageCount: preprocessed.output.metadata.pageCount ?? 0,
+          warnings: preprocessed.output.warnings.length,
+        },
+        note: preprocessed.output.warnings[0],
+      });
       await this.jobs.updateProgress(jobId, {
         progress: MILESTONES[1].progressAfter,
       });
@@ -144,6 +171,7 @@ export class IngestionJobRunner {
         currentStage,
         progress: MILESTONES[2].progressBefore,
       });
+      const chunkStart = Date.now();
       const chunked = runChunk({
         methodId: "recursive",
         params: {
@@ -159,6 +187,17 @@ export class IngestionJobRunner {
         },
       });
       const chunksTotal = chunked.output.chunks.length;
+      await this.jobs.setStageOutput(jobId, "chunk", {
+        method: "recursive",
+        durationMs: Date.now() - chunkStart,
+        metrics: {
+          chunkSize: 600,
+          overlap: 80,
+          chunksTotal,
+          avgChunkSize: Math.round(chunked.output.avgChunkSize),
+          maxChunkSize: chunked.output.maxChunkSize,
+        },
+      });
       await this.jobs.updateProgress(jobId, {
         progress: MILESTONES[2].progressAfter,
         chunksTotal,
@@ -170,17 +209,50 @@ export class IngestionJobRunner {
         currentStage,
         progress: MILESTONES[3].progressBefore,
       });
+      const embedStart = Date.now();
+      // embedding 方法选择：
+      //   - 有 OPENAI_API_KEY → openai-3-small（真实语义向量，与 retrieval 对齐）
+      //   - 无 API key → debug-deterministic（FNV-1a hash，仅流程验证）
+      // dimension=1024：与 Playground 既有 chunks 表对齐，避免 Dimension Guard 冲突
+      let embeddingClient;
+      let embeddingModel = "debug";
+      let useRealEmbedding = false;
+      try {
+        // 从 ProvidersService 拿 client + 默认 model（读 EMBEDDING_MODEL env，
+        // 兼容 Ollama bge-m3 / Qwen text-embedding-v4 / OpenAI text-embedding-3-small 等）
+        const cfg = this.providers.createEmbeddingClient();
+        embeddingClient = cfg.client;
+        embeddingModel = cfg.defaultModel;
+        useRealEmbedding = true;
+      } catch {
+        // 无 API key，降级到 debug-deterministic
+      }
+
       const embedded = await runEmbedding({
-        // Week 2 MVP 用 debug-deterministic：免 API key、可重复、向量为 FNV-1a hash
-        // Week 5 接入 BYOK 后改 'openai-3-small' / 'hf-tei-embedding' 等
-        // dimension=1024：与 Playground 既有 chunks 表对齐，避免 Dimension Guard 冲突
-        methodId: "debug-deterministic",
+        methodId: useRealEmbedding ? "openai-3-small" : "debug-deterministic",
         params: {
-          model: "debug",
+          // model 必须用 env 配置的真实模型名，不能写死 "text-embedding-3-small"——
+          // 否则 Ollama / 智谱 / 阿里云 等兼容端点会因模型名不存在而 404。
+          model: embeddingModel,
           dimension: 1024,
           batchSize: 16,
         },
         upstreamChunks: chunked.output.chunks,
+        openaiClient: embeddingClient,
+      });
+      await this.jobs.setStageOutput(jobId, "embedding", {
+        method: useRealEmbedding ? "openai-3-small" : "debug-deterministic",
+        durationMs: Date.now() - embedStart,
+        metrics: {
+          model: embedded.output.model,
+          dimension: embedded.output.dimension,
+          batchCount: embedded.output.batchCount,
+          tokensEstimated: embedded.output.totalTokensEstimated,
+          mock: !useRealEmbedding,
+        },
+        note: useRealEmbedding
+          ? undefined
+          : "无 LLM API key，降级到 debug-deterministic（FNV-1a hash 伪向量，仅供流程验证）",
       });
       await this.jobs.updateProgress(jobId, {
         progress: MILESTONES[3].progressAfter,
@@ -193,12 +265,13 @@ export class IngestionJobRunner {
         currentStage,
         progress: MILESTONES[4].progressBefore,
       });
+      const storageStart = Date.now();
       const cs = this.db.resolveConnectionString();
       if (!cs) throw new Error("DATABASE_URL 未配置，无法写 pgvector");
       const pgClient = new PgClient({ connectionString: cs });
       await pgClient.connect();
       try {
-        await runStorage({
+        const stored = await runStorage({
           // replace-version：只删本 document 的旧 chunks（按 doc_id 范围）后插入新数据，
           // 与同表里其他 document（含 Playground 写入）共存
           methodId: "pgvector-replace-version",
@@ -211,6 +284,16 @@ export class IngestionJobRunner {
           dimension: embedded.output.dimension,
           documentId: doc.id,
           pgClient,
+        });
+        await this.jobs.setStageOutput(jobId, "storage", {
+          method: "pgvector-replace-version",
+          durationMs: Date.now() - storageStart,
+          metrics: {
+            indexMode: stored.output.indexMode,
+            rowsInserted: stored.output.storedChunks,
+            dimension: stored.output.dimension,
+            indexCreated: stored.output.indexCreated,
+          },
         });
       } finally {
         await pgClient.end().catch(() => undefined);

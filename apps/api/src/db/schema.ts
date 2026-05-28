@@ -115,6 +115,10 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_project_id ON ingestion_jobs (proj
 CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_document_id ON ingestion_jobs (document_id);
 CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status_updated
   ON ingestion_jobs (status, updated_at DESC);
+-- feat-200.6 patch：每个 stage 的输出摘要（JSONB，按 stage 名做 key）。
+-- 形状：{ idempotency?:{...}, preprocess?:{...}, chunk?:{...}, embedding?:{...}, storage?:{...} }
+-- 用 ADD COLUMN IF NOT EXISTS 保证向后兼容已有库。
+ALTER TABLE ingestion_jobs ADD COLUMN IF NOT EXISTS stage_outputs JSONB;
 `;
 
 /**

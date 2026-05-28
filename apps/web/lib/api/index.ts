@@ -10,8 +10,17 @@ export * as authApi from "./auth";
 export * as projectsApi from "./projects";
 export * as documentsApi from "./documents";
 export * as generationsApi from "./generations";
+export * as autoGenerationsApi from "./auto-generations";
+export type {
+  AutoGenCardType,
+  ProjectAutoGenLatest,
+  ProjectAutoGenInFlight,
+} from "./auto-generations";
 export { ApiError, setTokenGetter } from "./client";
 export type { User } from "./auth";
 export type { Project, ProjectSettings } from "./projects";
-export type { MvpDocument, DocumentCategory, IngestionJob } from "./documents";
+export type {
+  MvpDocument, DocumentCategory, IngestionJob,
+  IngestionStage, IngestionStageOutput, IngestionStageOutputs,
+} from "./documents";
 export type { GenerationRow, GenerateResponse, PipelineTrace, StageResult, CostBreakdown } from "./generations";

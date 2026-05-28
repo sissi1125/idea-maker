@@ -10,8 +10,13 @@
  * 流程：
  *   1. 用户选分类 → 拖拽/点击上传文件
  *   2. 后端返回 {document, ingestionJobId}
- *   3. 前端用 ingestionJobId 轮询进度（每 2s），更新进度条
- *   4. ingestion 完成 → 文件状态变为 ready
+ *   3. 前端用 ingestionJobId 轮询进度（首次 200ms，之后每 2s），更新进度条
+ *   4. ingestion 完成 → 文件状态变为 ready，展示 ingestion 详情
+ *
+ * 修复记录：
+ *   - 删除按钮改为 X icon + 二次确认弹窗
+ *   - 轮询首次延迟从 2s 改为 200ms（ingestion 小文件<200ms 就完成）
+ *   - 显示 ingestion 各阶段详情（chunks 数量、耗时、阶段列表）
  */
 
 "use client";
@@ -19,11 +24,94 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Upload, Check, MoreHorizontal, ArrowRight,
+  Upload, Check, X, ArrowRight, AlertCircle, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { documentsApi } from "@/lib/api";
-import type { MvpDocument, DocumentCategory, IngestionJob } from "@/lib/api";
+import type {
+  MvpDocument, DocumentCategory, IngestionJob,
+  IngestionStage, IngestionStageOutputs,
+} from "@/lib/api";
+
+// ── Stage 显示顺序 + 中文标签 ────────────────────────────────────────────────
+
+const STAGE_ORDER: IngestionStage[] = ["idempotency", "preprocess", "chunk", "embedding", "storage"];
+const STAGE_LABELS: Record<IngestionStage, string> = {
+  idempotency: "去重校验",
+  preprocess:  "文档解析",
+  chunk:       "文本分块",
+  embedding:   "向量化",
+  storage:     "写入索引",
+};
+
+/**
+ * 单 stage 的展示行——method/durationMs + 关键 metrics chips。
+ * processing 中未完成的 stage 渲染为灰色占位 "—"。
+ */
+function StageOutputRow({
+  stage,
+  output,
+}: {
+  stage: IngestionStage;
+  output: IngestionStageOutputs[IngestionStage];
+}) {
+  const label = STAGE_LABELS[stage];
+  if (!output) {
+    return (
+      <div className="flex items-center gap-2 py-1.5 text-[11.5px]" style={{ color: "var(--ink-4)" }}>
+        <span className="w-[60px] flex-none">{label}</span>
+        <span className="mono">—</span>
+      </div>
+    );
+  }
+  const chips: Array<[string, string]> = [];
+  if (output.metrics) {
+    for (const [k, v] of Object.entries(output.metrics)) {
+      chips.push([k, String(v)]);
+    }
+  }
+  return (
+    <div className="py-1.5 text-[11.5px]" style={{ color: "var(--ink-2)" }}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="w-[60px] flex-none font-semibold" style={{ color: "var(--ink)" }}>
+          {label}
+        </span>
+        <span className="chip mono" style={{ background: "rgba(11,17,32,.04)", color: "var(--ink-2)" }}>
+          {output.method}
+        </span>
+        <span className="mono" style={{ color: "var(--ink-4)" }}>
+          {output.durationMs}ms
+        </span>
+        {chips.map(([k, v]) => (
+          <span key={k} className="chip mono text-[10.5px]"
+                style={{ background: "rgba(79,168,154,.07)", color: "var(--brand)" }}>
+            {k}={v}
+          </span>
+        ))}
+      </div>
+      {output.note && (
+        <div className="mt-0.5 text-[11px] pl-[68px]" style={{ color: "var(--tool)" }}>
+          ⚠ {output.note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageOutputsPanel({ outputs }: { outputs: IngestionStageOutputs }) {
+  return (
+    <div className="mt-2 px-3 py-2 rounded-md"
+         style={{ background: "rgba(11,17,32,.025)", border: "1px solid var(--line-2)" }}>
+      <div className="text-[10.5px] font-semibold tracking-wider uppercase mb-1"
+           style={{ color: "var(--ink-4)" }}>
+        Ingestion 阶段输出
+      </div>
+      {STAGE_ORDER.map((s) => (
+        <StageOutputRow key={s} stage={s} output={outputs[s]} />
+      ))}
+    </div>
+  );
+}
 
 // ── 分类定义 ──────────────────────────────────────────────────────────────
 
@@ -59,11 +147,15 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** 将 ingestion stage 名映射为中文，含 ingestion 5 阶段 */
 function stageLabel(stage: string | null): string {
   if (!stage) return "等待中";
   const map: Record<string, string> = {
-    preprocess: "解析中", chunk: "Chunking", embedding: "Embedding",
-    storage: "建索引", complete: "已索引",
+    idempotency: "去重校验",
+    preprocess: "文档解析",
+    chunk: "文本分块",
+    embedding: "向量化",
+    storage: "写入索引",
   };
   return map[stage] ?? stage;
 }
@@ -79,9 +171,74 @@ interface FileEntry {
   progress: number;
   stage: string;
   ingestionJobId: string | null;
+  /** ingestion 完成后的详情 */
+  ingestionDetail: {
+    chunksTotal: number;
+    durationMs: number;
+    error: string | null;
+  } | null;
+  /** 每个 stage 的输出摘要——边跑边累加 */
+  stageOutputs: IngestionStageOutputs;
 }
 
-// ── 组件 ──────────────────────────────────────────────────────────────────
+// ── 删除确认弹窗组件 ────────────────────────────────────────────────────────
+
+function ConfirmDeleteDialog({
+  fileName,
+  onConfirm,
+  onCancel,
+}: {
+  fileName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,.35)" }}
+      onClick={onCancel}
+    >
+      <div
+        className="card p-5 w-[380px] fade-in"
+        style={{ boxShadow: "var(--shadow-lg)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2.5 mb-3">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(179,38,30,.08)", color: "var(--err)" }}
+          >
+            <AlertCircle size={16} strokeWidth={1.8} />
+          </div>
+          <div className="text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
+            确认删除
+          </div>
+        </div>
+        <div className="text-[13px] leading-relaxed mb-4" style={{ color: "var(--ink-2)" }}>
+          确定要删除 <b>{fileName}</b> 吗？删除后对应的向量数据也会清除，此操作不可恢复。
+        </div>
+        <div className="flex justify-end gap-2">
+          <button className="btn btn-sm btn-ghost" onClick={onCancel}>
+            取消
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{
+              background: "var(--err)",
+              color: "#fff",
+              border: "1px solid var(--err)",
+            }}
+            onClick={onConfirm}
+          >
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 主组件 ──────────────────────────────────────────────────────────────────
 
 export default function KnowledgePage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -93,79 +250,159 @@ export default function KnowledgePage() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // 正在轮询的 jobId 集合
   const pollingRef = useRef<Set<string>>(new Set());
 
-  // 同步 project
+  // 删除确认状态
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  /**
+   * 哪些 file 的 stage outputs 面板展开。
+   * - 处理中默认自动展开（看流程跑）；
+   * - 完成后默认折叠（结果以"X chunks · Yms"行展示），用户可手动展开看细节。
+   */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (fileId: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (projectId) setCurrentProject(projectId);
   }, [projectId, setCurrentProject]);
 
-  // ── 加载文档列表 ─────────────────────────────────────────────────────────
+  // ── Ingestion 轮询（必须在 loadDocuments 之前定义，loadDocuments 依赖它） ──
+
+  /** 根据 ingestion job 更新文件条目 */
+  const updateFileFromJob = useCallback((docId: string, jobId: string, job: IngestionJob) => {
+    setFiles(prev => prev.map(f => {
+      if (f.id !== docId && f.ingestionJobId !== jobId) return f;
+
+      const isDone = job.status === "completed";
+      const isFailed = job.status === "failed";
+
+      return {
+        ...f,
+        status: isDone ? "ready" : isFailed ? "error" : job.status as FileEntry["status"],
+        progress: job.progress,
+        stage: isDone
+          ? "已索引"
+          : isFailed
+            ? (job.error ?? "处理失败")
+            : stageLabel(job.currentStage),
+        ingestionDetail: (isDone || isFailed) ? {
+          chunksTotal: job.chunksTotal,
+          durationMs: job.startedAt && job.finishedAt
+            ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
+            : 0,
+          error: job.error,
+        } : f.ingestionDetail,
+        // 即便还在处理中也持续合并 stageOutputs（已完成的 stage 提前可见）
+        stageOutputs: job.stageOutputs ?? f.stageOutputs ?? {},
+      };
+    }));
+  }, []);
+
+  const pollIngestion = useCallback((jobId: string, docId: string) => {
+    if (!projectId || pollingRef.current.has(jobId)) return;
+    pollingRef.current.add(jobId);
+
+    const doCheck = async () => {
+      try {
+        const { job } = await documentsApi.getIngestionJob(projectId, jobId);
+        updateFileFromJob(docId, jobId, job);
+        return job.status === "completed" || job.status === "failed";
+      } catch {
+        return false;
+      }
+    };
+
+    // 首次 200ms 后立刻检查（ingestion 小文件可能<200ms 就完成）
+    const firstTimeout = setTimeout(async () => {
+      const done = await doCheck();
+      if (done) {
+        pollingRef.current.delete(jobId);
+        return;
+      }
+      // 未完成 → 每 2s 继续轮询
+      const timer = setInterval(async () => {
+        const finished = await doCheck();
+        if (finished) {
+          clearInterval(timer);
+          pollingRef.current.delete(jobId);
+        }
+      }, 2000);
+    }, 200);
+
+    return () => {
+      clearTimeout(firstTimeout);
+      pollingRef.current.delete(jobId);
+    };
+  }, [projectId, updateFileFromJob]);
+
+  // ── 加载文档列表 + ingestion jobs（获取 chunks / 耗时） ───────────────────
 
   const loadDocuments = useCallback(async () => {
     if (!projectId) return;
     try {
-      const { documents } = await documentsApi.listDocuments(projectId);
-      setFiles(documents.map((d: MvpDocument) => ({
-        id: d.id,
-        name: d.fileName,
-        size: formatSize(d.fileSize),
-        category: d.category,
-        status: d.processingStatus,
-        progress: d.processingStatus === "ready" ? 100 : 0,
-        stage: d.processingStatus === "ready" ? "已索引" : stageLabel(null),
-        ingestionJobId: null,
-      })));
+      // 并行加载文档列表和 ingestion jobs
+      const [docsRes, jobsRes] = await Promise.all([
+        documentsApi.listDocuments(projectId),
+        documentsApi.listIngestionJobs(projectId).catch(() => ({ jobs: [] as IngestionJob[] })),
+      ]);
+
+      // 按 documentId 建立 job 索引（取每个 document 最新的 job）
+      const jobByDocId = new Map<string, IngestionJob>();
+      for (const job of jobsRes.jobs) {
+        const existing = jobByDocId.get(job.documentId);
+        if (!existing || new Date(job.createdAt) > new Date(existing.createdAt)) {
+          jobByDocId.set(job.documentId, job);
+        }
+      }
+
+      setFiles(docsRes.documents.map((d: MvpDocument) => {
+        const job = jobByDocId.get(d.id);
+        const isDone = job?.status === "completed";
+        const isFailed = job?.status === "failed";
+
+        return {
+          id: d.id,
+          name: d.fileName,
+          size: formatSize(d.fileSize),
+          category: d.category,
+          status: d.processingStatus,
+          progress: d.processingStatus === "ready" ? 100 : (job?.progress ?? 0),
+          stage: d.processingStatus === "ready"
+            ? "已索引"
+            : d.processingStatus === "error"
+              ? (job?.error ?? "处理失败")
+              : stageLabel(job?.currentStage ?? null),
+          ingestionJobId: job?.id ?? null,
+          ingestionDetail: (isDone || isFailed) ? {
+            chunksTotal: job!.chunksTotal,
+            durationMs: job!.startedAt && job!.finishedAt
+              ? new Date(job!.finishedAt).getTime() - new Date(job!.startedAt).getTime()
+              : 0,
+            error: job!.error,
+          } : null,
+          stageOutputs: job?.stageOutputs ?? {},
+        };
+      }));
+
+      // 如果有还在处理中的 job，启动轮询
+      for (const [docId, job] of jobByDocId) {
+        if (job.status === "processing" || job.status === "queued") {
+          pollIngestion(job.id, docId);
+        }
+      }
     } catch {
       // 静默
     }
-  }, [projectId]);
+  }, [projectId, pollIngestion]);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
-
-  // ── Ingestion 轮询 ──────────────────────────────────────────────────────
-
-  const pollIngestion = useCallback((jobId: string, docTempId: string) => {
-    if (!projectId || pollingRef.current.has(jobId)) return;
-    pollingRef.current.add(jobId);
-
-    const timer = setInterval(async () => {
-      try {
-        const { job } = await documentsApi.getIngestionJob(projectId, jobId);
-        // 更新对应文件条目
-        setFiles(prev => prev.map(f => {
-          if (f.id !== docTempId && f.ingestionJobId !== jobId) return f;
-          return {
-            ...f,
-            status: job.status === "completed" ? "ready"
-                  : job.status === "failed" ? "error"
-                  : job.status as FileEntry["status"],
-            progress: job.progress,
-            stage: job.status === "completed" ? "已索引"
-                 : job.status === "failed" ? (job.error ?? "处理失败")
-                 : stageLabel(job.currentStage),
-          };
-        }));
-
-        // 完成或失败 → 停止轮询
-        if (job.status === "completed" || job.status === "failed") {
-          clearInterval(timer);
-          pollingRef.current.delete(jobId);
-        }
-      } catch {
-        // 静默，下次重试
-      }
-    }, 2000);
-
-    // 返回清理函数（组件卸载时用）
-    return () => {
-      clearInterval(timer);
-      pollingRef.current.delete(jobId);
-    };
-  }, [projectId]);
+  useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
   // ── 上传处理 ─────────────────────────────────────────────────────────────
 
@@ -183,6 +420,8 @@ export default function KnowledgePage() {
         progress: 0,
         stage: "上传中",
         ingestionJobId: null,
+        ingestionDetail: null,
+        stageOutputs: {},
       };
       setFiles(prev => [entry, ...prev]);
 
@@ -190,7 +429,6 @@ export default function KnowledgePage() {
         const { document: doc, ingestionJobId } = await documentsApi.uploadDocument(
           projectId, file, category,
         );
-        // 更新为 queued/processing 并开始轮询
         setFiles(prev => prev.map(f =>
           f.id === tempId
             ? { ...f, id: doc.id, status: "queued", progress: 0, stage: "排队中", ingestionJobId }
@@ -213,8 +451,13 @@ export default function KnowledgePage() {
     handleFileSelect(e.dataTransfer.files);
   };
 
-  const handleDelete = async (fileId: string) => {
-    if (!projectId) return;
+  // ── 删除处理（带二次确认） ────────────────────────────────────────────────
+
+  const confirmDelete = async () => {
+    if (!projectId || !deleteTarget) return;
+    const fileId = deleteTarget.id;
+    setDeleteTarget(null);
+
     if (fileId.startsWith("temp-")) {
       setFiles(prev => prev.filter(f => f.id !== fileId));
       return;
@@ -331,7 +574,7 @@ export default function KnowledgePage() {
                 正在处理 {processingCount} 个文件
               </div>
               <div className="text-[11.5px] mt-0.5" style={{ color: "var(--ink-3)" }}>
-                完成后将自动生成 <b>产品介绍</b> 与 <b>竞品分析</b> 卡片
+                Ingestion: 去重校验 → 文档解析 → 文本分块 → 向量化 → 写入索引
               </div>
             </div>
           </div>
@@ -358,19 +601,27 @@ export default function KnowledgePage() {
                     const ext = f.name.split(".").pop()?.toUpperCase() ?? "?";
                     const extStyle = getExtStyle(f.name);
                     const isProcessing = f.status === "uploading" || f.status === "processing" || f.status === "queued";
+                    // 处理中自动展开看流程；done/error 时按用户手动 toggle
+                    const hasOutputs = Object.keys(f.stageOutputs).length > 0;
+                    const showPanel = hasOutputs && (isProcessing || expanded.has(f.id));
                     return (
-                      <div key={f.id} className="flex items-center gap-3 px-4 py-3"
+                      <div key={f.id} className="px-4 py-3"
                            style={{ borderTop: i === 0 ? "none" : "1px solid var(--line-2)" }}>
+                        <div className="flex items-center gap-3">
+                        {/* 文件图标 */}
                         <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center flex-none text-[11px] font-bold mono"
                               style={{ background: extStyle.bg, color: extStyle.color }}>
                           {ext}
                         </span>
 
+                        {/* 文件信息 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <div className="text-[13.5px] font-semibold truncate">{f.name}</div>
                             <div className="text-[11px] mono" style={{ color: "var(--ink-4)" }}>{f.size}</div>
                           </div>
+
+                          {/* 进度条（处理中） */}
                           {isProcessing ? (
                             <div className="flex items-center gap-2.5 mt-1.5">
                               <div className="relative h-[6px] flex-1 rounded-full overflow-hidden"
@@ -384,19 +635,33 @@ export default function KnowledgePage() {
                               </span>
                             </div>
                           ) : f.status === "error" ? (
-                            <div className="text-[11.5px] mt-[3px]" style={{ color: "var(--err)" }}>
-                              ✕ {f.stage}
+                            /* 错误状态 */
+                            <div className="text-[11.5px] mt-[3px] flex items-center gap-1" style={{ color: "var(--err)" }}>
+                              <X size={11} strokeWidth={2.5} />
+                              <span>{f.stage}</span>
+                              {f.ingestionDetail?.chunksTotal != null && (
+                                <span className="ml-2 mono" style={{ color: "var(--ink-4)" }}>
+                                  {f.ingestionDetail.chunksTotal} chunks · {f.ingestionDetail.durationMs}ms
+                                </span>
+                              )}
                             </div>
                           ) : (
-                            <div className="text-[11.5px] mt-[3px]" style={{ color: "var(--ink-3)" }}>
-                              ✓ 已索引
+                            /* 已完成 */
+                            <div className="text-[11.5px] mt-[3px] flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
+                              <Check size={11} strokeWidth={2.5} style={{ color: "var(--ok)" }} />
+                              <span>已索引</span>
+                              {f.ingestionDetail && (
+                                <span className="mono" style={{ color: "var(--ink-4)" }}>
+                                  · {f.ingestionDetail.chunksTotal} chunks · {f.ingestionDetail.durationMs}ms
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
 
-                        {/* Status icon */}
+                        {/* 右侧状态图标 */}
                         {f.status === "ready" && (
-                          <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center"
+                          <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-none"
                                 style={{ background: "var(--ok)", color: "#fff" }}>
                             <Check size={12} strokeWidth={2.5} />
                           </span>
@@ -406,11 +671,31 @@ export default function KnowledgePage() {
                                 style={{ border: "2.5px solid rgba(79,168,154,.22)", borderTopColor: "var(--brand)", animation: "spin .9s linear infinite" }} />
                         )}
 
-                        <button className="btn btn-sm btn-ghost px-1.5 h-6"
-                                onClick={() => handleDelete(f.id)}
-                                title="删除">
-                          <MoreHorizontal size={14} />
+                        {/* 展开 stage 输出（仅 ready/error 且 hasOutputs 时显示按钮） */}
+                        {hasOutputs && !isProcessing && (
+                          <button
+                            className="w-7 h-7 rounded-md flex items-center justify-center flex-none
+                                       opacity-50 hover:opacity-100 hover:bg-[rgba(11,17,32,.04)] transition-all"
+                            onClick={() => toggleExpanded(f.id)}
+                            title={expanded.has(f.id) ? "收起阶段输出" : "查看阶段输出"}
+                          >
+                            {expanded.has(f.id)
+                              ? <ChevronDown size={14} strokeWidth={1.8} style={{ color: "var(--ink-3)" }} />
+                              : <ChevronRight size={14} strokeWidth={1.8} style={{ color: "var(--ink-3)" }} />}
+                          </button>
+                        )}
+
+                        {/* 删除按钮 — X icon */}
+                        <button
+                          className="w-7 h-7 rounded-md flex items-center justify-center flex-none
+                                     opacity-40 hover:opacity-100 hover:bg-[rgba(179,38,30,.06)] transition-all"
+                          onClick={() => setDeleteTarget({ id: f.id, name: f.name })}
+                          title="删除文件"
+                        >
+                          <X size={14} strokeWidth={1.8} style={{ color: "var(--err)" }} />
                         </button>
+                        </div>
+                        {showPanel && <StageOutputsPanel outputs={f.stageOutputs} />}
                       </div>
                     );
                   })}
@@ -428,6 +713,15 @@ export default function KnowledgePage() {
           </button>
         </div>
       </div>
+
+      {/* 删除确认弹窗 */}
+      {deleteTarget && (
+        <ConfirmDeleteDialog
+          fileName={deleteTarget.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </main>
   );
 }

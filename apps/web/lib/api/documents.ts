@@ -39,6 +39,30 @@ export interface MvpDocument {
   updatedAt: string;
 }
 
+/** 5 个 ingestion stage 名称（与后端 IngestionStage 对齐） */
+export type IngestionStage =
+  | "idempotency"
+  | "preprocess"
+  | "chunk"
+  | "embedding"
+  | "storage";
+
+/**
+ * 单 stage 的输出摘要——feat-200.6 patch 新增。
+ * - method：rag-core methodId
+ * - durationMs：本 stage 在 runner 内的真实耗时
+ * - metrics：扁平 key→value，前端按 chip 渲染
+ * - note：一行可选补充说明（如 mock embedding 警告）
+ */
+export interface IngestionStageOutput {
+  method: string;
+  durationMs: number;
+  metrics?: Record<string, string | number | boolean>;
+  note?: string;
+}
+
+export type IngestionStageOutputs = Partial<Record<IngestionStage, IngestionStageOutput>>;
+
 export interface IngestionJob {
   id: string;
   projectId: string;
@@ -54,6 +78,8 @@ export interface IngestionJob {
   finishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** 每个 stage 完成后写入；processing 中只有已完成的 stage 出现 */
+  stageOutputs: IngestionStageOutputs;
 }
 
 // ── 文档 CRUD ─────────────────────────────────────────────────────────────

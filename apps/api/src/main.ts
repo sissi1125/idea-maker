@@ -1,3 +1,15 @@
+/**
+ * dotenv 必须在 reflect-metadata 之前显式 require：
+ *
+ * 历史问题：package.json 里写的是 `ts-node-dev -r dotenv/config -r tsconfig-paths/register src/main.ts`，
+ * 但 ts-node-dev 的 wrap 脚本只把 `tsconfig-paths/register` 传给 worker，`dotenv/config` 丢了。
+ * 表现：apps/api/.env 里写的 LLM_API_KEY / EMBEDDING_API_KEY 在 process.env 里全是空，
+ * 走 createEmbeddingClient 时 throw → 降级到 mock。
+ *
+ * 这里硬 require 一次（用 try/catch 防生产构建无 dotenv 依赖），保证 dev/prod 都能拿到 env。
+ */
+try { require("dotenv").config(); } catch { /* 生产环境无 dotenv 依赖时安静跳过 */ }
+
 import "reflect-metadata";
 
 /**
