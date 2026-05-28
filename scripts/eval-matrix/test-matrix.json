@@ -1,7 +1,7 @@
 [
   {
     "id": "T01",
-    "label": "dense-vector（纯语义，当前基线）",
+    "label": "transform=none（当前基线）",
     "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "none", "params": {} },
     "queryRewrite": { "methodId": "none", "params": {} },
@@ -13,26 +13,26 @@
   },
   {
     "id": "T02",
-    "label": "bm25-chinese（纯关键词，jieba分词）",
+    "label": "transform=heading-context（注入章节标题路径）",
     "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none", "params": {} },
+    "transform":    { "methodId": "heading-context", "params": { "includeTitle": true, "includeHeadingPath": true, "documentTitle": "Bloomnote 产品需求文档" } },
     "queryRewrite": { "methodId": "none", "params": {} },
-    "retrieval":    { "methodId": "bm25-chinese", "params": { "topK": 10, "k1": 1.5, "b": 0.75 } },
-    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.01, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
     "rerank":       { "methodId": "score-only", "params": {} },
     "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.01
+    "scoreThreshold": 0.2
   },
   {
     "id": "T03",
-    "label": "hybrid-bm25-rrf（语义+关键词RRF融合）",
+    "label": "transform=summary-keywords（注入TF关键词+摘要）",
     "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none", "params": {} },
+    "transform":    { "methodId": "summary-keywords", "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none", "params": {} },
-    "retrieval":    { "methodId": "hybrid-bm25-rrf", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.0 } },
-    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.005, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
     "rerank":       { "methodId": "score-only", "params": {} },
     "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.005
+    "scoreThreshold": 0.2
   }
 ]
