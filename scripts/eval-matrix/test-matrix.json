@@ -1,50 +1,26 @@
 [
   {
     "id": "T01",
-    "label": "全基线：none+score-only（对照组）",
+    "label": "精准模式（当前最优，topK=10）",
     "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none", "params": {} },
+    "transform":    { "methodId": "summary-keywords", "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none", "params": {} },
     "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
     "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "score-only", "params": { "rerankTopN": 5 } },
+    "rerank":       { "methodId": "score-only", "params": { "rerankTopN": 10 } },
     "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
     "scoreThreshold": 0.2
   },
   {
     "id": "T02",
-    "label": "仅 summary-keywords（验证单独收益）",
+    "label": "高召回模式（Step1 卖点提取，topK=30）",
     "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
     "transform":    { "methodId": "summary-keywords", "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
     "queryRewrite": { "methodId": "none", "params": {} },
-    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "score-only", "params": { "rerankTopN": 5 } },
-    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.2
-  },
-  {
-    "id": "T03",
-    "label": "仅 metadata-boost（验证单独收益）",
-    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "none", "params": {} },
-    "queryRewrite": { "methodId": "none", "params": {} },
-    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "metadata-boost", "params": { "rerankTopN": 5 } },
-    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.2
-  },
-  {
-    "id": "T04",
-    "label": "最优组合：summary-keywords + metadata-boost",
-    "chunk":        { "methodId": "recursive", "params": { "chunkSize": 512, "overlap": 64, "separators": ["\\n\\n","\\n"," ",""], "minChunkSize": 64 } },
-    "transform":    { "methodId": "summary-keywords", "params": { "keywordCount": 5, "summaryMaxTokens": 100, "appendToChunk": true } },
-    "queryRewrite": { "methodId": "none", "params": {} },
-    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 10, "threshold": 0.1 } },
-    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.2, "maxPerDocument": 5, "finalTopK": 10, "mmrLambda": 0.7 } },
-    "rerank":       { "methodId": "metadata-boost", "params": { "rerankTopN": 5 } },
-    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 3 } },
-    "scoreThreshold": 0.2
+    "retrieval":    { "methodId": "dense-vector", "params": { "embeddingProvider": "openai", "embeddingModel": "bge-m3", "embeddingDimension": 1024, "topK": 30, "threshold": 0.05 } },
+    "filter":       { "methodId": "pipeline-filter", "params": { "requiredSourceTypes": [], "minScore": 0.15, "maxPerDocument": 10, "finalTopK": 30, "mmrLambda": 0.8 } },
+    "rerank":       { "methodId": "score-only", "params": { "rerankTopN": 30 } },
+    "citation":     { "methodId": "chunk-citation", "params": { "maxEvidencePerClaim": 5 } },
+    "scoreThreshold": 0.15
   }
 ]

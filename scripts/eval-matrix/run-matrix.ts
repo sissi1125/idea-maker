@@ -65,7 +65,10 @@ function resolveResultsDir(): string {
 const RESULTS_DIR = resolveResultsDir();
 
 // queries 从独立文件读取，方便每次 run 单独配置
-const queriesPath = path.join(__dirname, "queries.json");
+// QUERIES_FILE 可指定相对 eval-matrix 目录的文件名，默认 queries.json
+// 示例：QUERIES_FILE=queries-step1.json npx tsx run-matrix.ts
+const queriesFile = process.env.QUERIES_FILE ?? "queries.json";
+const queriesPath = path.join(__dirname, queriesFile);
 const QUERIES: Array<{ id: string; text: string; type?: string; difficulty?: string }> =
   JSON.parse(fs.readFileSync(queriesPath, "utf-8"));
 
