@@ -21,16 +21,27 @@ export function setTokenGetter(fn: () => string | null) {
 }
 
 /**
- * BASE_URL 解析顺序：
+ * BASE_URL 解析顺序（feat-200.8.3 修正）：
  *   1. 显式 NEXT_PUBLIC_API_URL（生产环境推荐设为同源 https:// 或子域）
- *   2. 浏览器中 NEXT_PUBLIC_API_URL 为空 + window 存在 → 自动用 window.location.origin
- *      让前端被反向代理到同一域名（如 Fly 单 VM 配 Caddy/Nginx 同站反代）
- *   3. 兜底 http://localhost:3001（本地 dev / 服务端渲染时）
+ *   2. 本地 dev（localhost / 127.0.0.1）→ 强制走 http://localhost:3001
+ *      （window.origin 在 dev 是 :3000 = Next.js，API 在 :3001，不能用 origin）
+ *   3. 浏览器中非 localhost + NEXT_PUBLIC_API_URL 为空 → window.location.origin
+ *      让前端被反向代理到同一域名（Fly 单 VM 配 Caddy/Nginx 同站反代）
+ *   4. 兜底 http://localhost:3001（SSR / 测试 / 未知环境）
+ *
+ * 之前只判 window 存在就用 origin 是错的——dev 下 origin 是 :3000，
+ * 请求会被 Next.js 当成 page route 处理返 404。
  */
 function resolveBaseUrl(): string {
   const env = process.env.NEXT_PUBLIC_API_URL;
   if (env && env.trim()) return env.trim();
-  if (typeof window !== "undefined") return window.location.origin;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:3001";
+    }
+    return window.location.origin;
+  }
   return "http://localhost:3001";
 }
 const BASE_URL = resolveBaseUrl();
