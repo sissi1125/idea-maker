@@ -101,6 +101,7 @@ export class GenerationsService {
     try {
       const { trace, resultNotes, retrievedChunks } = await this.orchestrator.run(query, {
         ruleSystemPrompt,
+        projectId, // feat-200.8.x P0：必填，retrieval 按 project 隔离
       });
       const durationMs = Date.now() - startMs;
       const cost = trace.cost;

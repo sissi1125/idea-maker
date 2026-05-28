@@ -52,6 +52,7 @@ function makeInput(over: Partial<RetrievalInput> = {}): RetrievalInput {
     params: defaultParams,
     queries: ["测试 query"],
     pgClient: client,
+    projectId: "test-project",  // feat-200.8.x P0：必填，测试用 dummy 字符串
     ...over,
   };
 }

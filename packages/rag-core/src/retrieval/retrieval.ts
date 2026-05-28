@@ -98,6 +98,7 @@ async function retrieveDense(
   params: RetrievalParams,
   openaiClient: OpenAICompatibleClient | undefined,
   hfTeiEndpoint: string | undefined,
+  projectId: string,
 ): Promise<{ matches: MatchedChunk[]; dimension: number }> {
   const { topK, threshold, embeddingProvider, embeddingModel, embeddingDimension } = params;
   const allMatches = new Map<string, MatchedChunk>();
@@ -123,13 +124,15 @@ async function retrieveDense(
       keywords: string[];
       score: number;
     }>(
+      // feat-200.8.x P0：必须按 project_id 隔离，避免跨项目数据泄露
       `SELECT id, document_id, version, chunk_index, text, source_ref, keywords,
               1 - (embedding <=> $1::vector) AS score
        FROM rag_chunks
-       WHERE 1 - (embedding <=> $1::vector) >= $2
+       WHERE project_id = $4
+         AND 1 - (embedding <=> $1::vector) >= $2
        ORDER BY embedding <=> $1::vector
        LIMIT $3`,
-      [vecStr, threshold, topK],
+      [vecStr, threshold, topK, projectId],
     );
 
     for (const row of result.rows) {
@@ -161,6 +164,7 @@ async function retrieveFulltext(
   db: PgClient,
   queries: string[],
   params: RetrievalParams,
+  projectId: string,
 ): Promise<MatchedChunk[]> {
   const { topK } = params;
   const allMatches = new Map<string, MatchedChunk>();
@@ -180,10 +184,11 @@ async function retrieveFulltext(
               ts_rank(to_tsvector('simple', COALESCE(text, '')),
                       plainto_tsquery('simple', $1)) AS score
        FROM rag_chunks
-       WHERE to_tsvector('simple', COALESCE(text, '')) @@ plainto_tsquery('simple', $1)
+       WHERE project_id = $3
+         AND to_tsvector('simple', COALESCE(text, '')) @@ plainto_tsquery('simple', $1)
        ORDER BY score DESC
        LIMIT $2`,
-      [query, topK],
+      [query, topK, projectId],
     );
 
     for (const row of result.rows) {
@@ -215,6 +220,7 @@ async function retrieveHybridRRF(
   params: RetrievalParams,
   openaiClient: OpenAICompatibleClient | undefined,
   hfTeiEndpoint: string | undefined,
+  projectId: string,
 ): Promise<{ matches: MatchedChunk[]; dimension: number }> {
   const { topK } = params;
   const k = 60;
@@ -225,8 +231,9 @@ async function retrieveHybridRRF(
     { ...params, topK: topK * 2, threshold: 0 }, // 不在 dense 过滤，让 filter stage 做
     openaiClient,
     hfTeiEndpoint,
+    projectId,
   );
-  const fulltextMatches = await retrieveFulltext(db, queries, { ...params, topK: topK * 2 });
+  const fulltextMatches = await retrieveFulltext(db, queries, { ...params, topK: topK * 2 }, projectId);
 
   const rrfScores = new Map<string, number>();
   const chunkMap = new Map<string, MatchedChunk>();
@@ -306,6 +313,7 @@ async function retrieveBM25Chinese(
   db: PgClient,
   queries: string[],
   params: RetrievalParams,
+  projectId: string,
 ): Promise<MatchedChunk[]> {
   const { topK, k1, b } = params;
 
@@ -317,14 +325,15 @@ async function retrieveBM25Chinese(
   const terms = [...allTerms].slice(0, 30);
   if (terms.length === 0) return [];
 
-  // 语料统计
+  // 语料统计——也按 project_id 限定，否则 N/avgdl 会包含其他项目数据导致 IDF 失真
   const statsRes = await db.query<{ n: string; avgdl: string }>(
-    "SELECT COUNT(*) AS n, AVG(length(text)) AS avgdl FROM rag_chunks",
+    "SELECT COUNT(*) AS n, AVG(length(text)) AS avgdl FROM rag_chunks WHERE project_id = $1",
+    [projectId],
   );
   const N = parseInt(statsRes.rows[0].n, 10) || 1;
   const avgdl = parseFloat(statsRes.rows[0].avgdl) || 1;
 
-  // ILIKE ANY 取候选
+  // ILIKE ANY 取候选——同样按 project_id 隔离
   const likePatterns = terms.map((t) => `%${t}%`);
   const candidateRes = await db.query<{
     id: string;
@@ -337,9 +346,9 @@ async function retrieveBM25Chinese(
   }>(
     `SELECT id, document_id, version, chunk_index, text, source_ref, keywords
      FROM rag_chunks
-     WHERE text ILIKE ANY($1::text[])
+     WHERE project_id = $2 AND text ILIKE ANY($1::text[])
      LIMIT 200`,
-    [likePatterns],
+    [likePatterns, projectId],
   );
 
   const candidates = candidateRes.rows;
@@ -383,13 +392,14 @@ async function retrieveHybridBM25RRF(
   params: RetrievalParams,
   openaiClient: OpenAICompatibleClient | undefined,
   hfTeiEndpoint: string | undefined,
+  projectId: string,
 ): Promise<{ matches: MatchedChunk[]; dimension: number }> {
   const { topK } = params;
   const k = 60;
 
   const [{ matches: denseMatches, dimension }, bm25Matches] = await Promise.all([
-    retrieveDense(db, queries, { ...params, topK: topK * 2, threshold: 0 }, openaiClient, hfTeiEndpoint),
-    retrieveBM25Chinese(db, queries, { ...params, topK: topK * 2 }),
+    retrieveDense(db, queries, { ...params, topK: topK * 2, threshold: 0 }, openaiClient, hfTeiEndpoint, projectId),
+    retrieveBM25Chinese(db, queries, { ...params, topK: topK * 2 }, projectId),
   ]);
 
   const rrfScores = new Map<string, number>();
@@ -415,12 +425,19 @@ async function retrieveHybridBM25RRF(
 // ─── 入口 ─────────────────────────────────────────────────────────────────────
 
 export async function runRetrieval(input: RetrievalInput): Promise<RetrievalResult> {
-  const { methodId, params, queries, pgClient, openaiClient, hfTeiEndpoint } = input;
+  const { methodId, params, queries, pgClient, projectId, openaiClient, hfTeiEndpoint } = input;
 
   if (!pgClient) {
     throw new PipelineError(
       "missing_client",
       "retrieval 需要注入 pg.Client / pg.Pool；路由层应创建并 connect 后传入 Input.pgClient",
+    );
+  }
+  if (!projectId || !projectId.trim()) {
+    throw new PipelineError(
+      "missing_project_id",
+      "retrieval 需要 projectId（feat-200.8.x P0 强制隔离）：MVP 传 project UUID，" +
+        "Legacy/Playground 传 'legacy-playground'，eval-matrix 传 'eval-matrix'",
     );
   }
   if (!queries || queries.length === 0) {
@@ -433,14 +450,14 @@ export async function runRetrieval(input: RetrievalInput): Promise<RetrievalResu
 
   switch (methodId) {
     case "postgres-fulltext":
-      matches = await retrieveFulltext(pgClient, queries, params);
+      matches = await retrieveFulltext(pgClient, queries, params, projectId);
       warnings.push(
         "PostgreSQL 全文检索使用 simple 字典，对中文效果有限；中文文档建议使用 dense-vector / bm25-chinese / hybrid-bm25-rrf",
       );
       break;
 
     case "hybrid-rrf": {
-      const r = await retrieveHybridRRF(pgClient, queries, params, openaiClient, hfTeiEndpoint);
+      const r = await retrieveHybridRRF(pgClient, queries, params, openaiClient, hfTeiEndpoint, projectId);
       matches = r.matches;
       dimension = r.dimension;
       warnings.push(
@@ -450,14 +467,14 @@ export async function runRetrieval(input: RetrievalInput): Promise<RetrievalResu
     }
 
     case "bm25-chinese":
-      matches = await retrieveBM25Chinese(pgClient, queries, params);
+      matches = await retrieveBM25Chinese(pgClient, queries, params, projectId);
       if (matches.length === 0) {
         warnings.push("未检索到结果，请确认文档已存入数据库，或调整查询关键词");
       }
       break;
 
     case "hybrid-bm25-rrf": {
-      const r = await retrieveHybridBM25RRF(pgClient, queries, params, openaiClient, hfTeiEndpoint);
+      const r = await retrieveHybridBM25RRF(pgClient, queries, params, openaiClient, hfTeiEndpoint, projectId);
       matches = r.matches;
       dimension = r.dimension;
       warnings.push(
@@ -468,7 +485,7 @@ export async function runRetrieval(input: RetrievalInput): Promise<RetrievalResu
 
     case "dense-vector":
     default: {
-      const r = await retrieveDense(pgClient, queries, params, openaiClient, hfTeiEndpoint);
+      const r = await retrieveDense(pgClient, queries, params, openaiClient, hfTeiEndpoint, projectId);
       matches = r.matches;
       dimension = r.dimension;
       if (matches.length === 0) {

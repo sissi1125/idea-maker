@@ -23,6 +23,11 @@ interface RequestBody {
   params: Record<string, unknown>;
   pipelineRun: { selectedDocumentId?: string };
   upstreamOutput: UpstreamEmbeddingOutput | null;
+  /**
+   * feat-200.8.x P0：必填——chunk 严格写入指定 project 隔离区
+   * 不传时默认 'legacy-playground'，保留 Playground UI 向后兼容
+   */
+  projectId?: string;
 }
 
 @ApiTags("pipeline")
@@ -54,6 +59,7 @@ export class StorageController {
         upstreamChunks: body.upstreamOutput.chunks,
         dimension: body.upstreamOutput.dimension,
         documentId,
+        projectId: body.projectId?.trim() || "legacy-playground",
         pgClient: db,
       });
       return {

@@ -20,6 +20,11 @@ interface RetrievalRequestBody {
   methodId: string;
   params: Record<string, unknown>;
   upstreamOutput: QueryRewriteOutput | null;
+  /**
+   * feat-200.8.x P0：必填——retrieval 严格按 project_id 隔离
+   * Playground UI / 旧客户端不传时默认 'legacy-playground'
+   */
+  projectId?: string;
 }
 
 @ApiTags("pipeline")
@@ -67,6 +72,8 @@ export class RetrievalController {
         params,
         queries,
         pgClient: db,
+        // 不传则降级到 'legacy-playground'——保留 Playground UI 向后兼容
+        projectId: body.projectId?.trim() || "legacy-playground",
         openaiClient,
         hfTeiEndpoint,
       });

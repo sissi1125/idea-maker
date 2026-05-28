@@ -285,6 +285,8 @@ export class IngestionJobRunner {
           upstreamChunks: embedded.output.chunks,
           dimension: embedded.output.dimension,
           documentId: doc.id,
+          // feat-200.8.x P0：MVP 路径传真实 project UUID，让 retrieval 按 project 隔离
+          projectId: job.projectId,
           pgClient,
         });
         await this.jobs.setStageOutput(jobId, "storage", {

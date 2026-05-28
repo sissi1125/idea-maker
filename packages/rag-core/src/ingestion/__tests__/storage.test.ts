@@ -64,6 +64,7 @@ function makeInput(over: Partial<StorageInput> = {}): StorageInput {
     upstreamChunks: [makeChunk()],
     dimension: 4,
     documentId: "doc-1",
+    projectId: "test-project",  // feat-200.8.x P0：必填，测试用 dummy 字符串
     pgClient: client,
     ...over,
   };
@@ -331,8 +332,9 @@ describe("runStorage - INSERT 语句生成", () => {
         pgClient: client,
       }),
     );
-    // INSERT params 位置 6 是 enhanced_text
-    expect(calls[0]?.[5]).toBe("增强");
-    expect(calls[1]?.[5]).toBe("无增强");
+    // INSERT params 顺序：[id, documentId, projectId, version, chunk_index, text, enhanced_text, ...]
+    // feat-200.8.x P0：插入 project_id 列后，enhanced_text 从 [5] 移到 [6]
+    expect(calls[0]?.[6]).toBe("增强");
+    expect(calls[1]?.[6]).toBe("无增强");
   });
 });

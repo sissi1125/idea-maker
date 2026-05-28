@@ -79,7 +79,11 @@ const FIXED = {
   // 中文优化模型，1024 维。Ollama 暴露 OpenAI 兼容端点 localhost:11434/v1
   // .env.local 的 EMBEDDING_BASE_URL / EMBEDDING_MODEL 需同步更新
   embedding:  { methodId: "openai-3-small",     params: { model: "bge-m3", dimension: 1024, batchSize: 4 } },
-  storage:    { methodId: "pgvector-upsert-version", params: { truncateTable: true, conflictPolicy: "upsert", indexMode: "hnsw" } },
+  // ⚠️ truncateTable: false——以前默认 true 会 TRUNCATE 整张 rag_chunks 表，
+  // 清掉所有项目（包括用户真实项目）的 chunks。每次跑 eval-matrix 实验都用唯一
+  // documentId（uploadDocument 返回的 hash），ON CONFLICT upsert 自然隔离自己数据，
+  // 不需要清表。
+  storage:    { methodId: "pgvector-upsert-version", params: { truncateTable: false, conflictPolicy: "upsert", indexMode: "hnsw" } },
   intentRecognition: { methodId: "rule-based",   params: {} },
   rerank:     { methodId: "score-only",           params: {} },
   citation:   { methodId: "chunk-citation",      params: { maxEvidencePerClaim: 3 } },
@@ -166,6 +170,9 @@ async function runIngestion(
     methodId: FIXED.storage.methodId,
     params: FIXED.storage.params,
     pipelineRun: { selectedDocumentId: documentId },
+    // feat-200.8.x P0：eval-matrix 的 chunks 归属 'eval-matrix' 虚拟项目，
+    // 与 MVP / Playground 数据严格隔离
+    projectId: "eval-matrix",
     upstreamOutput: (embedding as { output: unknown }).output,
   }) as { output: { storedCount?: number; chunkCount?: number } };
 
@@ -198,6 +205,8 @@ async function runRetrieval(
   outputs.retrieval = await post("retrieval", {
     methodId: testCase.retrieval.methodId,
     params: testCase.retrieval.params,
+    // feat-200.8.x P0：必传，与上面 storage 的 projectId 配对
+    projectId: "eval-matrix",
     upstreamOutput: outputs.queryRewrite.output,
   }) as { output: unknown };
 

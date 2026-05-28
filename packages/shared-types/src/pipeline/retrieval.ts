@@ -95,6 +95,14 @@ export interface RetrievalInput {
   queries: string[];
   /** 所有 method 必传，已 connect */
   pgClient: PgClient;
+  /**
+   * feat-200.8.x P0：必填 projectId——SQL 严格按 rag_chunks.project_id 过滤。
+   * - MVP: project 真实 UUID
+   * - Legacy: 'legacy-playground'
+   * - eval-matrix: 'eval-matrix'
+   * 传错只会查不到自己的数据，不会泄露给其他项目。
+   */
+  projectId: string;
   /** embeddingProvider=openai 时必传（路由层 createEmbeddingClient 创建） */
   openaiClient?: OpenAICompatibleClient;
   /** embeddingProvider=hf-tei 时必传 */

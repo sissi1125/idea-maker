@@ -113,13 +113,19 @@ export class PipelineOrchestratorService {
    */
   async run(
     query: string,
-    options: { ruleSystemPrompt?: string } = {},
+    options: { ruleSystemPrompt?: string; projectId: string },
   ): Promise<{
     trace: PipelineTrace;
     resultNotes: string | null;
     retrievedChunks: unknown[];
   }> {
     const ruleSystemPrompt = options.ruleSystemPrompt?.trim();
+    const projectId = options.projectId;
+    if (!projectId || !projectId.trim()) {
+      throw new Error(
+        "orchestrator.run 需要 options.projectId（feat-200.8.x P0 强制隔离）",
+      );
+    }
     const startMs = Date.now();
     const stages: StageResult[] = [];
 
@@ -240,6 +246,7 @@ export class PipelineOrchestratorService {
           params,
           queries,
           pgClient: pgClient!,
+          projectId, // feat-200.8.x P0：严格隔离当前项目
           openaiClient: embeddingClient,
           hfTeiEndpoint: this.providers.resolveTeiEndpoint(),
         });

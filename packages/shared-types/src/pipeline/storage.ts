@@ -82,6 +82,13 @@ export interface StorageInput {
   dimension: number;
   /** documentId 来自 pipelineRun.selectedDocumentId */
   documentId: string;
+  /**
+   * feat-200.8.x P0：chunk 归属的 projectId。
+   * - MVP: project 真实 UUID
+   * - Legacy/eval-matrix: 字符串如 'eval-matrix' / 'legacy-playground'
+   * 必填——retrieval 按 project_id 严格过滤，传错会导致检索不到自己的数据。
+   */
+  projectId: string;
   /** 已连接的 pg.Client / pg.Pool 实例；路由层创建并负责 lifecycle */
   pgClient: PgClient;
 }

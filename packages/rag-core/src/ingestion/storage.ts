@@ -61,6 +61,11 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
   UNIQUE (document_id, version, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_document_id ON rag_chunks (document_id, version);
+
+-- feat-200.8.x P0：每个 chunk 归属一个 project_id，retrieval 严格按 project 隔离。
+-- ALTER 让历史表升级；新表 CREATE 时已含。eval-matrix 写入用 'eval-matrix' 字符串。
+ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS project_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_project ON rag_chunks (project_id);
 `;
 
 // ─── Dimension Guard ──────────────────────────────────────────────────────────
@@ -133,6 +138,7 @@ async function upsertChunks(
   documentId: string,
   version: number,
   conflictPolicy: "upsert" | "error",
+  projectId: string,
 ): Promise<void> {
   for (const chunk of chunks) {
     const id = `${documentId}_v${version}_c${chunk.index}`;
@@ -142,11 +148,11 @@ async function upsertChunks(
       // 让数据库 UNIQUE 自然报错
       await client.query(
         `INSERT INTO rag_chunks
-           (id, document_id, version, chunk_index, text, enhanced_text,
+           (id, document_id, project_id, version, chunk_index, text, enhanced_text,
             source_ref, char_count, token_estimate, keywords, embedding_dimension, embedding)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::vector)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)`,
         [
-          id, documentId, version, chunk.index,
+          id, documentId, projectId, version, chunk.index,
           chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
           chunk.charCount, chunk.tokenEstimate, chunk.keywords ?? [],
           chunk.embeddingDimension, embeddingStr,
@@ -155,10 +161,11 @@ async function upsertChunks(
     } else {
       await client.query(
         `INSERT INTO rag_chunks
-           (id, document_id, version, chunk_index, text, enhanced_text,
+           (id, document_id, project_id, version, chunk_index, text, enhanced_text,
             source_ref, char_count, token_estimate, keywords, embedding_dimension, embedding)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::vector)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)
          ON CONFLICT (document_id, version, chunk_index) DO UPDATE SET
+           project_id          = EXCLUDED.project_id,
            text                = EXCLUDED.text,
            enhanced_text       = EXCLUDED.enhanced_text,
            source_ref          = EXCLUDED.source_ref,
@@ -168,7 +175,7 @@ async function upsertChunks(
            embedding_dimension = EXCLUDED.embedding_dimension,
            embedding           = EXCLUDED.embedding`,
         [
-          id, documentId, version, chunk.index,
+          id, documentId, projectId, version, chunk.index,
           chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
           chunk.charCount, chunk.tokenEstimate, chunk.keywords ?? [],
           chunk.embeddingDimension, embeddingStr,
@@ -193,12 +200,19 @@ async function deleteAllVersions(client: PgClient, documentId: string): Promise<
 // ─── 入口 ─────────────────────────────────────────────────────────────────────
 
 export async function runStorage(input: StorageInput): Promise<StorageResult> {
-  const { methodId, params, upstreamChunks, dimension, documentId, pgClient } = input;
+  const { methodId, params, upstreamChunks, dimension, documentId, projectId, pgClient } = input;
 
   if (!pgClient) {
     throw new PipelineError(
       "missing_client",
       "storage 需要注入 pg.Client / pg.Pool；路由层应创建并 connect 后传入 Input.pgClient",
+    );
+  }
+  if (!projectId || !projectId.trim()) {
+    throw new PipelineError(
+      "missing_project_id",
+      "storage 需要 projectId（feat-200.8.x P0 强制隔离）：MVP 传 project UUID，" +
+        "Legacy/Playground 传 'legacy-playground'，eval-matrix 传 'eval-matrix'",
     );
   }
 
@@ -257,7 +271,7 @@ export async function runStorage(input: StorageInput): Promise<StorageResult> {
     }
   }
 
-  await upsertChunks(pgClient, upstreamChunks, documentId, version, conflictPolicy);
+  await upsertChunks(pgClient, upstreamChunks, documentId, version, conflictPolicy, projectId);
 
   // 建索引
   const indexResult = await ensureVectorIndex(pgClient, indexMode, dimension);
