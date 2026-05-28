@@ -58,7 +58,7 @@ export async function createNote(
 ): Promise<{ note: Note }> {
   return apiFetch<{ note: Note }>(`/projects/${projectId}/notes`, {
     method: "POST",
-    body: JSON.stringify(input),
+    body: input,
   });
 }
 
@@ -69,7 +69,7 @@ export async function updateNote(
 ): Promise<{ note: Note }> {
   return apiFetch<{ note: Note }>(`/projects/${projectId}/notes/${noteId}`, {
     method: "PATCH",
-    body: JSON.stringify(input),
+    body: input,
   });
 }
 

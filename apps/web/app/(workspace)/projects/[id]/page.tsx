@@ -32,6 +32,8 @@ import type {
 import { PipelineTraceView } from "@/components/pipeline/PipelineTrace";
 import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
 import { AddToLibraryButton } from "@/components/notes/AddToLibraryButton";
+import { SaveSegmentsList } from "@/components/notes/SaveSegmentsList";
+import { Markdown } from "@/components/markdown/Markdown";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
 
@@ -331,11 +333,12 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
         </div>
       </div>
 
-      {/* Result notes */}
+      {/* Result notes（markdown 渲染——不再显示 ** - 等原始符号） */}
       {cleanedNotes && (
-        <div className="rounded-[9px] p-[12px_14px] mb-3.5 text-[13.5px] leading-[1.75] whitespace-pre-wrap"
-             style={{ background: "linear-gradient(180deg, #FEFAEF, #fff)", border: "1px solid var(--line-2)", color: "var(--ink)" }}>
-          {cleanedNotes}
+        <div className="rounded-[9px] p-[12px_16px] mb-3.5"
+             style={{ background: "linear-gradient(180deg, #FEFAEF, #fff)",
+                      border: "1px solid var(--line-2)" }}>
+          <Markdown content={cleanedNotes} />
         </div>
       )}
 
@@ -380,16 +383,22 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
         </div>
       )}
 
-      {/* 操作行：保存到笔记库（仅 succeeded） */}
+      {/* 保存到笔记库——整段保存 + 拆段保存（每段一个按钮） */}
       {result.status === "succeeded" && result.generationId && cleanedNotes && (
-        <div className="flex justify-end mt-3" style={{
+        <div className="mt-3" style={{
           borderTop: "1px solid var(--line-2)",
           paddingTop: "12px",
         }}>
-          <AddToLibraryButton
+          <div className="flex justify-end">
+            <AddToLibraryButton
+              generationId={result.generationId}
+              content={cleanedNotes}
+              titleSeed={result.query}
+            />
+          </div>
+          <SaveSegmentsList
             generationId={result.generationId}
             content={cleanedNotes}
-            titleSeed={result.query}
           />
         </div>
       )}

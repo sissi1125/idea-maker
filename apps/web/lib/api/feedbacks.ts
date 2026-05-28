@@ -48,7 +48,7 @@ export async function submitFeedback(
 ): Promise<{ feedback: FeedbackRow }> {
   return apiFetch<{ feedback: FeedbackRow }>(
     `/generations/${generationId}/feedback`,
-    { method: "POST", body: JSON.stringify(input) },
+    { method: "POST", body: input },
   );
 }
 

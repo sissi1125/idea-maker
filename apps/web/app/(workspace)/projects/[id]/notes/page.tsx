@@ -24,6 +24,7 @@ import {
 import { notesApi } from "@/lib/api";
 import type { Note, UpdateNoteInput } from "@/lib/api";
 import { useProjectsStore } from "@/lib/stores/projects-store";
+import { Markdown } from "@/components/markdown/Markdown";
 
 function NoteCard({
   note,
@@ -152,9 +153,8 @@ function NoteCard({
           </button>
         </div>
       </div>
-      <div className="text-[13px] leading-[1.7] whitespace-pre-wrap"
-           style={{ color: "var(--ink-2)", maxHeight: "18em", overflowY: "auto" }}>
-        {note.content}
+      <div style={{ maxHeight: "22em", overflowY: "auto", paddingRight: 4 }}>
+        <Markdown content={note.content} />
       </div>
       {note.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-3 pt-3"

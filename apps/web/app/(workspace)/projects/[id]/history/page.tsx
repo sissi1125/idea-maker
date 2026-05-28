@@ -32,6 +32,8 @@ import { useProjectsStore } from "@/lib/stores/projects-store";
 import { PipelineTraceView } from "@/components/pipeline/PipelineTrace";
 import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
 import { AddToLibraryButton } from "@/components/notes/AddToLibraryButton";
+import { SaveSegmentsList } from "@/components/notes/SaveSegmentsList";
+import { Markdown } from "@/components/markdown/Markdown";
 
 type SourceFilter = "all" | "manual" | "auto";
 
@@ -135,9 +137,9 @@ function HistoryRow({
             </div>
           )}
           {isOk && row.resultNotes && (
-            <div className="rounded-md p-3 mb-3 text-[13px] leading-[1.65] whitespace-pre-wrap"
-                 style={{ background: "#fff", border: "1px solid var(--line-2)", color: "var(--ink)" }}>
-              {row.resultNotes}
+            <div className="rounded-md p-3 mb-3"
+                 style={{ background: "#fff", border: "1px solid var(--line-2)" }}>
+              <Markdown content={row.resultNotes} />
             </div>
           )}
           {row.pipelineTrace && (
@@ -155,12 +157,15 @@ function HistoryRow({
             </details>
           )}
           {isOk && row.resultNotes && (
-            <div className="flex justify-end mb-2">
-              <AddToLibraryButton
-                generationId={row.id}
-                content={row.resultNotes}
-                titleSeed={row.query}
-              />
+            <div className="mb-3">
+              <div className="flex justify-end mb-2">
+                <AddToLibraryButton
+                  generationId={row.id}
+                  content={row.resultNotes}
+                  titleSeed={row.query}
+                />
+              </div>
+              <SaveSegmentsList generationId={row.id} content={row.resultNotes} />
             </div>
           )}
           {isOk && row.resultNotes && (
