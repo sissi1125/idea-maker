@@ -234,8 +234,36 @@ CREATE INDEX IF NOT EXISTS idx_cost_summary_day ON cost_summary (project_id, day
 `;
 
 /**
- * 顺序：users → projects → project_settings → documents → ingestion_jobs → generations。
- * 受外键依赖约束。
+ * ── feat-200.7 Week 7：notes（笔记库） ────────────────────────────────────────
+ *
+ * 用户把心仪的 generation 结果（或自由编辑后的版本）保存到笔记库便于复用 / 对外发布。
+ *   - generation_id ON DELETE SET NULL：原 generation 被删后笔记保留（笔记是已脱钩的资产）
+ *   - tags 用 TEXT[]：MVP 阶段不做归一化标签库，前端自由填写
+ *   - 不存 trace / cost：那些是 generation 的属性，需要时去 generations 查
+ *
+ * 与 generations 的区别：
+ *   generations 是事实记录（所有调用都进表，包括 auto-gen 和失败的）；
+ *   notes 是用户筛选过的精品库，体量小，是营销文案/笔记内容的真实出口。
+ */
+
+export const DDL_NOTES = `
+CREATE TABLE IF NOT EXISTS notes (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  generation_id TEXT REFERENCES generations (id) ON DELETE SET NULL,
+  title         TEXT NOT NULL,
+  content       TEXT NOT NULL,
+  tags          TEXT[] NOT NULL DEFAULT '{}',
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notes_project ON notes (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_generation ON notes (generation_id);
+`;
+
+/**
+ * 顺序：users → projects → project_settings → documents → ingestion_jobs → generations → ... → notes。
+ * 受外键依赖约束。notes 依赖 generations（可选外键）和 projects，所以放在 generations 之后。
  *
  * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
  * 依赖 CREATE TABLE IF NOT EXISTS 的幂等性。
@@ -251,4 +279,6 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_FEEDBACKS,
   DDL_AUTO_GENERATIONS,
   DDL_COST_SUMMARY,
+  // feat-200.7
+  DDL_NOTES,
 ];

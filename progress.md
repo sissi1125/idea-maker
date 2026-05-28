@@ -1,5 +1,67 @@
 # 进度记录
 
+## 2026-05-28（feat-200.7 Week 7：反馈 + 历史 + 笔记库 + Settings 完善）✅
+
+### 范围
+
+feat-200.7 整周交付——前端为主，后端补一张表：
+
+1. **反馈面板** —— Chat 页生成结果卡 + 历史页详情下方都挂 `FeedbackPanel`，4 维评分 + 编辑生成结果 + 备注，支持部分提交
+2. **历史页** —— `/projects/[id]/history`：cursor 分页 + source filter（all / manual / auto）+ 行内展开看 trace + 反馈面板
+3. **笔记库** —— 后端新建 `notes` 表 + NotesModule CRUD；前端 `/projects/[id]/notes` 列表 + 内联编辑 / 删除 + `AddToLibraryButton` 在 Chat 和 History 都接入
+4. **Settings 完善** —— 复用上 session 写到一半的 685 行 settings/page.tsx（LLM 配置 + 思考深度 + RAG 策略只读），修 lint，加平台规则占位 Tab；Sidebar 加"笔记库"入口
+
+### 交付
+
+**后端（新增）**：
+| 文件 | 说明 |
+|------|------|
+| `apps/api/src/db/schema.ts` | 新增 `DDL_NOTES`（id/project_id/generation_id/title/content/tags[]/timestamps）+ index by project+created_at + by generation_id |
+| `apps/api/src/notes/notes.types.ts` | NoteRow / CreateNoteInput / UpdateNoteInput |
+| `apps/api/src/notes/notes.service.ts` | CRUD：assertOwner 校验 + create（验 generationId 归属本项目）/ list（limit+offset）/ getOne / update（PATCH 语义）/ delete |
+| `apps/api/src/notes/notes.controller.ts` | 5 个 REST 端点：POST/GET list/GET one/PATCH/DELETE |
+| `apps/api/src/notes/notes.module.ts` | 注册 |
+| `apps/api/src/app.module.ts` | 引入 NotesModule |
+
+**前端（新增）**：
+| 文件 | 说明 |
+|------|------|
+| `apps/web/lib/api/feedbacks.ts` | submitFeedback / getFeedback（FeedbackInput / FeedbackRow） |
+| `apps/web/lib/api/notes.ts` | listNotes / getNote / createNote / updateNote / deleteNote |
+| `apps/web/lib/api/index.ts` | 加 feedbacksApi + notesApi 导出 |
+| `apps/web/components/feedback/MultiDimRating.tsx` | 4 维 1-5 星受控控件，再次点同一星 toggle 回 null |
+| `apps/web/components/feedback/GenerationEditor.tsx` | 折叠 textarea + 字符数对比，没改动不写 editDiff |
+| `apps/web/components/feedback/FeedbackPanel.tsx` | 组合上面三个 + comment + 提交按钮；展开时拉历史反馈预填表单；状态机 idle→submitting→saved/error |
+| `apps/web/components/notes/AddToLibraryButton.tsx` | 内联表单：title（默认从 query 截前 30 字符）+ tags，状态机 idle→editing→saving→saved |
+| `apps/web/app/(workspace)/projects/[id]/history/page.tsx` | 历史页主组件 + HistoryRow（折叠/展开 + 评分 chip + cost 摘要 + trace + FeedbackPanel + AddToLibraryButton） |
+| `apps/web/app/(workspace)/projects/[id]/notes/page.tsx` | 笔记库主组件 + NoteCard（标题 + tags + 编辑 / 删除 + 行内删除确认） |
+
+**前端（修改）**：
+| 文件 | 改动 |
+|------|------|
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | GeneratedResult 加成本分解 chip 行（6 个 chip）+ FeedbackPanel + AddToLibraryButton |
+| `apps/web/app/(workspace)/projects/[id]/settings/page.tsx` | 复用上 session 的 685 行；修 set-state-in-effect lint（loadSettings inline 进 useEffect + cancelled 标记）；尾部加"平台规则（Week 8）"占位 Section |
+| `apps/web/components/layout/Sidebar.tsx` | 新增"笔记库"导航项（BookOpen icon），"内容资产" → "生成历史" 名字更直白 |
+
+### 设计决策
+
+- **反馈 UI 在生成结果卡底部默认折叠**——主流程是看结果、评价是次要动作；折叠按钮带"已评 X.X / 5"摘要让用户一眼看到已评状态
+- **部分提交允许**——4 维评分 + editDiff + comment 任一非空就能提交；后端 `feedbacks.upsert` ON CONFLICT(generation_id) DO UPDATE，重复提交自动覆盖
+- **editDiff 只在内容真改了才存**——`value !== original` 才传 editDiff，相同就传 null，避免脏数据
+- **笔记库独立表，不复用 generations.is_saved 列**——笔记是用户的内容资产，应该独立于事实记录；generation 被删（feat-200.8 可能加 retention 策略）也不影响笔记；generation_id ON DELETE SET NULL 保留来源信息但不阻塞删除
+- **限于 limit+offset 不上 cursor**——笔记体量小（< 500/项目预估），limit+offset 实现简单且支持 total 计数；后续超大时再迁 cursor
+- **AddToLibraryButton 走内联表单不弹 Modal**——Modal 打断阅读节奏，内联表单顺手；标题默认从 query 截前 30 字符让用户可改可不改
+- **Settings 的平台规则做占位**——feat-200.8 正式实装，但用户进 Settings 就能知道这块功能在哪、什么时候到位
+
+### 验证
+
+- [x] `pnpm -r typecheck` ✅
+- [x] `pnpm -F @harness/web lint --max-warnings 0` ✅（顺手修了上 session 遗留的 settings/page.tsx 同款 lint 错）
+- [x] `pnpm -F @harness/api lint` ✅
+- [ ] 用户端到端：提一个问题 → 生成结果 → 评分 + 保存到笔记库 → 去笔记库看到 → 去历史看到评分（待用户实测）
+
+---
+
 ## 2026-05-28（feat-200.6 补丁 — Ingestion 阶段输出可视化 + 项目级摘要接入）✅
 
 ### 范围

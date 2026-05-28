@@ -30,6 +30,8 @@ import type {
   GenerateResponse, ProjectAutoGenLatest, ProjectAutoGenInFlight, AutoGenCardType,
 } from "@/lib/api";
 import { PipelineTraceView } from "@/components/pipeline/PipelineTrace";
+import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
+import { AddToLibraryButton } from "@/components/notes/AddToLibraryButton";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
 
@@ -310,6 +312,9 @@ function ChatInput({
 // ── GeneratedResult ───────────────────────────────────────────────────────
 
 function GeneratedResult({ result }: { result: GenerateResponse }) {
+  // 兼容历史 result_notes 是 JSON 形式（normalizeSummaryText 也在用同一个清洗逻辑）
+  const cleanedNotes = normalizeSummaryText(result.resultNotes ?? null);
+  const cost = result.costBreakdown;
   return (
     <div className="card fade-in p-[18px_20px]" style={{ boxShadow: "var(--shadow-md)" }}>
       <div className="flex items-start gap-[11px] mb-3.5">
@@ -327,10 +332,10 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
       </div>
 
       {/* Result notes */}
-      {result.resultNotes && (
+      {cleanedNotes && (
         <div className="rounded-[9px] p-[12px_14px] mb-3.5 text-[13.5px] leading-[1.75] whitespace-pre-wrap"
              style={{ background: "linear-gradient(180deg, #FEFAEF, #fff)", border: "1px solid var(--line-2)", color: "var(--ink)" }}>
-          {result.resultNotes}
+          {cleanedNotes}
         </div>
       )}
 
@@ -342,14 +347,59 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
         </div>
       )}
 
-      {/* Cost footer */}
-      {result.costBreakdown && (
-        <div className="flex gap-3 items-center flex-wrap text-[11.5px] mono pt-3"
+      {/* 成本分解行：USD + token + 各类调用次数；6 个 chip 排成一行 */}
+      {cost && (
+        <div className="flex gap-2 items-center flex-wrap text-[11px] mono pt-3"
              style={{ borderTop: "1px solid var(--line-2)", color: "var(--ink-3)" }}>
-          <DollarSign size={11} strokeWidth={2} />
-          <span>${result.costBreakdown.costUsd.toFixed(4)}</span>
-          <span>prompt {result.costBreakdown.llmTokensPrompt} / completion {result.costBreakdown.llmTokensCompletion}</span>
+          <span className="chip inline-flex items-center gap-1"
+                style={{ background: "rgba(214,180,80,.12)", color: "var(--gen)" }}>
+            <DollarSign size={10} strokeWidth={2} />
+            ${cost.costUsd.toFixed(4)}
+          </span>
+          <span className="chip" style={{ background: "rgba(11,17,32,.04)" }}>
+            prompt {cost.llmTokensPrompt.toLocaleString()}
+          </span>
+          <span className="chip" style={{ background: "rgba(11,17,32,.04)" }}>
+            completion {cost.llmTokensCompletion.toLocaleString()}
+          </span>
+          {cost.embeddingCalls > 0 && (
+            <span className="chip" style={{ background: "rgba(11,17,32,.04)" }}>
+              embed×{cost.embeddingCalls}
+            </span>
+          )}
+          {cost.retrievalCalls > 0 && (
+            <span className="chip" style={{ background: "rgba(11,17,32,.04)" }}>
+              retrieval×{cost.retrievalCalls}
+            </span>
+          )}
+          {cost.rerankerCalls > 0 && (
+            <span className="chip" style={{ background: "rgba(11,17,32,.04)" }}>
+              rerank×{cost.rerankerCalls}
+            </span>
+          )}
         </div>
+      )}
+
+      {/* 操作行：保存到笔记库（仅 succeeded） */}
+      {result.status === "succeeded" && result.generationId && cleanedNotes && (
+        <div className="flex justify-end mt-3" style={{
+          borderTop: "1px solid var(--line-2)",
+          paddingTop: "12px",
+        }}>
+          <AddToLibraryButton
+            generationId={result.generationId}
+            content={cleanedNotes}
+            titleSeed={result.query}
+          />
+        </div>
+      )}
+
+      {/* 反馈面板（仅 succeeded 时显示——失败的没必要让用户评分） */}
+      {result.status === "succeeded" && result.generationId && cleanedNotes && (
+        <FeedbackPanel
+          generationId={result.generationId}
+          originalContent={cleanedNotes}
+        />
       )}
     </div>
   );

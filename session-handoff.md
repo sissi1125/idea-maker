@@ -2,6 +2,30 @@
 
 ## 最后更新
 
+2026-05-28（feat-200.7 ✅ 反馈 + 历史 + 笔记库 + Settings 完善）
+
+## 本次变更摘要（feat-200.7 Week 7）
+
+【新增】
+- 后端：`notes` 表 + NotesModule（CRUD 5 端点）
+- 前端 API：`feedbacks.ts` + `notes.ts`
+- 前端组件：`feedback/{MultiDimRating,GenerationEditor,FeedbackPanel}.tsx`、`notes/AddToLibraryButton.tsx`
+- 前端页面：`history/page.tsx`（cursor 分页 + source filter + 行内 trace + 评分）、`notes/page.tsx`（编辑/删除 + tags）
+
+【修改】
+- Chat 页 GeneratedResult 加成本分解 chip 行 + FeedbackPanel + AddToLibraryButton
+- Sidebar 加"笔记库"入口；"内容资产"重命名为"生成历史"
+- Settings 页修上 session 遗留的 set-state-in-effect lint；加"平台规则（Week 8）"占位 Section
+
+【验证】
+- pnpm -r typecheck / -F @harness/web lint --max-warnings 0 全过
+
+**进度**：feat-200.7 status=done；feat-200.8（Week 8 平台规则验证 + 流式化 + 联调打磨 + 部署）待启动。
+
+---
+
+## 上一次更新（feat-200.6 补丁）
+
 2026-05-28（feat-200.6 补丁 ✅ Ingestion 阶段输出可视化 + 项目级摘要接入 Chat 页）
 
 ## 本次变更摘要（feat-200.6 补丁，非新 feature）

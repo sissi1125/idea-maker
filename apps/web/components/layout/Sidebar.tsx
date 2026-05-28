@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  MessageSquare, Upload, Clock, Settings,
+  MessageSquare, Upload, Clock, Settings, BookOpen,
   Folder, ChevronDown, Check, DollarSign, LogOut,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -24,7 +24,8 @@ import { useProjectsStore } from "@/lib/stores/projects-store";
 const NAV_ITEMS = [
   { id: "chat",     label: "对话",     icon: MessageSquare, path: "" },
   { id: "knowledge",label: "知识库",   icon: Upload,        path: "/knowledge" },
-  { id: "history",  label: "内容资产", icon: Clock,         path: "/history" },
+  { id: "history",  label: "生成历史", icon: Clock,         path: "/history" },
+  { id: "notes",    label: "笔记库",   icon: BookOpen,      path: "/notes" },
   { id: "settings", label: "项目设置", icon: Settings,      path: "/settings" },
 ] as const;
 

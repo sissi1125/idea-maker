@@ -16,6 +16,11 @@ export type {
   ProjectAutoGenLatest,
   ProjectAutoGenInFlight,
 } from "./auto-generations";
+export * as feedbacksApi from "./feedbacks";
+export type { FeedbackInput, FeedbackRow, FeedbackDimension } from "./feedbacks";
+export { FEEDBACK_DIMENSIONS } from "./feedbacks";
+export * as notesApi from "./notes";
+export type { Note, CreateNoteInput, UpdateNoteInput } from "./notes";
 export { ApiError, setTokenGetter } from "./client";
 export type { User } from "./auth";
 export type { Project, ProjectSettings } from "./projects";
