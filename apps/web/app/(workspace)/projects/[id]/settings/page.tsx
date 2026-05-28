@@ -39,6 +39,7 @@ import { projectsApi } from "@/lib/api";
 import type { ProjectSettings } from "@/lib/api";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { PlatformRulesManager } from "@/components/platform-rules/PlatformRulesManager";
+import { useToast } from "@/components/toast/ToastProvider";
 
 // ── 常量：下拉选项 ──────────────────────────────────────────────────────────
 
@@ -409,6 +410,7 @@ function PipelineView({
 
 export default function ProjectSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const toast = useToast();
   const { setCurrentProject, currentProject: getCurrent } = useProjectsStore();
   const project = getCurrent();
 
@@ -474,8 +476,11 @@ export default function ProjectSettingsPage() {
       setHasApiKey(!!settings.provider);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      toast.success("项目设置已保存");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      const msg = err instanceof Error ? err.message : "保存失败";
+      setError(msg);
+      toast.error(`保存设置失败：${msg}`);
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,59 @@
 # 进度记录
 
+## 2026-05-28（feat-200.8.2 + 200.8.3：全局 toast + Loading/Empty/Error 三态 + 部署联调）✅
+
+### 范围
+
+MVP 收尾两个子 feature——`200.8.1 SSE` 推迟单独做。
+
+### 交付
+
+**200.8.2 toast + 三态**：
+
+| 文件 | 说明 |
+|------|------|
+| `apps/web/components/toast/ToastProvider.tsx` | 全自写 toast 容器（~200 行）：4 variant + auto-dismiss + 模块级 globalHandler + reducer 防丢消息 |
+| `apps/web/app/providers.tsx` | ToastProvider 包在最外层 |
+| `apps/web/app/(workspace)/projects/page.tsx` | 项目列表 Empty / Loading skeleton 状态；alert/inline 错误统一改 toast |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | Chat 页 generate 失败 → toast.error；违规 → toast.warn 提示看横幅 |
+| `apps/web/app/(workspace)/projects/[id]/settings/page.tsx` | 保存成功/失败 → toast |
+| `apps/web/app/(workspace)/projects/[id]/knowledge/page.tsx` | 上传/删除 → toast；同时修了 set-state-in-effect lint（loadDocuments 内联到 useEffect + cancelled 标记） |
+| `apps/web/app/(workspace)/projects/[id]/notes/page.tsx` | 更新/删除 → toast |
+| `apps/web/components/feedback/FeedbackPanel.tsx` | 提交成功/失败 → toast |
+| `apps/web/components/notes/AddToLibraryButton.tsx` | 保存成功/失败 → toast |
+
+**200.8.3 部署联调**：
+
+| 文件 | 说明 |
+|------|------|
+| `apps/api/src/db/db.service.ts` | initSchema 加 `CREATE EXTENSION IF NOT EXISTS vector`——Fly Postgres 等环境无需手动装扩展 |
+| `apps/web/lib/api/client.ts` | `resolveBaseUrl()` 三级回退：env > window.location.origin（浏览器内同源 fallback）> localhost；同站部署无需配 NEXT_PUBLIC_API_URL |
+| `.github/workflows/ci.yml` | CI：每 PR 跑 typecheck + lint + unit tests；smoke 走 workflow_dispatch 手动触发（含 pgvector postgres service + LLM secrets） |
+| `docs/DEPLOY.md` | 补充 NEXT_PUBLIC_API_URL 解析策略 + CI 章节 |
+
+### 设计决策
+
+- **自写 toast 而非引第三方**：~200 行 + 0 依赖。react-hot-toast / sonner 都好用但样式/动画风格不一定能完美贴项目色板；自写一次后改样式不用绕第三方 API
+- **toast vs inline 错误的边界**：表单内验证错误（如新建项目 name 校验）保留 inline——视线不需要跳到右下角；异步操作失败 / 系统通知统一走 toast
+- **modular-level globalHandler**：让 apiFetch / store 等非组件代码也能 toast（暂未启用，但 API 已就绪）
+- **Empty state 而非空白**：项目列表为空时显示引导而非什么都没有——降低用户首次使用心理门槛
+- **CREATE EXTENSION 兜底而非强求**：fly postgres 实测 `vector` 已预装，但部分自建 PG 没装；`IF NOT EXISTS` + try/catch 让两种环境都能跑
+- **NEXT_PUBLIC_API_URL fallback 到 window.origin**：单 VM 部署时前端从 `https://x.fly.dev` 访问 API，自然落到同源；跨 app 部署再显式配
+- **smoke 不在每 PR 跑**：依赖外部 LLM API + LLM 调用收费——`workflow_dispatch` 手动触发用于 release 前冒烟，PR 跑 typecheck/lint/unit 足够
+
+### 验证
+
+- [x] `pnpm -r typecheck` ✅
+- [x] `pnpm -F @harness/web lint --max-warnings 0` ✅（顺手清了 knowledge 页 set-state-in-effect 旧错）
+- [x] `pnpm -F @harness/api lint` ✅
+- [x] `pnpm smoke` ✅ 10 步 18s 全过（toast + 部署改动未引入回归）
+
+### 推迟到 200.8.1
+
+SSE 流式化整块推迟单独做。后续做的方向：Token 级（最佳体验），LLM chat.completions stream:true → 后端 SSE 推 chunk → 前端打字机效果。需要改 `rag-core/generation/generation.ts` 的 LLM 调用模式。
+
+---
+
 ## 2026-05-28（feat-200.8 Week 8：平台规则验证 + e2e smoke + Fly.io 部署资产）✅
 
 ### 范围

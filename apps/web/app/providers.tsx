@@ -15,6 +15,7 @@
 import { useEffect, useRef } from "react";
 import { setTokenGetter } from "@/lib/api";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { ToastProvider } from "@/components/toast/ToastProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const initialized = useRef(false);
@@ -34,5 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     void useAuthStore.getState().refreshUser();
   }, []);
 
-  return <>{children}</>;
+  // ToastProvider 包在最外层——任意子组件 useToast() 都能拿到，
+  // ToastViewport 渲染在 portal 区域（实际就在它自己的 JSX 末尾，z-index 60）
+  return <ToastProvider>{children}</ToastProvider>;
 }

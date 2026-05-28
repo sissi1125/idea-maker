@@ -67,6 +67,7 @@ fly deploy --app idea-maker
 | `EMBEDDING_MODEL` | ✅ | Embedding 模型名（如 `text-embedding-v4` / `bge-m3`） |
 | `EMBEDDING_DIMENSION` | ⚠️ | 默认 1024；与已写入 pgvector 表的维度一致 |
 | `CORS_ORIGIN` | ⚠️ | 允许跨域的来源；fly.toml 默认有 |
+| `NEXT_PUBLIC_API_URL` | 可选 | 前端调 API 的地址；不配则浏览器自动用 `window.location.origin`（依赖反代）；配 `https://<app>.fly.dev:3001` 走显式端口 |
 | `PYMUPDF_SERVICE_URL` | 可选 | 不配则 PDF 走 `pdf-pages` 兜底 |
 
 ## 验证部署
@@ -99,5 +100,15 @@ fly secrets list --app idea-maker
 
 - **单 VM 双进程**（API + Web 在同一容器里跑）：MVP 阶段省钱；后续要扩容拆成两个 fly app
 - **Embedding 走云服务**：避免 Fly shared-cpu VM 跑本地 bge-m3 卡死；用户成本可控（embedding 调用极少）
-- **pgvector 扩展**：`fly postgres` 默认包含 pgvector，无需手动安装
+- **pgvector 扩展**：`fly postgres` 镜像默认包含；API 启动时也会 `CREATE EXTENSION IF NOT EXISTS vector` 兜底
 - **文件存储**：上传的原始文档放 Fly volume，重启不丢；chunks 在 Postgres pgvector 表里
+- **NEXT_PUBLIC_API_URL 解析**：浏览器中 env 为空时自动用 `window.location.origin`，让 fly app 同站访问无需配置；想跨 app / 跨域则显式设这个值
+
+## CI / GitHub Actions
+
+仓库根有 `.github/workflows/ci.yml`：
+
+- **每个 PR / push to main**：typecheck + lint + unit tests（rag-core 239 个测试）
+- **手动触发 workflow_dispatch**：跑完整 e2e smoke（需在 GH secrets 里配 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` / `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL`）
+
+smoke 不在每个 PR 跑——成本和外部依赖（云 LLM API）原因。要冒烟验证就手动 Run workflow。

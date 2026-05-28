@@ -24,6 +24,7 @@ import { feedbacksApi } from "@/lib/api";
 import type { FeedbackRow } from "@/lib/api";
 import { MultiDimRating, EMPTY_RATING, type MultiDimRatingValue } from "./MultiDimRating";
 import { GenerationEditor } from "./GenerationEditor";
+import { useToast } from "@/components/toast/ToastProvider";
 
 interface Props {
   generationId: string;
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function FeedbackPanel({ generationId, originalContent }: Props) {
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ratings, setRatings] = useState<MultiDimRatingValue>(EMPTY_RATING);
@@ -101,8 +103,11 @@ export function FeedbackPanel({ generationId, originalContent }: Props) {
       setExisting(feedback);
       setSavedAt(Date.now());
       setTimeout(() => setSavedAt(null), 3000);
+      toast.success(existing ? "反馈已更新" : "反馈已提交，感谢你的输入");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "提交失败");
+      const msg = err instanceof Error ? err.message : "提交失败";
+      setError(msg);
+      toast.error(`提交反馈失败：${msg}`);
     } finally {
       setSubmitting(false);
     }

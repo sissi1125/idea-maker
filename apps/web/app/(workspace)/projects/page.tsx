@@ -18,11 +18,13 @@ import {
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { ApiError } from "@/lib/api";
+import { useToast } from "@/components/toast/ToastProvider";
 
 const EMOJI_POOL = ["🔊", "🕯️", "🥗", "🎒", "📱", "🎨", "🚀", "💡", "📊", "🌟"];
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const toast = useToast();
   const {
     projects, currentProjectId, loading,
     createProject, deleteProject, setCurrentProject,
@@ -31,6 +33,8 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // 表单内联错误保留——比 toast 更靠近输入框，用户视线不需要跳到右下角；
+  // 但 alert() 一类的"系统对话框"统一改成 toast 失败提示。
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async (e: FormEvent) => {
@@ -43,9 +47,12 @@ export default function ProjectsPage() {
       setCreating(false);
       setName("");
       setDescription("");
+      toast.success(`项目 "${project.name}" 已创建`);
       router.push(`/projects/${project.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "创建失败");
+      const msg = err instanceof ApiError ? err.message : "创建失败";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -59,8 +66,9 @@ export default function ProjectsPage() {
     if (!confirm("确定删除该项目？此操作不可撤销。")) return;
     try {
       await deleteProject(id);
+      toast.info("项目已删除");
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "删除失败");
+      toast.error(err instanceof ApiError ? err.message : "删除失败");
     }
   };
 
@@ -83,6 +91,24 @@ export default function ProjectsPage() {
           <Plus size={13} strokeWidth={2.2} /> 新建项目
         </button>
       </div>
+
+      {/* Empty state（无 loading + 无 projects + 无 creating）—— 首次进来引导 */}
+      {!loading && projects.length === 0 && !creating && (
+        <div className="card flex flex-col items-center text-center gap-2 mb-4"
+             style={{ padding: "40px 24px", border: "1px dashed var(--line-strong)",
+                      background: "transparent" }}>
+          <div className="text-[28px]">🗂️</div>
+          <div className="text-[14.5px] font-semibold" style={{ color: "var(--ink)" }}>
+            还没有项目
+          </div>
+          <div className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
+            点击下方 &ldquo;新建项目&rdquo; 开始你的第一次 RAG 实验
+          </div>
+          <button className="btn btn-primary mt-2" onClick={() => setCreating(true)}>
+            <Plus size={13} strokeWidth={2.2} /> 新建项目
+          </button>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
@@ -222,9 +248,30 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {loading && (
-        <div className="text-center mt-8 text-sm" style={{ color: "var(--ink-3)" }}>
-          加载中...
+      {/* Loading skeleton——比"加载中..."视觉一致性更好 */}
+      {loading && projects.length === 0 && (
+        <div className="grid gap-3.5 mt-2"
+             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="card p-[18px]"
+                 style={{ minHeight: 162, opacity: 0.4 }}>
+              <div className="flex items-start gap-3 mb-2.5">
+                <div className="w-[42px] h-[42px] rounded-[10px]"
+                     style={{ background: "rgba(11,17,32,.08)",
+                              animation: "shimmer 1.4s linear infinite" }} />
+                <div className="flex-1">
+                  <div className="h-[14px] w-[60%] rounded mb-2"
+                       style={{ background: "rgba(11,17,32,.08)" }} />
+                  <div className="h-[10px] w-[40%] rounded"
+                       style={{ background: "rgba(11,17,32,.05)" }} />
+                </div>
+              </div>
+              <div className="h-[10px] w-[90%] rounded mb-1"
+                   style={{ background: "rgba(11,17,32,.05)" }} />
+              <div className="h-[10px] w-[70%] rounded"
+                   style={{ background: "rgba(11,17,32,.05)" }} />
+            </div>
+          ))}
         </div>
       )}
     </div>

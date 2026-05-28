@@ -36,6 +36,7 @@ import { SaveSegmentsList } from "@/components/notes/SaveSegmentsList";
 import { Markdown } from "@/components/markdown/Markdown";
 import { RuleSelector } from "@/components/platform-rules/RuleSelector";
 import { ViolationsBanner } from "@/components/platform-rules/ViolationsBanner";
+import { useToast } from "@/components/toast/ToastProvider";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
 
@@ -425,6 +426,7 @@ type Phase = "idle" | "running" | "done";
 
 export default function ProjectChatPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const toast = useToast();
   const { setCurrentProject, currentProject: getCurrent } = useProjectsStore();
   const user = useAuthStore((s) => s.user);
   const project = getCurrent();
@@ -516,9 +518,15 @@ export default function ProjectChatPage() {
       // 生成完后用户可能刚在隔壁知识库上传了新文档，重拉摘要，
       // 让 auto-gen 的新结果可被看到
       setSummariesReloadTick(t => t + 1);
+      // 命中规则违规时 banner 已在结果卡里显示，toast 不重复
+      if (res.violations && res.violations.length > 0) {
+        toast.warn(`合规检查发现 ${res.violations.length} 处问题，请查看结果上方提示`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "生成失败");
+      const msg = err instanceof Error ? err.message : "生成失败";
+      setError(msg);
       setPhase("done");
+      toast.error(`生成失败：${msg}`);
     }
   };
 

@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "Phase 3 MVP 8 周交付完成（feat-200.1~8）。next：Phase 3.5（feat-010 真 Agent）或 200.8.x 收尾子 feature（SSE 流式化 / 全局 toast / 三态 review）",
+      "current": "MVP 完整收官（feat-200.1~8 + 200.8.2 + 200.8.3 全部 done）。SSE 流式化（200.8.1，Token 级）推迟单独做；next：Phase 3.5 真 Agent（feat-010）或 200.8.1 SSE",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",

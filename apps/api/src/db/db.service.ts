@@ -34,9 +34,23 @@ export class DbService {
 
   /**
    * 跑一次 DDL 初始化所有 feat-200 表。
-   * 幂等：CREATE TABLE IF NOT EXISTS。
+   * 幂等：CREATE EXTENSION IF NOT EXISTS + CREATE TABLE IF NOT EXISTS。
+   *
+   * 部署到 Fly.io 等环境时，pgvector 扩展可能没有被预先安装。
+   * 我们在 init 时主动 CREATE EXTENSION IF NOT EXISTS vector——
+   * 这条语句对 superuser / cloudsqlsuperuser 角色就足够；
+   * 如果失败（如 fly postgres 的非 superuser 角色），抛出明确错误而不是让后续
+   * 业务 SQL 因 vector 类型不存在而难以诊断地崩溃。
    */
   async initSchema(client: PgClient): Promise<void> {
+    try {
+      await client.query("CREATE EXTENSION IF NOT EXISTS vector");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // 不阻塞其他 DDL：如果扩展已经装好但当前角色无权 CREATE EXTENSION，
+      // 这条会失败但其他 SQL 仍可正常跑（vector 类型已存在于另一个 schema/superuser）。
+      console.warn(`[db] CREATE EXTENSION vector 失败（可能已存在或权限不足）：${msg}`);
+    }
     for (const ddl of FEAT_200_DDL_BLOCKS) {
       await client.query(ddl);
     }

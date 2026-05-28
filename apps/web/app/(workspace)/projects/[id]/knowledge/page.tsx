@@ -32,6 +32,7 @@ import type {
   MvpDocument, DocumentCategory, IngestionJob,
   IngestionStage, IngestionStageOutputs,
 } from "@/lib/api";
+import { useToast } from "@/components/toast/ToastProvider";
 
 // ── Stage 显示顺序 + 中文标签 ────────────────────────────────────────────────
 
@@ -243,6 +244,7 @@ function ConfirmDeleteDialog({
 export default function KnowledgePage() {
   const { id: projectId } = useParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { currentProject: getCurrent, setCurrentProject } = useProjectsStore();
   const project = getCurrent();
 
@@ -344,65 +346,72 @@ export default function KnowledgePage() {
 
   // ── 加载文档列表 + ingestion jobs（获取 chunks / 耗时） ───────────────────
 
-  const loadDocuments = useCallback(async () => {
+  /**
+   * 初始加载：并行拉文档列表 + ingestion jobs 索引，组合成 FileEntry 数组。
+   * 修复 lint react-hooks/set-state-in-effect：把 useCallback 内联进 useEffect，
+   * 配合 cancelled 标记防止 strict-mode 双调用 / 切项目时写过期数据。
+   */
+  useEffect(() => {
     if (!projectId) return;
-    try {
-      // 并行加载文档列表和 ingestion jobs
-      const [docsRes, jobsRes] = await Promise.all([
-        documentsApi.listDocuments(projectId),
-        documentsApi.listIngestionJobs(projectId).catch(() => ({ jobs: [] as IngestionJob[] })),
-      ]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [docsRes, jobsRes] = await Promise.all([
+          documentsApi.listDocuments(projectId),
+          documentsApi.listIngestionJobs(projectId).catch(() => ({ jobs: [] as IngestionJob[] })),
+        ]);
+        if (cancelled) return;
 
-      // 按 documentId 建立 job 索引（取每个 document 最新的 job）
-      const jobByDocId = new Map<string, IngestionJob>();
-      for (const job of jobsRes.jobs) {
-        const existing = jobByDocId.get(job.documentId);
-        if (!existing || new Date(job.createdAt) > new Date(existing.createdAt)) {
-          jobByDocId.set(job.documentId, job);
+        // 按 documentId 建立 job 索引（取每个 document 最新的 job）
+        const jobByDocId = new Map<string, IngestionJob>();
+        for (const job of jobsRes.jobs) {
+          const existing = jobByDocId.get(job.documentId);
+          if (!existing || new Date(job.createdAt) > new Date(existing.createdAt)) {
+            jobByDocId.set(job.documentId, job);
+          }
         }
-      }
 
-      setFiles(docsRes.documents.map((d: MvpDocument) => {
-        const job = jobByDocId.get(d.id);
-        const isDone = job?.status === "completed";
-        const isFailed = job?.status === "failed";
+        setFiles(docsRes.documents.map((d: MvpDocument) => {
+          const job = jobByDocId.get(d.id);
+          const isDone = job?.status === "completed";
+          const isFailed = job?.status === "failed";
 
-        return {
-          id: d.id,
-          name: d.fileName,
-          size: formatSize(d.fileSize),
-          category: d.category,
-          status: d.processingStatus,
-          progress: d.processingStatus === "ready" ? 100 : (job?.progress ?? 0),
-          stage: d.processingStatus === "ready"
-            ? "已索引"
-            : d.processingStatus === "error"
-              ? (job?.error ?? "处理失败")
-              : stageLabel(job?.currentStage ?? null),
-          ingestionJobId: job?.id ?? null,
-          ingestionDetail: (isDone || isFailed) ? {
-            chunksTotal: job!.chunksTotal,
-            durationMs: job!.startedAt && job!.finishedAt
-              ? new Date(job!.finishedAt).getTime() - new Date(job!.startedAt).getTime()
-              : 0,
-            error: job!.error,
-          } : null,
-          stageOutputs: job?.stageOutputs ?? {},
-        };
-      }));
+          return {
+            id: d.id,
+            name: d.fileName,
+            size: formatSize(d.fileSize),
+            category: d.category,
+            status: d.processingStatus,
+            progress: d.processingStatus === "ready" ? 100 : (job?.progress ?? 0),
+            stage: d.processingStatus === "ready"
+              ? "已索引"
+              : d.processingStatus === "error"
+                ? (job?.error ?? "处理失败")
+                : stageLabel(job?.currentStage ?? null),
+            ingestionJobId: job?.id ?? null,
+            ingestionDetail: (isDone || isFailed) ? {
+              chunksTotal: job!.chunksTotal,
+              durationMs: job!.startedAt && job!.finishedAt
+                ? new Date(job!.finishedAt).getTime() - new Date(job!.startedAt).getTime()
+                : 0,
+              error: job!.error,
+            } : null,
+            stageOutputs: job?.stageOutputs ?? {},
+          };
+        }));
 
-      // 如果有还在处理中的 job，启动轮询
-      for (const [docId, job] of jobByDocId) {
-        if (job.status === "processing" || job.status === "queued") {
-          pollIngestion(job.id, docId);
+        // 如果有还在处理中的 job，启动轮询
+        for (const [docId, job] of jobByDocId) {
+          if (job.status === "processing" || job.status === "queued") {
+            pollIngestion(job.id, docId);
+          }
         }
+      } catch {
+        // 静默——文档列表拉失败不阻塞上传流程
       }
-    } catch {
-      // 静默
-    }
+    })();
+    return () => { cancelled = true; };
   }, [projectId, pollIngestion]);
-
-  useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
   // ── 上传处理 ─────────────────────────────────────────────────────────────
 
@@ -436,11 +445,13 @@ export default function KnowledgePage() {
         ));
         pollIngestion(ingestionJobId, doc.id);
       } catch (err) {
+        const msg = err instanceof Error ? err.message : "上传失败";
         setFiles(prev => prev.map(f =>
           f.id === tempId
-            ? { ...f, status: "error", stage: err instanceof Error ? err.message : "上传失败" }
+            ? { ...f, status: "error", stage: msg }
             : f,
         ));
+        toast.error(`${file.name} 上传失败：${msg}`);
       }
     }
   };
@@ -465,8 +476,9 @@ export default function KnowledgePage() {
     try {
       await documentsApi.deleteDocument(projectId, fileId);
       setFiles(prev => prev.filter(f => f.id !== fileId));
-    } catch {
-      // 静默
+      toast.info("文档已删除");
+    } catch (err) {
+      toast.error(err instanceof Error ? `删除失败：${err.message}` : "删除失败");
     }
   };
 

@@ -20,7 +20,20 @@ export function setTokenGetter(fn: () => string | null) {
   tokenGetter = fn;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+/**
+ * BASE_URL 解析顺序：
+ *   1. 显式 NEXT_PUBLIC_API_URL（生产环境推荐设为同源 https:// 或子域）
+ *   2. 浏览器中 NEXT_PUBLIC_API_URL 为空 + window 存在 → 自动用 window.location.origin
+ *      让前端被反向代理到同一域名（如 Fly 单 VM 配 Caddy/Nginx 同站反代）
+ *   3. 兜底 http://localhost:3001（本地 dev / 服务端渲染时）
+ */
+function resolveBaseUrl(): string {
+  const env = process.env.NEXT_PUBLIC_API_URL;
+  if (env && env.trim()) return env.trim();
+  if (typeof window !== "undefined") return window.location.origin;
+  return "http://localhost:3001";
+}
+const BASE_URL = resolveBaseUrl();
 
 export class ApiError extends Error {
   constructor(

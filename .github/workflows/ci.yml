@@ -1,0 +1,110 @@
+# CI — feat-200.8.3
+#
+# 每个 PR / push to main 运行：
+#   1. typecheck（所有 workspace）
+#   2. lint（apps/api + apps/web，max-warnings 0）
+#   3. unit tests（packages/rag-core 239 个测试）
+#
+# smoke job 独立 + 手动触发：需要 postgres + LLM API key 才能跑通，
+# 默认不在每个 PR 跑（成本 + 速度考量）。
+# 触发方式：workflow_dispatch 或 push tag。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Typecheck + Lint + Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Lint
+        run: |
+          pnpm -F @harness/api lint
+          pnpm -F @harness/web lint --max-warnings 0
+
+      - name: Unit tests
+        run: pnpm -F @harness/rag-core test
+
+  # smoke job — 手动触发，需要 secrets 配置才能跑（DATABASE_URL / LLM_API_KEY 等）
+  smoke:
+    name: e2e smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    needs: check
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rag
+      JWT_SECRET: ci-smoke-jwt-secret-must-be-at-least-16-chars
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+      EMBEDDING_BASE_URL: ${{ secrets.EMBEDDING_BASE_URL }}
+      EMBEDDING_MODEL: ${{ secrets.EMBEDDING_MODEL }}
+      EMBEDDING_DIMENSION: "1024"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.6.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        run: pnpm -F @harness/api build
+
+      - name: Start API
+        run: |
+          node apps/api/dist/main.js &
+          echo "Waiting for API..."
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/health > /dev/null; then
+              echo "API ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"; exit 1
+
+      - name: Run smoke
+        run: pnpm smoke

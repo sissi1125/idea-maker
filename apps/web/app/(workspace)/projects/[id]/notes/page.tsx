@@ -25,6 +25,7 @@ import { notesApi } from "@/lib/api";
 import type { Note, UpdateNoteInput } from "@/lib/api";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { Markdown } from "@/components/markdown/Markdown";
+import { useToast } from "@/components/toast/ToastProvider";
 
 function NoteCard({
   note,
@@ -196,6 +197,7 @@ function NoteCard({
 
 export default function NotesPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const toast = useToast();
   const { currentProject: getCurrent, setCurrentProject } = useProjectsStore();
   const project = getCurrent();
 
@@ -233,20 +235,32 @@ export default function NotesPage() {
   const handleUpdate = useCallback(
     async (id: string, input: UpdateNoteInput) => {
       if (!projectId) return;
-      const { note } = await notesApi.updateNote(projectId, id, input);
-      setNotes((prev) => prev.map((n) => (n.id === id ? note : n)));
+      try {
+        const { note } = await notesApi.updateNote(projectId, id, input);
+        setNotes((prev) => prev.map((n) => (n.id === id ? note : n)));
+        toast.success("笔记已更新");
+      } catch (err) {
+        toast.error(err instanceof Error ? `更新失败：${err.message}` : "更新失败");
+        throw err;
+      }
     },
-    [projectId],
+    [projectId, toast],
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
       if (!projectId) return;
-      await notesApi.deleteNote(projectId, id);
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-      setTotal((t) => Math.max(0, t - 1));
+      try {
+        await notesApi.deleteNote(projectId, id);
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        setTotal((t) => Math.max(0, t - 1));
+        toast.info("笔记已删除");
+      } catch (err) {
+        toast.error(err instanceof Error ? `删除失败：${err.message}` : "删除失败");
+        throw err;
+      }
     },
-    [projectId],
+    [projectId, toast],
   );
 
   return (

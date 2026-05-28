@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { BookmarkPlus, X, Check, AlertCircle } from "lucide-react";
 import { notesApi } from "@/lib/api";
+import { useToast } from "@/components/toast/ToastProvider";
 
 interface Props {
   /** 关联的 generation id（可选，独立创建笔记时为 null） */
@@ -30,6 +31,7 @@ interface Props {
 
 export function AddToLibraryButton({ generationId, content, titleSeed, compact }: Props) {
   const { id: projectId } = useParams<{ id: string }>();
+  const toast = useToast();
   const [phase, setPhase] = useState<"idle" | "editing" | "saving" | "saved" | "error">("idle");
   const [title, setTitle] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
@@ -54,9 +56,12 @@ export function AddToLibraryButton({ generationId, content, titleSeed, compact }
       });
       setPhase("saved");
       setTimeout(() => setPhase("idle"), 2500);
+      toast.success(`已保存到笔记库：${title.trim()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      const msg = err instanceof Error ? err.message : "保存失败";
+      setError(msg);
       setPhase("error");
+      toast.error(`保存笔记失败：${msg}`);
     }
   };
 
