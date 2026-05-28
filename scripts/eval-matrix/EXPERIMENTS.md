@@ -222,7 +222,9 @@ npx tsx scripts/eval-matrix/run-matrix.ts
 | Citation | chunk-citation | maxEvidencePerClaim=3 | section-citation 全面劣于 chunk |
 | Generation | glm-4-flash | — | 成本最低 |
 
-**实测最优 citationCoverage = 1.00**（实验 6 T02，summary-keywords + score-only）
+**实测最优 citationCoverage = 1.00**（实验 6 T02 + 实验 4.3 T01，summary-keywords + score-only，Q&A 和卖点提取 query 下均验证）
+
+> 注：高召回模式（topK=30）在单文档下 retrieved 仅增至 22（接近全量），citationCoverage 反降至 0.85。多文档场景下需重新评估高召回参数。
 
 ---
 
@@ -231,8 +233,8 @@ npx tsx scripts/eval-matrix/run-matrix.ts
 ### 短期
 
 - [x] **组合验证实验**（实验 6）：发现干扰效应，最终选 summary-keywords
+- [x] **实验 4.3**：单文档下 topK=10 已是最优（citation=1.00）；高召回模式价值在多文档场景
 - [ ] **合并最优配置到 main**：更新 stageRegistry 默认值，固化实验结论
-- [ ] **实验 4.3**：卖点提取专用 query（高召回模式，topK=30+，无 rerank），验证覆盖率指标
 
 ### 中期（多文档支持）
 
