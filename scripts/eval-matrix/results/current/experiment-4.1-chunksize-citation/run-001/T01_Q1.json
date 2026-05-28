@@ -1,0 +1,711 @@
+{
+  "testId": "T01",
+  "queryId": "Q1",
+  "query": "块式编辑器支持哪些内容块类型？",
+  "config": {
+    "id": "T01",
+    "label": "chunkSize=256 / chunk-citation（小 chunk 基线）",
+    "chunk": {
+      "methodId": "recursive",
+      "params": {
+        "chunkSize": 256,
+        "overlap": 32,
+        "separators": [
+          "\\n\\n",
+          "\\n",
+          " ",
+          ""
+        ],
+        "minChunkSize": 32
+      }
+    },
+    "transform": {
+      "methodId": "none",
+      "params": {}
+    },
+    "queryRewrite": {
+      "methodId": "none",
+      "params": {}
+    },
+    "retrieval": {
+      "methodId": "dense-vector",
+      "params": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-v4",
+        "embeddingDimension": 1024,
+        "topK": 10,
+        "threshold": 0.1
+      }
+    },
+    "filter": {
+      "methodId": "pipeline-filter",
+      "params": {
+        "requiredSourceTypes": [],
+        "minScore": 0.2,
+        "maxPerDocument": 5,
+        "finalTopK": 10,
+        "mmrLambda": 0.7
+      }
+    },
+    "rerank": {
+      "methodId": "pipeline-rerank",
+      "params": {
+        "boostPassN": 20,
+        "rerankTopN": 5
+      }
+    },
+    "citation": {
+      "methodId": "chunk-citation",
+      "params": {
+        "maxEvidencePerClaim": 3
+      }
+    },
+    "scoreThreshold": 0.2
+  },
+  "outputs": {
+    "intentRecognition": {
+      "output": {
+        "query": "块式编辑器支持哪些内容块类型？",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "routingReason": "无规则命中，默认为产品知识问答",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "rule-based",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "durationMs": 0
+      },
+      "durationMs": 0,
+      "warnings": []
+    },
+    "queryRewrite": {
+      "output": {
+        "originalQuery": "块式编辑器支持哪些内容块类型？",
+        "rewrittenQueries": [
+          "块式编辑器支持哪些内容块类型？"
+        ],
+        "method": "none",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "none",
+        "originalQuery": "块式编辑器支持哪些内容块类型？",
+        "queryCount": 1,
+        "queries": [
+          "块式编辑器支持哪些内容块类型？"
+        ],
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "retrieval": {
+      "output": {
+        "originalQuery": "块式编辑器支持哪些内容块类型？",
+        "queries": [
+          "块式编辑器支持哪些内容块类型？"
+        ],
+        "matches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "keywords": [],
+            "score": 0.6766,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c45",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 45,
+            "text": "题 | 为什么重要 |\n| --- | --- | --- |\n| Pro 权益 | 免费用户可编辑块上限到底是 200、300，还是由版本/平台动态决定？ | 影响订阅转化文案、限制提示和定价页说明。 |\n| Pro 权益 | 哪些块、导出格式、主题、图标明确属于 Pro？ | 需要形成清晰的权益矩阵，避免用户误解。 |\n| Store 素材 | 是否需要补充 App Store 截图、宣传图和完整版本历史？ | 当前自动数据未拿到截图 URL，文档中仅收录了图标。 |",
+            "sourceRef": "Questions To Confirm",
+            "keywords": [],
+            "score": 0.5871,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.5492,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 37,
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.549,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "keywords": [],
+            "score": 0.5433,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 10,
+            "text": "户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。\n用户点击卡片进入笔记，或进入选择模式进行批量操作。\n产品根据分类展示笔记、清单、倒计时、归档或回收站内容。\n关键页面/入口: 主页、侧边栏、主页标题菜单、底部添加按钮。\n状态与规则: 支持按最后修改、创建日期、标题排序；支持普通/紧凑预览；可显示/隐藏最近编辑、快捷操作、缩略图和每日笔记。\n置信度: 高。\n8. 模板与 Block Studio\n功能描述: 用户可以保存或复用笔记模板，并通过 Block Studio 快速创建更复杂或预设结构的块，减少重复记录成本。",
+            "sourceRef": "产品功能需求 > 7. 主页组织与批量管理",
+            "keywords": [],
+            "score": 0.5381,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c4",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 4,
+            "text": "笔记中选择图片、相机、文件、扫描、语音、手绘、音乐或媒体入口。\n产品打开系统选择器、相机、文档扫描、录音或搜索界面。\n用户选择、拍摄、扫描、录制或确认内容。\n产品生成对应块，并在笔记中展示预览、标题、缩略图或播放状态。\n关键页面/入口: 笔记页、图片选择器、文档扫描页、录音页、音乐/媒体搜索页、分享扩展保存页。\n状态与规则: 图片支持多图展示模式；导出超长图片可能受设备内存影响；无权限时提示前往设置；语音识别和录音存在失败状态。\n置信度: 高。\n4. 生活数据块：健康、位置、天气、心情、路线和海拔",
+            "sourceRef": "产品功能需求 > 3. 图片、扫描、文件与多媒体记录",
+            "keywords": [],
+            "score": 0.5171,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "text": "编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.5162,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 19,
+            "text": "独识别。免费额度需产品方确认。\n置信度: 中。\n导航与信息架构\nBloomnote 的主信息架构围绕“主页列表 + 侧边栏分类 + 笔记详情页 + 快捷添加/搜索”展开。紧凑屏幕使用单列导航与侧边抽屉，宽屏设备使用分栏导航。主页是主要工作台，展示最近编辑、快捷操作和笔记卡片；侧边栏承载分类、标签、模板、Review 与设置；笔记详情页承载块式编辑、格式、添加、导出、搜索和页面设置。\n核心导航层级为：主页列表 → 笔记详情 → 块编辑器/选择器/导出/页面摘要；主页列表 → 日历/时间线/搜索/模板/设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格",
+            "sourceRef": "导航与信息架构",
+            "keywords": [],
+            "score": 0.5101,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c5",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 5,
+            "text": ": 高。\n4. 生活数据块：健康、位置、天气、心情、路线和海拔\n功能描述: Bloomnote 把生活状态与环境信息纳入笔记，让日记不仅保存文字，还能保存当天的运动、心情、天气、地点、路线和海拔等上下文。\n适用角色: 日记用户、旅行/运动记录用户。\n前置条件: 健康、定位、天气和地图能力依赖用户授权与网络状态。\n交互链路:\n用户在每日笔记或普通笔记中选择生活数据类块。\n产品请求必要权限或展示选择界面。\n用户选择日期、地点、运动数据、路线点或样式。\n产品把数据以卡片或可视块方式插入笔记，并在日历/时间线中辅助回顾。",
+            "sourceRef": "产品功能需求 > 4. 生活数据块：健康、位置、天气、心情、路线和海拔",
+            "keywords": [],
+            "score": 0.5069,
+            "retrievalMethod": "dense"
+          }
+        ],
+        "totalMatches": 10,
+        "method": "dense-vector",
+        "dimension": 1024,
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "dense-vector",
+        "queryCount": 1,
+        "matchCount": 10,
+        "dimension": 1024,
+        "durationMs": 251
+      },
+      "durationMs": 251,
+      "warnings": []
+    },
+    "filter": {
+      "output": {
+        "filteredMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "keywords": [],
+            "score": 0.6766,
+            "retrievalMethod": "dense",
+            "filteredRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c45",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 45,
+            "text": "题 | 为什么重要 |\n| --- | --- | --- |\n| Pro 权益 | 免费用户可编辑块上限到底是 200、300，还是由版本/平台动态决定？ | 影响订阅转化文案、限制提示和定价页说明。 |\n| Pro 权益 | 哪些块、导出格式、主题、图标明确属于 Pro？ | 需要形成清晰的权益矩阵，避免用户误解。 |\n| Store 素材 | 是否需要补充 App Store 截图、宣传图和完整版本历史？ | 当前自动数据未拿到截图 URL，文档中仅收录了图标。 |",
+            "sourceRef": "Questions To Confirm",
+            "keywords": [],
+            "score": 0.5871,
+            "retrievalMethod": "dense",
+            "filteredRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 37,
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.549,
+            "retrievalMethod": "dense",
+            "filteredRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.5492,
+            "retrievalMethod": "dense",
+            "filteredRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "keywords": [],
+            "score": 0.5433,
+            "retrievalMethod": "dense",
+            "filteredRank": 5
+          }
+        ],
+        "removedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c10",
+            "text": "户进入主页或侧边栏。\n用户切换分类、排序、预览样式或显示选项。\n用户点击卡片进入笔记，或进入选择模式进行批量操作。\n产品根据分类展示笔记、清单、倒计时、归档或回收站内容。\n关键页面/入口: 主页、侧边栏、主页标题菜单、底部添加按钮。\n状态与规则: 支持按最后修改、创建日期、标题排序；支持普通/紧凑预览；可显示/隐藏最近编辑、快捷操作、缩略图和每日笔记。\n置信度: 高。\n8. 模板与 Block Studio\n功能描述: 用户可以保存或复用笔记模板，并通过 Block Studio 快速创建更复杂或预设结构的块，减少重复记录成本。",
+            "score": 0.5381,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c4",
+            "text": "笔记中选择图片、相机、文件、扫描、语音、手绘、音乐或媒体入口。\n产品打开系统选择器、相机、文档扫描、录音或搜索界面。\n用户选择、拍摄、扫描、录制或确认内容。\n产品生成对应块，并在笔记中展示预览、标题、缩略图或播放状态。\n关键页面/入口: 笔记页、图片选择器、文档扫描页、录音页、音乐/媒体搜索页、分享扩展保存页。\n状态与规则: 图片支持多图展示模式；导出超长图片可能受设备内存影响；无权限时提示前往设置；语音识别和录音存在失败状态。\n置信度: 高。\n4. 生活数据块：健康、位置、天气、心情、路线和海拔",
+            "score": 0.5171,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "text": "编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "score": 0.5162,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "text": "独识别。免费额度需产品方确认。\n置信度: 中。\n导航与信息架构\nBloomnote 的主信息架构围绕“主页列表 + 侧边栏分类 + 笔记详情页 + 快捷添加/搜索”展开。紧凑屏幕使用单列导航与侧边抽屉，宽屏设备使用分栏导航。主页是主要工作台，展示最近编辑、快捷操作和笔记卡片；侧边栏承载分类、标签、模板、Review 与设置；笔记详情页承载块式编辑、格式、添加、导出、搜索和页面设置。\n核心导航层级为：主页列表 → 笔记详情 → 块编辑器/选择器/导出/页面摘要；主页列表 → 日历/时间线/搜索/模板/设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格",
+            "score": 0.5101,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c5",
+            "text": ": 高。\n4. 生活数据块：健康、位置、天气、心情、路线和海拔\n功能描述: Bloomnote 把生活状态与环境信息纳入笔记，让日记不仅保存文字，还能保存当天的运动、心情、天气、地点、路线和海拔等上下文。\n适用角色: 日记用户、旅行/运动记录用户。\n前置条件: 健康、定位、天气和地图能力依赖用户授权与网络状态。\n交互链路:\n用户在每日笔记或普通笔记中选择生活数据类块。\n产品请求必要权限或展示选择界面。\n用户选择日期、地点、运动数据、路线点或样式。\n产品把数据以卡片或可视块方式插入笔记，并在日历/时间线中辅助回顾。",
+            "score": 0.5069,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          }
+        ],
+        "keptCount": 5,
+        "removedCount": 5,
+        "method": "pipeline-filter",
+        "warnings": [],
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "originalQuery": "块式编辑器支持哪些内容块类型？"
+      },
+      "trace": {
+        "methodId": "pipeline-filter",
+        "inputCount": 10,
+        "keptCount": 5,
+        "removedCount": 5,
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "durationMs": 16
+      },
+      "durationMs": 16,
+      "warnings": []
+    },
+    "rerank": {
+      "output": {
+        "rankedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "keywords": [],
+            "score": 0.6766,
+            "retrievalMethod": "dense",
+            "filteredRank": 1,
+            "boostedScore": 0.8266,
+            "originalFilterRank": 1,
+            "rerankScore": 0.9869,
+            "originalRank": 1,
+            "newRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "keywords": [],
+            "score": 0.5433,
+            "retrievalMethod": "dense",
+            "filteredRank": 5,
+            "boostedScore": 0.6933,
+            "originalFilterRank": 5,
+            "rerankScore": 0.6978,
+            "originalRank": 5,
+            "newRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.5492,
+            "retrievalMethod": "dense",
+            "filteredRank": 4,
+            "boostedScore": 0.5992,
+            "originalFilterRank": 4,
+            "rerankScore": 0.1953,
+            "originalRank": 4,
+            "newRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 37,
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.549,
+            "retrievalMethod": "dense",
+            "filteredRank": 3,
+            "boostedScore": 0.549,
+            "originalFilterRank": 3,
+            "rerankScore": 0.1613,
+            "originalRank": 3,
+            "newRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c45",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 45,
+            "text": "题 | 为什么重要 |\n| --- | --- | --- |\n| Pro 权益 | 免费用户可编辑块上限到底是 200、300，还是由版本/平台动态决定？ | 影响订阅转化文案、限制提示和定价页说明。 |\n| Pro 权益 | 哪些块、导出格式、主题、图标明确属于 Pro？ | 需要形成清晰的权益矩阵，避免用户误解。 |\n| Store 素材 | 是否需要补充 App Store 截图、宣传图和完整版本历史？ | 当前自动数据未拿到截图 URL，文档中仅收录了图标。 |",
+            "sourceRef": "Questions To Confirm",
+            "keywords": [],
+            "score": 0.5871,
+            "retrievalMethod": "dense",
+            "filteredRank": 2,
+            "boostedScore": 0.5871,
+            "originalFilterRank": 2,
+            "rerankScore": 0.0082,
+            "originalRank": 2,
+            "newRank": 5
+          }
+        ],
+        "rankChanges": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "sourceRef": "产品功能需求",
+            "originalRank": 1,
+            "newRank": 1,
+            "delta": 0
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "originalRank": 5,
+            "newRank": 2,
+            "delta": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "originalRank": 4,
+            "newRank": 3,
+            "delta": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "sourceRef": "产品概念与业务对象",
+            "originalRank": 3,
+            "newRank": 4,
+            "delta": -1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c45",
+            "sourceRef": "Questions To Confirm",
+            "originalRank": 2,
+            "newRank": 5,
+            "delta": -3
+          }
+        ],
+        "method": "pipeline-rerank",
+        "warnings": [
+          "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+        ],
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "originalQuery": "块式编辑器支持哪些内容块类型？"
+      },
+      "trace": {
+        "methodId": "pipeline-rerank",
+        "inputCount": 5,
+        "outputCount": 5,
+        "topN": 5,
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "durationMs": 4371
+      },
+      "durationMs": 4371,
+      "warnings": [
+        "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+      ]
+    },
+    "citation": {
+      "output": {
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "pageNumber": null,
+            "score": 0.9869
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "pageNumber": null,
+            "score": 0.6978
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "pageNumber": null,
+            "score": 0.1953
+          }
+        ],
+        "totalEvidence": 3,
+        "method": "chunk-citation",
+        "contextText": "[evidence-001] 来源：产品功能需求\n产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n---\n[evidence-002] 来源：产品功能需求 > 1. 块式笔记编辑器\n。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录\n---\n[evidence-003] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+        "warnings": [],
+        "originalQuery": "块式编辑器支持哪些内容块类型？"
+      },
+      "trace": {
+        "methodId": "chunk-citation",
+        "inputMatches": 5,
+        "evidenceCount": 3,
+        "contextLength": 844,
+        "avgEvidenceLength": 281,
+        "durationMs": 2
+      },
+      "durationMs": 2,
+      "warnings": []
+    },
+    "promptBuild": {
+      "output": {
+        "systemPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"",
+        "userPrompt": "产品资料：\n[evidence-001] 来源：产品功能需求\n产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n---\n[evidence-002] 来源：产品功能需求 > 1. 块式笔记编辑器\n。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录\n---\n[evidence-003] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n任务：块式编辑器支持哪些内容块类型？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "fullPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"\n\n产品资料：\n[evidence-001] 来源：产品功能需求\n产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n---\n[evidence-002] 来源：产品功能需求 > 1. 块式笔记编辑器\n。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录\n---\n[evidence-003] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n任务：块式编辑器支持哪些内容块类型？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "tokenEstimate": 282,
+        "originalQuery": "块式编辑器支持哪些内容块类型？",
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "pageNumber": null,
+            "score": 0.9869
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "pageNumber": null,
+            "score": 0.6978
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "pageNumber": null,
+            "score": 0.1953
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-template",
+        "evidenceCount": 3,
+        "tokenEstimate": 282,
+        "contextLength": 844,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "generation": {
+      "output": {
+        "generatedContent": "以下是基于所提供产品资料（evidence-001 至 evidence-003）提炼的**结构化营销内容**，面向产品运营与独立开发者场景，聚焦「块式编辑器支持的内容块类型」这一核心能力。所有主张均严格遵循 evidence-first 原则，标注对应证据编号，并标注置信度说明：\n\n---\n\n### ✅ 核心卖点（Core Value Proposition）  \n**「24+原生内容块自由组合，真正实现「一块一用、按需拼装」的笔记操作系统」**  \n- 支持文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘，以及 Block Studio 模板化内容等 **24 类明确列出的块类型**；  \n- 所有块均可在单篇笔记内**任意顺序插入、拖拽重排、独立编辑、跨块引用、选择导出**，打破线性文本桎梏。  \n→ [evidence-001]（高置信度；块类型列表完整、交互链路清晰）\n\n---\n\n### 🌟 典型使用场景（Use Cases）  \n| 场景 | 说明 | 支撑 evidence |\n|------|------|----------------|\n| **多模态学习笔记** | 学生在一篇物理笔记中：嵌入公式块推导 + 手绘草图解释 + 链接至参考论文 + 插入录音块复盘课堂口述 + 倒计时块标记作业截止 | [evidence-001]（支持公式/手绘/链接/语音/倒计时等全部子类型） |\n| **项目进度看板** | 产品经理新建一页，用「表格块」列任务、「倒计时块」标里程碑、「天气/位置块」记录客户现场调研实况、「健康块」同步团队加班状态 → 全息还原项目上下文 | [evidence-001]（天气/位置/健康/倒计时/表格均明确在列） |\n| **结构化日记沉淀** | 用户通过 Block Studio 将「晨间计划+当日三件成就+晚间反思」封装为模板，一键复用于每日笔记，避免重复排版，同时保留每块的可编辑性与个性化扩展空间 | [evidence-003]（模板复用链路完整；强调“减少重复记录成本”与“预设结构”） |\n\n> 注：所有场景中涉及的块类型均在 evidence-001 明确列举，无推测延伸。\n\n---\n\n### ⚡ 差异化优势（Differentiation vs. Competitors）  \n| 维度 | 表述 | 支撑 evidence |\n|------|------|----------------|\n| **块粒度最细、覆盖域最广** | 同类工具普遍支持 8–12 类基础块（如文字/图片/清单/代码），本产品明确支持 **24+ 类**，含垂直场景块（海拔、路线、健康、心情、语音、天气等），直击真实生活与工作长尾需求 | [evidence-001]（类型数量与领域分布具象可验证） |\n| **块即能力入口，非静态容器** | 每类块自带专属交互界面（如“语音块”触发录音、“天气块”拉取实时数据、“公式块”启用 LaTeX 编辑器），块本身是功能载体，而非仅展示层 | [evidence-001]（“产品打开相应编辑器、选择器或录制/扫描界面”） |\n| **块与模板深度协同，兼顾灵活性与规范性** | Block Studio 不仅支持创建「整页模板」，更支持将任意块组合封装为「可复用的模块化块」，实现「原子块自由拼装」与「高频结构一键复用」双轨并行 | [evidence-001] + [evidence-003]（evidence-001 提及 Block Studio 模板化内容；evidence-003 明确其降低重复成本、支持结构预设） |\n\n---\n\n### 📝 内容角度建议（Content Angle Suggestions）  \n| 角度 | 建议方向 | 依据与备注 |\n|------|-----------|-------------|\n| **功能可视化叙事** | 制作「1 篇笔记 = 24 种能力入口」信息图：以单篇笔记为画布，标注每类块图标+名称+一句话价值（例：“海拔块 → 记录徒步/登山/飞行高度变化”） | [evidence-001] 提供完整类型清单，适合直接结构化呈现 |\n| **场景对比文案** | “还在复制粘贴格式？→ 用 Block Studio 把日报模板存成块，下次点击即用”；“截图天气预报？→ 直接插入「天气块」自动更新” | [evidence-001] + [evidence-003] 共同支撑「动态块」与「模板化复用」双亮点 |\n| **Pro 权限钩子设计** | 在块添加面板中，对「高级块」（如健康、路线、手绘、Block Studio）做轻量提示：“解锁 Pro 可用”，避免功能遮蔽，同时强化价值感知 | [evidence-001] 明确“部分高级块或能力可能要求 Pro”，且“Pro 升级提示”为已定义状态规则（高置信度） |\n\n---\n\n### ❗ 注意事项（Low-Confidence / Needs Validation）  \n- 当前资料未说明各块是否支持**离线使用**（如天气/位置/健康块依赖网络或系统权限时的行为）、**跨平台一致性**（如手绘块在 iOS/Android/Web 的渲染精度）、**第三方 API 接入能力**（如音乐块是否支持 Spotify/Apple Music）。  \n→ 若用于技术向传播（如给开发者文档），需补充该类信息；当前所有营销主张均规避此类未证实细节。  \n- 「Block Studio 模板化内容」具体指「自定义复合块」还是「可发布共享的块市场」？evidence-003 未明确其分发机制。  \n→ 当前表述保守采用“用户封装→本地复用”口径，符合 evidence-003 中“保存当前页为模板”“复用模板内容”描述；若需拓展社区/市场维度，属**低置信度 / 需补充资料**。\n\n---  \n如需进一步生成：  \n- 面向不同角色（学生 / 项目经理 / 自由职业者）的定制化话术包  \n- Block Studio 模板案例库（含命名逻辑、结构拆解、复用路径）  \n- Pro 块权限分级说明图谱（含免费/Pro 块对照表）  \n欢迎随时提出，我将基于 evidence 体系持续输出。",
+        "citedEvidenceIds": [
+          "[evidence-001]",
+          "[evidence-003]"
+        ],
+        "model": "qwen-plus",
+        "inputTokens": 687,
+        "outputTokens": 1532,
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c0",
+            "text": "产品功能需求\n1. 块式笔记编辑器\n功能描述: 用户可以在一篇笔记中自由组合多种内容块，形成比普通文本更丰富的记录页面。内容块覆盖文字、清单、表格、图片、文件、链接、代码、公式、分隔符、心情、倒计时、天气、语音、位置、健康、音乐、媒体、路线、海拔、手绘和 Block Studio 模板化内容。\n适用角色: 普通记录者、Pro 用户。\n前置条件: 用户已进入某篇笔记；部分高级块或能力可能要求 Pro。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。",
+            "sourceRef": "产品功能需求",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 0,
+            "pageNumber": null,
+            "score": 0.9869
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c1",
+            "text": "。\n交互链路:\n用户在笔记页点击添加块入口或底部/键盘工具栏。\n用户选择目标块类型，例如图片、倒计时、天气、语音或公式。\n产品打开相应编辑器、选择器或录制/扫描界面。\n用户确认后，新块插入当前笔记并可继续编辑、移动、引用、选择或导出。\n关键页面/入口: 笔记详情页、块添加面板、自定义块工具栏、笔记页底部工具栏。\n状态与规则: 支持编辑态、只读模式、多选态、导入/导出进度、图片数量上限提示、权限缺失提示、网络不可用提示、Pro 升级提示。\n置信度: 高。\n2. 富文本、清单与表格记录",
+            "sourceRef": "产品功能需求 > 1. 块式笔记编辑器",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 1,
+            "pageNumber": null,
+            "score": 0.6978
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c11",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 11,
+            "pageNumber": null,
+            "score": 0.1953
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-ideas",
+        "model": "qwen-plus",
+        "originalQuery": "块式编辑器支持哪些内容块类型？",
+        "inputTokens": 687,
+        "outputTokens": 1532,
+        "citedCount": 2,
+        "durationMs": 34308
+      },
+      "durationMs": 34308,
+      "warnings": []
+    },
+    "evaluation": {
+      "output": {
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.5911,
+        "totalEvidence": 3,
+        "citedCount": 2,
+        "scoreThreshold": 0.2,
+        "faithfulness": null,
+        "level": "good",
+        "warnings": [],
+        "method": "rag-metrics-only",
+        "durationMs": 1
+      },
+      "trace": {
+        "methodId": "rag-metrics-only",
+        "totalEvidence": 3,
+        "citedCount": 2,
+        "hitRate": 0.6666666666666666,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.5911,
+        "faithfulnessScore": null,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    }
+  },
+  "metrics": {
+    "hitRate": 0.6666666666666666,
+    "citationCoverage": 0.6666666666666666,
+    "confidenceScore": 0.5911,
+    "retrievedCount": 10,
+    "avgScore": 0.5493599999999998,
+    "ideaCount": 2,
+    "contextLength": 844,
+    "avgEvidenceLength": 281,
+    "evidenceCount": 3,
+    "durationMs": 39745.833333333336
+  }
+}

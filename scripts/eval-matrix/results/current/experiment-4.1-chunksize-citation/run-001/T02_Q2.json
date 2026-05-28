@@ -1,0 +1,720 @@
+{
+  "testId": "T02",
+  "queryId": "Q2",
+  "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+  "config": {
+    "id": "T02",
+    "label": "chunkSize=256 / section-citation/section（关键测试：小 chunk 时 section 应生效）",
+    "chunk": {
+      "methodId": "recursive",
+      "params": {
+        "chunkSize": 256,
+        "overlap": 32,
+        "separators": [
+          "\\n\\n",
+          "\\n",
+          " ",
+          ""
+        ],
+        "minChunkSize": 32
+      }
+    },
+    "transform": {
+      "methodId": "none",
+      "params": {}
+    },
+    "queryRewrite": {
+      "methodId": "none",
+      "params": {}
+    },
+    "retrieval": {
+      "methodId": "dense-vector",
+      "params": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-v4",
+        "embeddingDimension": 1024,
+        "topK": 10,
+        "threshold": 0.1
+      }
+    },
+    "filter": {
+      "methodId": "pipeline-filter",
+      "params": {
+        "requiredSourceTypes": [],
+        "minScore": 0.2,
+        "maxPerDocument": 5,
+        "finalTopK": 10,
+        "mmrLambda": 0.7
+      }
+    },
+    "rerank": {
+      "methodId": "pipeline-rerank",
+      "params": {
+        "boostPassN": 20,
+        "rerankTopN": 5
+      }
+    },
+    "citation": {
+      "methodId": "section-citation",
+      "params": {
+        "expansionMode": "section",
+        "maxEvidencePerClaim": 3
+      }
+    },
+    "scoreThreshold": 0.2
+  },
+  "outputs": {
+    "intentRecognition": {
+      "output": {
+        "query": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "routingReason": "无规则命中，默认为产品知识问答",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "rule-based",
+        "intent": "knowledge-qa",
+        "confidence": 0.7,
+        "routingDecision": "continue",
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "queryRewrite": {
+      "output": {
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "rewrittenQueries": [
+          "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+        ],
+        "method": "none",
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "none",
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "queryCount": 1,
+        "queries": [
+          "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+        ],
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "retrieval": {
+      "output": {
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "queries": [
+          "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+        ],
+        "matches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "keywords": [],
+            "score": 0.7947,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "text": "编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.7566,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |",
+            "sourceRef": "业务规则与校验",
+            "keywords": [],
+            "score": 0.7177,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 19,
+            "text": "独识别。免费额度需产品方确认。\n置信度: 中。\n导航与信息架构\nBloomnote 的主信息架构围绕“主页列表 + 侧边栏分类 + 笔记详情页 + 快捷添加/搜索”展开。紧凑屏幕使用单列导航与侧边抽屉，宽屏设备使用分栏导航。主页是主要工作台，展示最近编辑、快捷操作和笔记卡片；侧边栏承载分类、标签、模板、Review 与设置；笔记详情页承载块式编辑、格式、添加、导出、搜索和页面设置。\n核心导航层级为：主页列表 → 笔记详情 → 块编辑器/选择器/导出/页面摘要；主页列表 → 日历/时间线/搜索/模板/设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格",
+            "sourceRef": "导航与信息架构",
+            "keywords": [],
+            "score": 0.6845,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c20",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 20,
+            "text": "设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格\nBloomnote 是一款柔和、个人化、原生感强的 Apple 生态笔记应用。界面使用系统分组背景、卡片式列表、细圆角、半透明/毛玻璃面板和系统图标，整体偏安静、轻量、面向日常长期使用。产品强调可定制主题色和 App 图标，让记录体验带有“个人笔记本”的情绪属性。\n色彩方案\n| 色彩角色 | 近似值 | 用途 | 置信度 |\n| --- | --- | --- | --- |\n| 默认主题 Sea Sand | ，深色约  | 默认强调色、按钮、选中态、链接和装饰。 | 高 |",
+            "sourceRef": "设计风格与视觉识别 > 整体风格",
+            "keywords": [],
+            "score": 0.6606,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 37,
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "sourceRef": "产品概念与业务对象",
+            "keywords": [],
+            "score": 0.6543,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c40",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 40,
+            "text": "指令。 | 打开新笔记、每日笔记、搜索或语音备忘。 | 高 |\n| 分享扩展 | 从其他应用收集资料。 | 系统分享面板。 | 文本、图片、链接、文件导入 Bloomnote。 | 高 |\n| 反馈网站和邮件 | 收集用户反馈与支持请求。 | 设置页 Feedback / Contact us。 | 打开反馈网站或邮件。 | 高 |\n业务规则与校验\n| 规则 | 用户影响 | 置信度 |\n| --- | --- | --- |\n| 免费用户存在可编辑块数量上限。 | 超过后会被引导升级到 Bloomnote Pro。具体阈值需确认。 | 中 |",
+            "sourceRef": "外部触点",
+            "keywords": [],
+            "score": 0.6451,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c44",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 44,
+            "text": " | 本地/iCloud 数据 | 减少数据丢失。 | 高 |\n| 快捷操作注册 | 应用进入后台 | 系统主屏快捷菜单 | Add note、Add daily note、Search、Voice memo 可用。 | 高 |\n| 分享扩展中转保存 | 用户在扩展页点击 Save | 主应用 | 打开 Bloomnote 并导入分享内容。 | 高 |\nQuestions To Confirm\n| 范围 | 待确认问题 | 为什么重要 |\n| --- | --- | --- |",
+            "sourceRef": "通知与后台产品行为",
+            "keywords": [],
+            "score": 0.6432,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c32",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 32,
+            "text": "打开对应日期。\n用户添加文本、图片、心情、天气、健康或位置块。\n产品保存笔记并在 Widget、时间线或日历中可见。\n完成状态: 指定日期的每日笔记创建或更新完成。\n异常/边界状态: 权限缺失、无网络、iCloud 同步中、免费额度限制。\n置信度: 高。\n从分享面板保存资料\n目标: 把外部应用中的资料加入 Bloomnote。\n触发: 系统分享面板选择 Bloomnote。\n交互链路:\n用户在其他应用分享文本、图片、链接或文件。\nBloomnote 展示内容预览。\n用户点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。",
+            "sourceRef": "跨功能交互流程 > 快速记录每日笔记",
+            "keywords": [],
+            "score": 0.633,
+            "retrievalMethod": "dense"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c31",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 31,
+            "text": "e。\n关键入口: iOS/iPadOS/macOS 分享面板。\n核心内容: 文本、图片、链接或文件预览，Cancel 和 Save 操作。\n状态与反馈: 保存后打开 Bloomnote 对应导入入口。\n置信度: 高。\n跨功能交互流程\n快速记录每日笔记\n目标: 让用户快速记录当天或指定日期的日记。\n触发: 主页快捷操作、Widget、锁屏、控制中心或 Siri Shortcuts。\n交互链路:\n用户点击 Daily Note。\n产品打开今日每日笔记；若入口带日期，则打开对应日期。\n用户添加文本、图片、心情、天气、健康或位置块。",
+            "sourceRef": "页面与屏幕 > 分享扩展保存页",
+            "keywords": [],
+            "score": 0.6275,
+            "retrievalMethod": "dense"
+          }
+        ],
+        "totalMatches": 10,
+        "method": "dense-vector",
+        "dimension": 1024,
+        "warnings": []
+      },
+      "trace": {
+        "methodId": "dense-vector",
+        "queryCount": 1,
+        "matchCount": 10,
+        "dimension": 1024,
+        "durationMs": 279
+      },
+      "durationMs": 279,
+      "warnings": []
+    },
+    "filter": {
+      "output": {
+        "filteredMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "keywords": [],
+            "score": 0.7947,
+            "retrievalMethod": "dense",
+            "filteredRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "text": "编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.7566,
+            "retrievalMethod": "dense",
+            "filteredRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |",
+            "sourceRef": "业务规则与校验",
+            "keywords": [],
+            "score": 0.7177,
+            "retrievalMethod": "dense",
+            "filteredRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 19,
+            "text": "独识别。免费额度需产品方确认。\n置信度: 中。\n导航与信息架构\nBloomnote 的主信息架构围绕“主页列表 + 侧边栏分类 + 笔记详情页 + 快捷添加/搜索”展开。紧凑屏幕使用单列导航与侧边抽屉，宽屏设备使用分栏导航。主页是主要工作台，展示最近编辑、快捷操作和笔记卡片；侧边栏承载分类、标签、模板、Review 与设置；笔记详情页承载块式编辑、格式、添加、导出、搜索和页面设置。\n核心导航层级为：主页列表 → 笔记详情 → 块编辑器/选择器/导出/页面摘要；主页列表 → 日历/时间线/搜索/模板/设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格",
+            "sourceRef": "导航与信息架构",
+            "keywords": [],
+            "score": 0.6845,
+            "retrievalMethod": "dense",
+            "filteredRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c20",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 20,
+            "text": "设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格\nBloomnote 是一款柔和、个人化、原生感强的 Apple 生态笔记应用。界面使用系统分组背景、卡片式列表、细圆角、半透明/毛玻璃面板和系统图标，整体偏安静、轻量、面向日常长期使用。产品强调可定制主题色和 App 图标，让记录体验带有“个人笔记本”的情绪属性。\n色彩方案\n| 色彩角色 | 近似值 | 用途 | 置信度 |\n| --- | --- | --- | --- |\n| 默认主题 Sea Sand | ，深色约  | 默认强调色、按钮、选中态、链接和装饰。 | 高 |",
+            "sourceRef": "设计风格与视觉识别 > 整体风格",
+            "keywords": [],
+            "score": 0.6606,
+            "retrievalMethod": "dense",
+            "filteredRank": 5
+          }
+        ],
+        "removedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c37",
+            "text": "模板添加。 | 模板页、Block Studio。 | 中 |\n| Countdown | 带日期的倒计时内容。 | 未完成/完成、排序、独立列表。 | 倒计时块、Countdown 分类。 | 高 |\n| Bloomnote Pro | 付费完整权益。 | 未订阅、月度、年度、终身。 | 订阅页、主题、导出、额度限制。 | 高 |\n| Export File | 对外分享或备份的文件。 | 、TXT、PDF、Markdown、图片、HTML、RTF。 | 导入导出、分享。 | 高 |\n外部触点\n| 触点 | 产品目的 | 用户触发 | 用户可见结果 | 置信度 |",
+            "score": 0.6543,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c40",
+            "text": "指令。 | 打开新笔记、每日笔记、搜索或语音备忘。 | 高 |\n| 分享扩展 | 从其他应用收集资料。 | 系统分享面板。 | 文本、图片、链接、文件导入 Bloomnote。 | 高 |\n| 反馈网站和邮件 | 收集用户反馈与支持请求。 | 设置页 Feedback / Contact us。 | 打开反馈网站或邮件。 | 高 |\n业务规则与校验\n| 规则 | 用户影响 | 置信度 |\n| --- | --- | --- |\n| 免费用户存在可编辑块数量上限。 | 超过后会被引导升级到 Bloomnote Pro。具体阈值需确认。 | 中 |",
+            "score": 0.6451,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c44",
+            "text": " | 本地/iCloud 数据 | 减少数据丢失。 | 高 |\n| 快捷操作注册 | 应用进入后台 | 系统主屏快捷菜单 | Add note、Add daily note、Search、Voice memo 可用。 | 高 |\n| 分享扩展中转保存 | 用户在扩展页点击 Save | 主应用 | 打开 Bloomnote 并导入分享内容。 | 高 |\nQuestions To Confirm\n| 范围 | 待确认问题 | 为什么重要 |\n| --- | --- | --- |",
+            "score": 0.6432,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c32",
+            "text": "打开对应日期。\n用户添加文本、图片、心情、天气、健康或位置块。\n产品保存笔记并在 Widget、时间线或日历中可见。\n完成状态: 指定日期的每日笔记创建或更新完成。\n异常/边界状态: 权限缺失、无网络、iCloud 同步中、免费额度限制。\n置信度: 高。\n从分享面板保存资料\n目标: 把外部应用中的资料加入 Bloomnote。\n触发: 系统分享面板选择 Bloomnote。\n交互链路:\n用户在其他应用分享文本、图片、链接或文件。\nBloomnote 展示内容预览。\n用户点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。",
+            "score": 0.633,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c31",
+            "text": "e。\n关键入口: iOS/iPadOS/macOS 分享面板。\n核心内容: 文本、图片、链接或文件预览，Cancel 和 Save 操作。\n状态与反馈: 保存后打开 Bloomnote 对应导入入口。\n置信度: 高。\n跨功能交互流程\n快速记录每日笔记\n目标: 让用户快速记录当天或指定日期的日记。\n触发: 主页快捷操作、Widget、锁屏、控制中心或 Siri Shortcuts。\n交互链路:\n用户点击 Daily Note。\n产品打开今日每日笔记；若入口带日期，则打开对应日期。\n用户添加文本、图片、心情、天气、健康或位置块。",
+            "score": 0.6275,
+            "reason": "[score] 文档 be6278da-a9ec-42c3-a4ac-406173aecaad 已达 maxPerDocument 限制 5"
+          }
+        ],
+        "keptCount": 5,
+        "removedCount": 5,
+        "method": "pipeline-filter",
+        "warnings": [],
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+      },
+      "trace": {
+        "methodId": "pipeline-filter",
+        "inputCount": 10,
+        "keptCount": 5,
+        "removedCount": 5,
+        "pipelineSteps": {
+          "afterMetadata": 10,
+          "afterScore": 5,
+          "afterMMR": 5
+        },
+        "durationMs": 9
+      },
+      "durationMs": 9,
+      "warnings": []
+    },
+    "rerank": {
+      "output": {
+        "rankedMatches": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "text": "编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "keywords": [],
+            "score": 0.7566,
+            "retrievalMethod": "dense",
+            "filteredRank": 2,
+            "boostedScore": 0.9066,
+            "originalFilterRank": 2,
+            "rerankScore": 0.9878,
+            "originalRank": 2,
+            "newRank": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "keywords": [],
+            "score": 0.7947,
+            "retrievalMethod": "dense",
+            "filteredRank": 1,
+            "boostedScore": 0.9947,
+            "originalFilterRank": 1,
+            "rerankScore": 0.9749,
+            "originalRank": 1,
+            "newRank": 2
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |",
+            "sourceRef": "业务规则与校验",
+            "keywords": [],
+            "score": 0.7177,
+            "retrievalMethod": "dense",
+            "filteredRank": 3,
+            "boostedScore": 0.8677,
+            "originalFilterRank": 3,
+            "rerankScore": 0.8494,
+            "originalRank": 3,
+            "newRank": 3
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 19,
+            "text": "独识别。免费额度需产品方确认。\n置信度: 中。\n导航与信息架构\nBloomnote 的主信息架构围绕“主页列表 + 侧边栏分类 + 笔记详情页 + 快捷添加/搜索”展开。紧凑屏幕使用单列导航与侧边抽屉，宽屏设备使用分栏导航。主页是主要工作台，展示最近编辑、快捷操作和笔记卡片；侧边栏承载分类、标签、模板、Review 与设置；笔记详情页承载块式编辑、格式、添加、导出、搜索和页面设置。\n核心导航层级为：主页列表 → 笔记详情 → 块编辑器/选择器/导出/页面摘要；主页列表 → 日历/时间线/搜索/模板/设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格",
+            "sourceRef": "导航与信息架构",
+            "keywords": [],
+            "score": 0.6845,
+            "retrievalMethod": "dense",
+            "filteredRank": 4,
+            "boostedScore": 0.8345,
+            "originalFilterRank": 4,
+            "rerankScore": 0.4095,
+            "originalRank": 4,
+            "newRank": 4
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c20",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 20,
+            "text": "设置；系统入口 → 指定动作页。\n设计风格与视觉识别\n整体风格\nBloomnote 是一款柔和、个人化、原生感强的 Apple 生态笔记应用。界面使用系统分组背景、卡片式列表、细圆角、半透明/毛玻璃面板和系统图标，整体偏安静、轻量、面向日常长期使用。产品强调可定制主题色和 App 图标，让记录体验带有“个人笔记本”的情绪属性。\n色彩方案\n| 色彩角色 | 近似值 | 用途 | 置信度 |\n| --- | --- | --- | --- |\n| 默认主题 Sea Sand | ，深色约  | 默认强调色、按钮、选中态、链接和装饰。 | 高 |",
+            "sourceRef": "设计风格与视觉识别 > 整体风格",
+            "keywords": [],
+            "score": 0.6606,
+            "retrievalMethod": "dense",
+            "filteredRank": 5,
+            "boostedScore": 0.7106,
+            "originalFilterRank": 5,
+            "rerankScore": 0.2229,
+            "originalRank": 5,
+            "newRank": 5
+          }
+        ],
+        "rankChanges": [
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "originalRank": 2,
+            "newRank": 1,
+            "delta": 1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "originalRank": 1,
+            "newRank": 2,
+            "delta": -1
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "sourceRef": "业务规则与校验",
+            "originalRank": 3,
+            "newRank": 3,
+            "delta": 0
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c19",
+            "sourceRef": "导航与信息架构",
+            "originalRank": 4,
+            "newRank": 4,
+            "delta": 0
+          },
+          {
+            "chunkId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c20",
+            "sourceRef": "设计风格与视觉识别 > 整体风格",
+            "originalRank": 5,
+            "newRank": 5,
+            "delta": 0
+          }
+        ],
+        "method": "pipeline-rerank",
+        "warnings": [
+          "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+        ],
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+      },
+      "trace": {
+        "methodId": "pipeline-rerank",
+        "inputCount": 5,
+        "outputCount": 5,
+        "topN": 5,
+        "pipelineSteps": {
+          "afterBoost": 5,
+          "sentToTEI": 5
+        },
+        "durationMs": 2425
+      },
+      "durationMs": 2425,
+      "warnings": [
+        "Metadata Boost 后取前 5 个送入 TEI，最终返回 top-5"
+      ]
+    },
+    "citation": {
+      "output": {
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "pageNumber": null,
+            "score": 0.9878
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "pageNumber": null,
+            "score": 0.9749
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |",
+            "sourceRef": "业务规则与校验",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "pageNumber": null,
+            "score": 0.8494
+          }
+        ],
+        "totalEvidence": 3,
+        "method": "section-citation",
+        "contextText": "[evidence-001] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。\n---\n[evidence-002] 来源：跨功能交互流程 > 从分享面板保存资料\n点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级\n---\n[evidence-003] 来源：业务规则与校验\n级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |",
+        "warnings": [
+          "evidence be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12: section 模式扩展为 2 个 chunk",
+          "evidence be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41: section 模式扩展为 2 个 chunk"
+        ],
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？"
+      },
+      "trace": {
+        "methodId": "section-citation",
+        "inputMatches": 5,
+        "evidenceCount": 3,
+        "contextLength": 1461,
+        "avgEvidenceLength": 487,
+        "durationMs": 19
+      },
+      "durationMs": 19,
+      "warnings": [
+        "evidence be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12: section 模式扩展为 2 个 chunk",
+        "evidence be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41: section 模式扩展为 2 个 chunk"
+      ]
+    },
+    "promptBuild": {
+      "output": {
+        "systemPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"",
+        "userPrompt": "产品资料：\n[evidence-001] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。\n---\n[evidence-002] 来源：跨功能交互流程 > 从分享面板保存资料\n点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级\n---\n[evidence-003] 来源：业务规则与校验\n级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n\n任务：Bloomnote 支持哪些导出格式，导出时有哪些限制？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "fullPrompt": "你是一个专业的产品营销策略师，擅长基于产品资料生成营销内容。\n目标受众：产品运营和独立开发者\n输出语气：professional\n规则：\n1. 所有营销主张必须基于提供的产品资料（evidence first 原则）\n2. 生成卖点或内容 idea 时，标注对应的 [evidence-NNN] 引用\n3. 若某个营销角度缺乏资料支撑，明确标注\"低置信度 / 需补充资料\"\n\n产品资料：\n[evidence-001] 来源：产品功能需求 > 8. 模板与 Block Studio\nStudio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。\n---\n[evidence-002] 来源：跨功能交互流程 > 从分享面板保存资料\n点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级\n---\n[evidence-003] 来源：业务规则与校验\n级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |\n\n任务：Bloomnote 支持哪些导出格式，导出时有哪些限制？\n\n请基于以上资料，输出结构化营销内容（可包含：核心卖点、使用场景、差异化优势、内容角度建议）。每个要点标注 evidence 来源。",
+        "tokenEstimate": 439,
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "pageNumber": null,
+            "score": 0.9878
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "pageNumber": null,
+            "score": 0.9749
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |",
+            "sourceRef": "业务规则与校验",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "pageNumber": null,
+            "score": 0.8494
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-template",
+        "evidenceCount": 3,
+        "tokenEstimate": 439,
+        "contextLength": 1461,
+        "durationMs": 1
+      },
+      "durationMs": 1,
+      "warnings": []
+    },
+    "generation": {
+      "output": {
+        "generatedContent": "以下是基于所提供产品资料，为 **Bloomnote 导出能力** 提炼的结构化营销内容，严格遵循 *evidence-first* 原则，标注每项主张对应的具体证据来源（[evidence-NNN]），并区分置信度层级：\n\n---\n\n### ✅ 一、核心卖点（High-confidence, backed by evidence）\n\n| 卖点 | 描述 | Evidence |\n|------|------|----------|\n| **7 种灵活导出格式，覆盖全场景需求** | 支持将笔记或**选中块**导出为：PDF、Markdown、纯文本、HTML、RTF、图片（PNG/JPEG）、以及 Bloomnote 专有格式（用于跨设备迁移）。满足备份、协作、出版、归档等不同目的。 | [evidence-001]（明确列出格式）<br>[evidence-003]（确认“可针对整篇笔记或选中块”） |\n| **块级导出（Block-level Export）—— 精准分享不泄露上下文** | 用户无需导出整篇笔记，可仅选取一个标题、一段代码、一张表格或一个待办列表，一键导出为独立文件。保护隐私、提升协作效率。 | [evidence-003]（“导出可针对整篇笔记或选中块” → 高置信度）<br>[evidence-001]（导出能力描述中隐含块粒度支持） |\n| **Pro 用户专属高保真导出能力** | PDF、图片、HTML 等格式的完整渲染与样式保留（如主题色、嵌入媒体、数学公式）需 Bloomnote Pro；免费用户触发时平滑跳转升级路径。 | [evidence-001]（“部分导出格式…可能要求 Pro”）<br>[evidence-003]（“免费用户触发时进入升级链路” → 中置信度，但商业逻辑清晰） |\n\n> ⚠️ 注：「图片导出过长可能失败或空白」属已知限制，非卖点，但构成关键用户提示点（见下文「内容角度建议」）。\n\n---\n\n### 🌐 二、典型使用场景（Evidence-supported）\n\n| 场景 | 用户行为与价值 | Evidence |\n|------|----------------|----------|\n| **学术/写作协作** | 学生将笔记中的文献摘要块导出为 Markdown，粘贴至论文草稿；研究者将数据表格块导出为 HTML 发给合作者查看排版。 | [evidence-001], [evidence-003]（块级导出 + 多格式支持） |\n| **轻量内容发布** | 自媒体创作者将灵感笔记中的金句段落导出为 PNG 图片，直接用于小红书/微博配图；或导出为 HTML 快速生成简易网页存档。 | [evidence-001]（支持图片、HTML）<br>[evidence-003]（块级导出支持） |\n| **跨平台知识迁移** | 用户从 Obsidian 迁入 Bloomnote 后，用「导入 Markdown」快速建库；后续通过「导出为 Markdown」反向同步至其他工具或 Git 仓库。 | [evidence-001]（明确支持 Markdown 双向） |\n| **离线交付与合规归档** | 顾问将项目复盘笔记导出为 PDF（含签名水印、页眉页脚），满足客户交付或内部审计要求。 | [evidence-001]（PDF 是基础导出项）<br>[evidence-003]（Pro 支持完整 PDF 渲染 → 暗示专业交付能力） |\n\n---\n\n### 🆚 三、差异化优势（vs. mainstream note apps）\n\n| 对比维度 | Bloomnote 表现 | Evidence & Rationale |\n|----------|----------------|------------------------|\n| **导出粒度** | ✅ **块级（Block-level）导出** —— 行业少见的精细控制能力 | [evidence-003]（明确声明）<br>→ 对比 Notion（仅页面级导出）、Obsidian（需插件）、Apple Notes（无导出）显著领先 |\n| **格式完整性** | ✅ 同时支持**出版级（PDF/HTML）+ 开发友好（Markdown/RTF）+ 视觉化（图片）** 三类导出目标 | [evidence-001]（7 格式并列）<br>→ 超越多数笔记 App 的 2–3 种基础格式（如 Evernote 仅 PDF/ENEX） |\n| **隐私一致性** | ✅ 所有导出均在本地完成，**无云端处理**；iCloud 同步与导出功能物理隔离，强化“你的内容你掌控”信任感 | [evidence-003]（“默认使用 iCloud 存储与同步，产品方强调无法访问用户数据”）<br>→ 可支撑隐私敏感型用户（如律师、HR、医疗从业者）决策 |\n\n> ❗低置信度 / 需补充资料：  \n> - 是否支持导出时自定义页眉/页脚、水印、字体嵌入？→ [evidence-001/003] 未提及，**需 UX 文档确认**  \n> - HTML 导出是否含交互元素（如折叠区块、动态图表）？→ 无资料支撑，**暂不作为卖点宣传**\n\n---\n\n### ✍️ 四、内容角度建议（面向运营/开发者传播）\n\n| 内容类型 | 建议方向 | 关键依据 & 注意事项 |\n|----------|-----------|------------------------|\n| **短视频脚本（30s）** | “3 秒剪掉废话：在 Bloomnote 里圈中一句话 → 导出 PNG → 发朋友圈。不用截图、不漏格式。” | 强调 [evidence-003] 块级导出 + [evidence-001] 图片格式，直击社交场景痛点；需规避「图片过长失败」风险（见下条） |\n| **博客长文标题** | 《为什么我们把「导出」做成一个独立能力，而不是菜单里的二级选项？》<br>→ 延伸讨论：块级导出如何重构知识流转链路 | 基于 [evidence-003] 的块级能力 + [evidence-001] 的 Studio 模板联动潜力（模板→块→导出闭环），体现产品哲学 |\n| **App Store 截图文案** | 主图标注：“Export *any block* — PDF • Markdown • PNG • HTML…”<br>副图小字提示：“Pro unlocks full styling & long-page PDF” | 严格对齐 [evidence-001] 格式列表 + [evidence-003] Pro 边界；避免承诺未验证能力（如“无损导出”） |\n| **用户教育弹窗（首次导出）** | ✅ 正向引导：“选中文字/图片/表格，试试‘导出为图片’快速分享”<br>⚠️ 风险提示（仅当用户选择图片且内容 >3屏时触发）：“长内容建议分段导出，避免空白” | [evidence-003] 明确要求“给出风险提示”，属高置信度合规动作 |\n\n---\n\n如需进一步输出：\n- 面向 Pro 转化设计的「导出能力对比表」（Free vs Pro）\n- Block Studio 与导出能力的协同话术（模板 → 块 → 一键导出标准化内容）\n- 针对开发者 API 的导出能力说明（当前资料未覆盖，需补充）\n\n欢迎随时提出，我可基于新 evidence 迭代更新。",
+        "citedEvidenceIds": [
+          "[evidence-NNN]",
+          "[evidence-001]",
+          "[evidence-003]",
+          "[evidence-001/003]"
+        ],
+        "model": "qwen-plus",
+        "inputTokens": 1044,
+        "outputTokens": 1746,
+        "warnings": [],
+        "evidencePack": [
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c12",
+            "text": "Studio 快速创建更复杂或预设结构的块，减少重复记录成本。\n适用角色: 高频记录者、希望规范日记或项目记录格式的用户。\n前置条件: 用户进入模板页或在笔记中选择模板/Block Studio。\n交互链路:\n用户从侧边栏进入模板，或在笔记页点击“添加为模板”。\n用户选择模板类型、编辑模板内容或保存当前页为模板。\n用户在新笔记或现有笔记中复用模板内容。\n产品按模板结构插入对应笔记或块。\n关键页面/入口: 侧边栏 Template、模板编辑页、笔记页模板添加入口、Block Studio 块入口。\n\n编辑页、笔记页模板添加入口、Block Studio 块入口。\n状态与规则: 模板与普通笔记在主页展示逻辑中区分；模板能力的完整商业边界需确认。\n置信度: 中。\n9. 导入、导出与分享\n功能描述: Bloomnote 支持导入 Markdown 和专有  文件，并可把笔记或选中块导出为 、纯文本、PDF、Markdown、图片、HTML 和 RTF，方便备份、迁移、发布和分享。\n适用角色: 普通记录者、Pro 用户、内容迁移用户。\n前置条件: 用户拥有要导入的文件或待导出的笔记；部分导出格式要求 Pro。\n交互链路:\n用户从主页菜单选择导入，或在笔记页打开导出面板。",
+            "sourceRef": "产品功能需求 > 8. 模板与 Block Studio",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 12,
+            "pageNumber": null,
+            "score": 0.9878
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c33",
+            "text": "点击 Save。\n产品打开主应用并把内容导入为新笔记或对应块。\n完成状态: 外部内容进入 Bloomnote，可继续整理。\n异常/边界状态: 不支持的文件类型、文件读取失败、用户取消。\n置信度: 高。\n导出笔记给他人或备份\n目标: 将笔记转换为可分享或可迁移格式。\n触发: 笔记页导出面板。\n交互链路:\n用户打开某篇笔记，选择整篇或选中块。\n用户选择导出格式。\n产品显示导出进度，并生成预览文件。\n用户保存、分享或返回继续编辑。\n完成状态: 生成目标格式文件。\n异常/边界状态: Pro 权限限制、导出失败、图片过长、设备内存限制。\n置信度: 高。\n达到免费限制后升级",
+            "sourceRef": "跨功能交互流程 > 从分享面板保存资料",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 33,
+            "pageNumber": null,
+            "score": 0.9749
+          },
+          {
+            "evidenceId": "be6278da-a9ec-42c3-a4ac-406173aecaad_v1_c41",
+            "text": "级到 Bloomnote Pro。具体阈值需确认。 | 中 |\n| Bloomnote Pro 支持月度、年度和终身购买状态。 | 用户可看到订阅状态并解锁完整能力。 | 高 |\n| 默认使用 iCloud 存储与同步，产品方强调无法访问用户数据。 | 强化隐私定位，但需确保隐私文案与 App Store 隐私标签一致。 | 高 |\n| 导出可针对整篇笔记或选中块。 | 用户可以精细分享内容。 | 高 |\n| 部分导出格式、主题或高级能力可能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n\n能要求 Pro。 | 免费用户触发时进入升级链路。 | 中 |\n| 图片导出过长可能失败或空白。 | 产品需要给出风险提示，并建议分段导出。 | 高 |\n| 健康、定位、相机、麦克风等系统能力需要授权。 | 无授权时引导用户前往设置。 | 高 |\n| 无网络时天气、部分媒体和路线能力可能不可用。 | 展示网络/不可用提示。 | 高 |\n| 不支持的文件类型不能导入。 | 用户看到 Unsupported File Type 提示。 | 高 |\n通知与后台产品行为\n| 行为 | 触发 | 目标 | 可见结果 | 置信度 |",
+            "sourceRef": "业务规则与校验",
+            "documentId": "be6278da-a9ec-42c3-a4ac-406173aecaad",
+            "version": 1,
+            "chunkIndex": 41,
+            "pageNumber": null,
+            "score": 0.8494
+          }
+        ]
+      },
+      "trace": {
+        "methodId": "marketing-ideas",
+        "model": "qwen-plus",
+        "originalQuery": "Bloomnote 支持哪些导出格式，导出时有哪些限制？",
+        "inputTokens": 1044,
+        "outputTokens": 1746,
+        "citedCount": 4,
+        "durationMs": 41072
+      },
+      "durationMs": 41072,
+      "warnings": []
+    },
+    "evaluation": {
+      "output": {
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.9186000000000001,
+        "totalEvidence": 3,
+        "citedCount": 2,
+        "scoreThreshold": 0.2,
+        "faithfulness": null,
+        "level": "good",
+        "warnings": [],
+        "method": "rag-metrics-only",
+        "durationMs": 5
+      },
+      "trace": {
+        "methodId": "rag-metrics-only",
+        "totalEvidence": 3,
+        "citedCount": 2,
+        "hitRate": 1,
+        "citationCoverage": 0.6666666666666666,
+        "confidenceScore": 0.9186000000000001,
+        "faithfulnessScore": null,
+        "durationMs": 5
+      },
+      "durationMs": 5,
+      "warnings": []
+    }
+  },
+  "metrics": {
+    "hitRate": 1,
+    "citationCoverage": 0.6666666666666666,
+    "confidenceScore": 0.9186000000000001,
+    "retrievedCount": 10,
+    "avgScore": 0.68172,
+    "ideaCount": 4,
+    "contextLength": 1461,
+    "avgEvidenceLength": 487,
+    "evidenceCount": 3,
+    "durationMs": 44416.333333333336
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "testId": "T01",
+  "label": "精准模式（当前最优，topK=10）",
+  "status": "success",
+  "queryResults": [
+    {
+      "queryId": "Q1",
+      "query": "这个产品有哪些核心功能和特性？请尽量列举完整。",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5559333333333334,
+        "retrievedCount": 10,
+        "avgScore": 0.5428599999999999,
+        "ideaCount": 3,
+        "contextLength": 1804,
+        "avgEvidenceLength": 601,
+        "evidenceCount": 3,
+        "durationMs": 47828.25
+      }
+    },
+    {
+      "queryId": "Q2",
+      "query": "产品有哪些差异化优势？相比同类笔记 App 好在哪里？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5818666666666666,
+        "retrievedCount": 10,
+        "avgScore": 0.5641200000000001,
+        "ideaCount": 4,
+        "contextLength": 1728,
+        "avgEvidenceLength": 576,
+        "evidenceCount": 3,
+        "durationMs": 42604.25
+      }
+    },
+    {
+      "queryId": "Q3",
+      "query": "这个产品适合哪些用户群体？能帮助他们解决什么问题？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.5499999999999999,
+        "retrievedCount": 10,
+        "avgScore": 0.53482,
+        "ideaCount": 3,
+        "contextLength": 1772,
+        "avgEvidenceLength": 591,
+        "evidenceCount": 3,
+        "durationMs": 42131.25
+      }
+    },
+    {
+      "queryId": "Q4",
+      "query": "产品的付费 Pro 版本有哪些专属功能？免费版和 Pro 版各有什么限制？",
+      "status": "success",
+      "metrics": {
+        "hitRate": 1,
+        "citationCoverage": 1,
+        "confidenceScore": 0.6614666666666666,
+        "retrievedCount": 10,
+        "avgScore": 0.58738,
+        "ideaCount": 3,
+        "contextLength": 1763,
+        "avgEvidenceLength": 588,
+        "evidenceCount": 3,
+        "durationMs": 31991.25
+      }
+    }
+  ],
+  "metrics": {
+    "hitRate": 1,
+    "citationCoverage": 1,
+    "confidenceScore": 0.5873166666666666,
+    "retrievedCount": 10,
+    "avgScore": 0.557295,
+    "ideaCount": 3.25,
+    "contextLength": 1766.75,
+    "avgEvidenceLength": 589,
+    "evidenceCount": 3,
+    "totalDurationMs": 164555
+  }
+}

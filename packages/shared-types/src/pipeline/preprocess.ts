@@ -28,6 +28,15 @@ export const PreprocessParamsSchema = z.object({
   pdfPageRange: z.string().optional().default(""),
   preserveLayout: z.boolean().optional().default(true),
   extractImages: z.boolean().optional().default(false),
+  /**
+   * sourceRef heading path 保留的最大层级数。
+   *   0（默认）= 保留全部层级（如 "产品功能需求 > 块式编辑器 > 内容块"）
+   *   1 = 只保留第一层（如 "产品功能需求"）
+   *   2 = 保留两层（如 "产品功能需求 > 块式编辑器"）
+   *
+   * 实验 4.2 核心参数：粗粒度 sourceRef 让 section-citation 能找到更多兄弟 chunk。
+   */
+  sourceRefDepth: z.number().int().min(0).max(6).optional().default(0),
 });
 export type PreprocessParams = z.infer<typeof PreprocessParamsSchema>;
 
