@@ -115,12 +115,25 @@ describe("runPromptBuild - marketing-template", () => {
     );
     expect(r.output.systemPrompt).toContain("产品经理");
     expect(r.output.systemPrompt).toContain("活泼");
-    expect(r.output.userPrompt).toContain("结构化营销内容");
+    // user prompt 要求按二级标题分块输出（feat-200.7 修正后）
+    expect(r.output.userPrompt).toContain("##");
+    expect(r.output.userPrompt).toContain("用户任务");
   });
 
-  it("evidence first 原则写入 system prompt", () => {
+  it("system prompt 强调任务完整性 + 资料锚定", () => {
     const r = runPromptBuild(makeInput({ methodId: "marketing-template" }));
-    expect(r.output.systemPrompt).toContain("evidence first");
+    // feat-200.7 修正后从"evidence first 原则"改成更明确的中文条款
+    expect(r.output.systemPrompt).toContain("任务完整性");
+    expect(r.output.systemPrompt).toContain("资料锚定");
+    // 仍要求标注 evidence 引用
+    expect(r.output.systemPrompt).toContain("[evidence-001]");
+  });
+
+  it("强制要求覆盖 query 里指定的所有产物形态", () => {
+    // 这是 feat-200.7 修正的核心：query "5 个卖点及小红书笔记" 时，
+    // prompt 必须显式告诉 LLM 不可省略其中任何一种产物。
+    const r = runPromptBuild(makeInput({ methodId: "marketing-template" }));
+    expect(r.output.systemPrompt).toMatch(/必须.*全部产出|不可.*省略/);
   });
 });
 
