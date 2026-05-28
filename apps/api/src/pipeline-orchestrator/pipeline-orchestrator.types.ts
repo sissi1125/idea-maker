@@ -52,6 +52,25 @@ export interface GenerateRequest {
   query: string;
   /** 可选：覆盖默认 pipeline 配置（暂不暴露给前端，留给 Week 5 Settings） */
   pipelineOverrides?: Partial<StageConfig>[];
+  /**
+   * 可选：本次 generate 要应用的平台规则 ID 列表。
+   * 后端按 ID 拉规则 + 自动过滤 disabled；将规则配置注入 prompt + 跑后置 validator。
+   * feat-200.8 新增。
+   */
+  platformRuleIds?: string[];
+}
+
+/**
+ * 违规条目——RuleValidator 跑完产出，前端 GeneratedResult 用红色 banner 展示。
+ * 字段语义与 apps/api/src/platform-rules/platform-rules.types.ts:RuleViolation 一致；
+ * 这里独立定义避免 orchestrator/types 反向依赖 platform-rules 模块。
+ */
+export interface ViolationItem {
+  type: "max_length" | "banned_keyword" | "missing_tag";
+  ruleId: string;
+  ruleName: string;
+  message: string;
+  detail?: Record<string, unknown>;
 }
 
 export interface GenerateResponse {
@@ -64,6 +83,8 @@ export interface GenerateResponse {
   costBreakdown: CostBreakdown;
   durationMs: number;
   error?: string;
+  /** feat-200.8：平台规则后置校验产出。无规则或全通过时为空数组。 */
+  violations: ViolationItem[];
 }
 
 // ── Generation DB Row ────────────────────────────────────────────────────

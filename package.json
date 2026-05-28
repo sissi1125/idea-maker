@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "check:harness": "node scripts/check-harness.mjs"
+    "check:harness": "node scripts/check-harness.mjs",
+    "smoke": "node scripts/smoke.mjs"
   }
 }

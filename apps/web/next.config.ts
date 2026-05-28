@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
    * 避免 build 时 missing files 警告，也避免 dev 期反复扫整个 workspace。
    */
   outputFileTracingRoot: path.join(__dirname, "../.."),
+
+  /**
+   * standalone 输出：feat-200.8 Dockerfile 需要。
+   * Next.js 会把所有 server-side 依赖打包进 .next/standalone/，
+   * 镜像里只复制 standalone + static + public，体积更小，不需要装 node_modules。
+   */
+  output: "standalone",
 };
 
 export default nextConfig;

@@ -2,6 +2,42 @@
 
 ## 最后更新
 
+2026-05-28（feat-200.8 ✅ 平台规则验证 + e2e smoke + Fly.io 部署资产 — **MVP 8 周收官**）
+
+## 本次变更摘要（feat-200.8 Week 8）
+
+【新增后端】
+- DDL_PLATFORM_RULES 表 + PlatformRulesModule（CRUD + listEnabledByIds 内部接口）
+- rule-validator.ts：maxLength / bannedKeywords / mandatoryTagPattern 三检查 + buildRuleSystemPrompt
+
+【后端修改】
+- GenerateRequest 加 platformRuleIds；GenerateResponse 加 violations
+- orchestrator.run 接受 ruleSystemPrompt 注入到 contextText 之前
+- GenerationsService 接 PlatformRulesService：pre-prompt 注入 + post-generation 校验
+
+【新增前端】
+- lib/api/platform-rules.ts + 4 平台预设（小红书 / 微博 / 抖音 / 公众号）
+- components/platform-rules/{PlatformRulesManager, RuleSelector, ViolationsBanner}.tsx
+- Settings 平台规则 Section 替换占位为完整管理面板
+- Chat 输入上方 RuleSelector 多选 chip
+- GeneratedResult 顶部橙黄 ViolationsBanner
+
+【发布资产】
+- scripts/smoke.mjs：10 步端到端，21s 全过
+- Dockerfile（multi-stage + Next standalone + dumb-init）
+- fly.toml（双端口 / Postgres / Volume / healthcheck）
+- docs/DEPLOY.md（一键部署清单 + secrets 列表）
+
+【验证】
+- pnpm -r typecheck / pnpm smoke 全过
+- fly deploy 实际部署留给用户：所有资产就绪
+
+**进度**：MVP 8 周交付完成（feat-200.1~8）。next：Phase 3.5（feat-010 真 Agent）或 200.8.x 子 feature 收尾（SSE 流式化 / 全局 toast / 三态 review / 实际部署联调）。
+
+---
+
+## 上一次更新（feat-200.7）
+
 2026-05-28（feat-200.7 ✅ 反馈 + 历史 + 笔记库 + Settings 完善）
 
 ## 本次变更摘要（feat-200.7 Week 7）

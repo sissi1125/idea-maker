@@ -59,6 +59,15 @@ export interface GenerationRow {
   updatedAt: string;
 }
 
+/** feat-200.8：平台规则后置校验的违规条目 */
+export interface ViolationItem {
+  type: "max_length" | "banned_keyword" | "missing_tag";
+  ruleId: string;
+  ruleName: string;
+  message: string;
+  detail?: Record<string, unknown>;
+}
+
 export interface GenerateResponse {
   generationId: string;
   status: "succeeded" | "failed";
@@ -69,6 +78,8 @@ export interface GenerateResponse {
   costBreakdown: CostBreakdown;
   durationMs: number;
   error?: string;
+  /** feat-200.8：平台规则违规列表。无规则或全通过时为空数组 */
+  violations: ViolationItem[];
 }
 
 export interface ListGenerationsResponse {
@@ -78,14 +89,23 @@ export interface ListGenerationsResponse {
 
 // ── API 函数 ──────────────────────────────────────────────────────────────
 
-/** 执行一次 RAG 生成 */
+/**
+ * 执行一次 RAG 生成。
+ * platformRuleIds：feat-200.8 新增，本次生成要应用的平台规则 ID 列表。
+ */
 export async function generate(
   projectId: string,
   query: string,
+  options?: { platformRuleIds?: string[] },
 ): Promise<GenerateResponse> {
   return apiFetch<GenerateResponse>(`/projects/${projectId}/generate`, {
     method: "POST",
-    body: { query },
+    body: {
+      query,
+      ...(options?.platformRuleIds?.length
+        ? { platformRuleIds: options.platformRuleIds }
+        : {}),
+    },
   });
 }
 

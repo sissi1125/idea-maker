@@ -38,6 +38,7 @@ import {
 import { projectsApi } from "@/lib/api";
 import type { ProjectSettings } from "@/lib/api";
 import { useProjectsStore } from "@/lib/stores/projects-store";
+import { PlatformRulesManager } from "@/components/platform-rules/PlatformRulesManager";
 
 // ── 常量：下拉选项 ──────────────────────────────────────────────────────────
 
@@ -689,30 +690,17 @@ export default function ProjectSettingsPage() {
           </Section>
 
           {/*
-            ── Section 4：平台规则（占位） ─────────────────────────────────
-            feat-200.8 Week 8 实装；现在只放占位说明，让用户在 Settings 入口
-            就能预期到这块功能在哪里。
+            ── Section 4：平台规则（feat-200.8 实装） ──────────────────────
+            定义本项目产出内容的平台合规约束。Chat 主界面发起 generate 时
+            可勾选启用，后端在 prompt-build 注入规则、generation 完成后跑
+            后置 validator 返回 violations。
           */}
           <Section
             icon={ShieldCheck}
             title="平台规则"
-            desc="定义产出内容的平台合规约束（小红书 / 微博 / 抖音 / 公众号）"
+            desc="定义产出内容的平台合规约束。Chat 提问时可选启用，生成后会自动检查合规性"
           >
-            <div className="rounded-md p-3.5 text-[12.5px] leading-[1.65]"
-                 style={{
-                   background: "rgba(11,17,32,.025)",
-                   border: "1px dashed var(--line-strong)",
-                   color: "var(--ink-3)",
-                 }}>
-              <div className="font-semibold mb-1.5" style={{ color: "var(--ink-2)" }}>
-                Week 8 上线（feat-200.8）
-              </div>
-              生成时按选定平台注入规则（字数 / 敏感词 / 排版风格 / 话题标签格式），
-              并对生成结果做合规校验，违规处标红提示。
-              <div className="mt-2 text-[11.5px]" style={{ color: "var(--ink-4)" }}>
-                当前可在 Chat 主界面通过 query 自由指定平台风格，正式校验逻辑稍后接入。
-              </div>
-            </div>
+            <PlatformRulesManager />
           </Section>
         </div>
       </div>

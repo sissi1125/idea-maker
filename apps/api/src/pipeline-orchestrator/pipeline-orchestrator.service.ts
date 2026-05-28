@@ -102,11 +102,24 @@ export class PipelineOrchestratorService {
    * 执行完整 pipeline，返回 trace + 结果。
    * 调用方（GenerationsService）负责写 DB、错误包装。
    */
-  async run(query: string): Promise<{
+  /**
+   * 执行完整 pipeline。
+   *
+   * @param query 用户查询
+   * @param options.ruleSystemPrompt
+   *   平台规则压成的额外 system prompt 片段（feat-200.8）。orchestrator 在
+   *   prompt-build 阶段把它拼到 systemPromptOverride 末尾，把规则告诉 LLM。
+   *   硬校验留给 GenerationsService 调 RuleValidator 跑。
+   */
+  async run(
+    query: string,
+    options: { ruleSystemPrompt?: string } = {},
+  ): Promise<{
     trace: PipelineTrace;
     resultNotes: string | null;
     retrievedChunks: unknown[];
   }> {
+    const ruleSystemPrompt = options.ruleSystemPrompt?.trim();
     const startMs = Date.now();
     const stages: StageResult[] = [];
 
@@ -311,11 +324,25 @@ export class PipelineOrchestratorService {
         // ── 8. prompt-build ────────────────────────────────────────────
         promptBuildOutput = await this.runStage(stages, "prompt-build", async (cfg) => {
           const methodId = PromptBuildMethodId.parse(cfg.method);
-          const params = PromptBuildParamsSchema.parse(cfg.params);
+          const baseParams = PromptBuildParamsSchema.parse(cfg.params);
+          // feat-200.8：把平台规则系统提示拼到 systemPrompt 末尾。
+          // 注意：rag-template 用 baseParams.systemPrompt 作 override，空字符串 = 用默认；
+          // marketing-template 内部生成自己的 systemPrompt，不读 params.systemPrompt——
+          // 那对 marketing 路径如何注入？方案：把 ruleSystemPrompt 拼到 contextText 之前
+          // 是不可行的（污染检索资料区）。MVP 阶段先对两条 path 都通过把 ruleSystemPrompt
+          // 附加到 citationOutput.contextText 之前并加分隔头来实现——简单可行，
+          // 让 LLM 在"产品资料"之前先看到合规约束。
+          const upstream = ruleSystemPrompt
+            ? {
+                ...citationOutput!,
+                contextText:
+                  `${ruleSystemPrompt}\n\n---\n\n${citationOutput!.contextText ?? ""}`,
+              }
+            : citationOutput!;
           const result = runPromptBuild({
             methodId,
-            params,
-            upstream: citationOutput!,
+            params: baseParams,
+            upstream,
           });
           return result;
         });

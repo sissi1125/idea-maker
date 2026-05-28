@@ -1,0 +1,91 @@
+# fly.toml — Idea-Maker MVP 部署配置（feat-200.8 Week 8）
+#
+# 部署流程：
+#   1. fly auth login
+#   2. fly apps create idea-maker            （app name 可改）
+#   3. fly postgres create --name idea-maker-pg
+#   4. fly postgres attach idea-maker-pg     （自动注入 DATABASE_URL）
+#   5. fly secrets set JWT_SECRET=... LLM_API_KEY=... LLM_BASE_URL=... \
+#        LLM_MODEL=... EMBEDDING_API_KEY=... EMBEDDING_BASE_URL=... \
+#        EMBEDDING_MODEL=... EMBEDDING_DIMENSION=1024
+#   6. fly volumes create ideamaker_data --size 3 --region nrt
+#      （3GB 已能放数千个上传的 PDF/MD；按需扩容）
+#   7. fly deploy
+#
+# 详细 secrets 清单见 docs/DEPLOY.md
+
+app = "idea-maker"
+primary_region = "nrt"   # 东京——对国内访问延迟较低
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  # CORS：让前端能访问后端（同一容器内同源时也要设，因为浏览器从 :3000 调 :3001）
+  CORS_ORIGIN = "https://idea-maker.fly.dev,http://localhost:3000"
+  # Next.js 用 standalone 模式
+  NEXT_TELEMETRY_DISABLED = "1"
+  # NEXT_PUBLIC_API_URL: 前端从浏览器调 API 的地址；同一 fly app 下用相对路径更稳
+  # 这里写 empty 让前端 fall back 到 http://localhost:3001 — 反向代理在 nginx/Caddy
+  # 层做，或者把它指向同域 https://idea-maker.fly.dev
+
+# Web 主入口（3000 → 公网 80/443）
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "30s"
+
+# API 端口（3001 → 公网，供前端 fetch / 测试用）
+# 生产环境推荐前端通过 NEXT_PUBLIC_API_URL 指向 :3001 子域，或者用 Nginx 同站反代
+[[services]]
+  protocol = "tcp"
+  internal_port = 3001
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 3001
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/health"
+
+[[mounts]]
+  source = "ideamaker_data"
+  destination = "/app/apps/api/data"
+
+[deploy]
+  # 用 release_command 跑 schema init 之类的迁移（这个项目走 DDL_IF_NOT_EXISTS，
+  # 每个请求开头自动 init，所以这里留空即可）
+  # release_command = "node /app/apps/api/dist/migrations/run.js"
+  strategy = "rolling"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 1024
+  # ingestion 跑 LLM embedding 时短时间会吃内存；1G 起步

@@ -32,7 +32,10 @@ export class GenerationsController {
     @Param("projectId") projectId: string,
     @Body() body: GenerateRequest,
   ) {
-    return this.generations.generate(user.id, projectId, body.query, { source: "manual" });
+    return this.generations.generate(user.id, projectId, body.query, {
+      source: "manual",
+      platformRuleIds: body.platformRuleIds,
+    });
   }
 
   @Get("generations")

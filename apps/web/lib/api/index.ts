@@ -21,6 +21,13 @@ export type { FeedbackInput, FeedbackRow, FeedbackDimension } from "./feedbacks"
 export { FEEDBACK_DIMENSIONS } from "./feedbacks";
 export * as notesApi from "./notes";
 export type { Note, CreateNoteInput, UpdateNoteInput } from "./notes";
+export * as platformRulesApi from "./platform-rules";
+export type {
+  PlatformRule, PlatformRuleConfig,
+  CreatePlatformRuleInput, UpdatePlatformRuleInput,
+  RuleViolation, ViolationType,
+} from "./platform-rules";
+export { PLATFORM_PRESETS } from "./platform-rules";
 export { ApiError, setTokenGetter } from "./client";
 export type { User } from "./auth";
 export type { Project, ProjectSettings } from "./projects";
@@ -28,4 +35,7 @@ export type {
   MvpDocument, DocumentCategory, IngestionJob,
   IngestionStage, IngestionStageOutput, IngestionStageOutputs,
 } from "./documents";
-export type { GenerationRow, GenerateResponse, PipelineTrace, StageResult, CostBreakdown } from "./generations";
+export type {
+  GenerationRow, GenerateResponse, PipelineTrace, StageResult, CostBreakdown,
+  ViolationItem,
+} from "./generations";

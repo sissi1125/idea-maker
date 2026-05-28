@@ -34,6 +34,8 @@ import { FeedbackPanel } from "@/components/feedback/FeedbackPanel";
 import { AddToLibraryButton } from "@/components/notes/AddToLibraryButton";
 import { SaveSegmentsList } from "@/components/notes/SaveSegmentsList";
 import { Markdown } from "@/components/markdown/Markdown";
+import { RuleSelector } from "@/components/platform-rules/RuleSelector";
+import { ViolationsBanner } from "@/components/platform-rules/ViolationsBanner";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
 
@@ -333,6 +335,9 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
         </div>
       </div>
 
+      {/* 平台规则违规横幅（feat-200.8）——结果上方优先看到 */}
+      <ViolationsBanner violations={result.violations ?? []} />
+
       {/* Result notes（markdown 渲染——不再显示 ** - 等原始符号） */}
       {cleanedNotes && (
         <div className="rounded-[9px] p-[12px_16px] mb-3.5"
@@ -430,6 +435,8 @@ export default function ProjectChatPage() {
   const [lastPrompt, setLastPrompt] = useState("");
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // feat-200.8：当前 generate 要应用的平台规则 IDs
+  const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (projectId) setCurrentProject(projectId);
@@ -501,7 +508,9 @@ export default function ProjectChatPage() {
     setError(null);
 
     try {
-      const res = await generationsApi.generate(projectId, text.trim());
+      const res = await generationsApi.generate(projectId, text.trim(), {
+        platformRuleIds: selectedRuleIds,
+      });
       setResult(res);
       setPhase("done");
       // 生成完后用户可能刚在隔壁知识库上传了新文档，重拉摘要，
@@ -615,6 +624,14 @@ export default function ProjectChatPage() {
             <div className="mb-3">
               <PresetGrid onPick={(text) => startGenerate(text)} />
             </div>
+          )}
+          {/* feat-200.8：平台规则多选——本次 generate 要应用哪些规则 */}
+          {projectId && (
+            <RuleSelector
+              projectId={projectId}
+              selectedIds={selectedRuleIds}
+              onChange={setSelectedRuleIds}
+            />
           )}
           <ChatInput value={input} setValue={setInput} onSend={onSend} disabled={phase === "running"} />
         </div>

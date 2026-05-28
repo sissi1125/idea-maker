@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "feat-200.8（Week 8：平台规则验证 + 流式化 + 部署，待启动；feat-200.7 已完成）",
+      "current": "Phase 3 MVP 8 周交付完成（feat-200.1~8）。next：Phase 3.5（feat-010 真 Agent）或 200.8.x 收尾子 feature（SSE 流式化 / 全局 toast / 三态 review）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
@@ -528,15 +528,15 @@
     },
     {
       "id": "feat-200.8",
-      "name": "Week 8：平台规则验证 + 流式化 + 联调打磨 + 部署",
+      "name": "Week 8：平台规则验证 + 部署（SSE / 全局 toast / 三态 review 拆为 200.8.x）",
       "phase": "3",
       "track": "A-main",
-      "description": "后端：platform_rules CRUD + generate 时注入规则进 prompt + validator 检测违规返回 violations。前端：违规提示横幅。错误处理统一化 → toast。Loading / Empty / Error 状态 review。把 18-stage 关键节点映射成 4 SSE 事件，前端从伪动画切到真实事件驱动。部署到 Fly.io 测试环境。验收：MVP 7 个成功指标全部勾选；e2e smoke test 通过；部署成功。",
+      "description": "后端：platform_rules CRUD + generate 时注入规则进 prompt + validator 检测违规返回 violations。前端：Settings 规则管理 + Chat 选择器 + 违规横幅。e2e smoke 脚本走通整条链路。Fly.io 部署资产（Dockerfile + fly.toml + DEPLOY.md）。SSE 流式化 / 全局 toast / Loading-Empty-Error 三态 review 移到 200.8.x 子 feature 后续迭代。",
       "dependencies": [
         "feat-200.7"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-28：后端 DDL_PLATFORM_RULES + PlatformRulesModule（CRUD 5 端点 + listEnabledByIds 内部接口）+ rule-validator（maxLength/bannedKeywords/mandatoryTagPattern 三检查 + buildRuleSystemPrompt 注入 prompt）。GenerationsService 接 platformRuleIds，pre-prompt 注入 + post-generation 校验 → GenerateResponse.violations。前端 platformRulesApi + PlatformRulesManager（Settings 替换占位）+ RuleSelector（Chat 多选 chip）+ ViolationsBanner（结果上方橙黄警告）+ 4 平台预设（小红书/微博/抖音/公众号）。scripts/smoke.mjs 10 步全过：注册→创建项目→上传文档→等 ingestion→创建规则→generate→校验 violations→反馈→保存笔记→列笔记，端到端 ~21s。Dockerfile（multi-stage 多阶段构建 + dumb-init + standalone Next.js）+ fly.toml（双端口 / Postgres / Volume）+ docs/DEPLOY.md（一键部署清单 + secrets 列表）。"
     },
     {
       "id": "feat-010",

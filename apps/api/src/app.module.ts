@@ -15,6 +15,7 @@ import { FeedbacksModule } from "./feedbacks/feedbacks.module";
 import { CostModule } from "./cost/cost.module";
 import { AutoGenerationsModule } from "./auto-generations/auto-generations.module";
 import { NotesModule } from "./notes/notes.module";
+import { PlatformRulesModule } from "./platform-rules/platform-rules.module";
 
 @Module({
   controllers: [HealthController],
@@ -42,6 +43,8 @@ import { NotesModule } from "./notes/notes.module";
     AutoGenerationsModule,
     // feat-200.7 Week 7
     NotesModule,
+    // feat-200.8 Week 8
+    PlatformRulesModule,
   ],
 })
 export class AppModule {}

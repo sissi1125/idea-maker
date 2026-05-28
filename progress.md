@@ -1,5 +1,114 @@
 # 进度记录
 
+## 2026-05-28（feat-200.8 Week 8：平台规则验证 + e2e smoke + Fly.io 部署资产）✅
+
+### 范围
+
+MVP 8 周收官周——聚焦在交付价值最高的两块：
+
+1. **平台规则系统**（业务逻辑闭环）：后端 CRUD + prompt 注入 + validator 校验，前端 Settings 管理 + Chat 选择器 + 违规横幅
+2. **可发布交付物**：e2e smoke 脚本 + Fly.io 部署资产（Dockerfile / fly.toml / 一键部署文档）
+
+原计划另外两块 **SSE 流式化** 和 **全局 toast + 三态 review** 推迟到 200.8.x 子 feature——本周聚焦在让 MVP 能"发出去给真用户测"上。
+
+### 交付
+
+**后端（新增）**：
+
+| 文件 | 说明 |
+|------|------|
+| `apps/api/src/db/schema.ts` | 新增 `DDL_PLATFORM_RULES`（id/project_id/name/config(JSONB)/enabled + index by project） |
+| `apps/api/src/platform-rules/platform-rules.types.ts` | PlatformRuleRow / PlatformRuleConfig / Create+UpdateInput / RuleViolation |
+| `apps/api/src/platform-rules/platform-rules.service.ts` | CRUD + assertOwner 校验 + `listEnabledByIds` 内部接口（自动过滤 disabled） |
+| `apps/api/src/platform-rules/platform-rules.controller.ts` | 5 个 REST 端点：POST/GET list/GET one/PATCH/DELETE，含 class-validator DTO |
+| `apps/api/src/platform-rules/platform-rules.module.ts` | 模块声明 |
+| `apps/api/src/platform-rules/rule-validator.ts` | `validateAgainstRules`：maxLength（用 `[...text].length` 正确处理 emoji/中文）/ bannedKeywords（不区分大小写）/ mandatoryTagPattern（regex try-catch 防恶意）三检查；`buildRuleSystemPrompt`：把规则压成中文注入 prompt |
+| `apps/api/src/app.module.ts` | 注册 PlatformRulesModule |
+
+**后端（修改）**：
+
+| 文件 | 改动 |
+|------|------|
+| `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.types.ts` | `GenerateRequest` 加 `platformRuleIds?: string[]`；`GenerateResponse` 加 `violations: ViolationItem[]`；新增 ViolationItem 类型 |
+| `apps/api/src/pipeline-orchestrator/pipeline-orchestrator.service.ts` | `run(query, options?)` 接受 `ruleSystemPrompt`；prompt-build 阶段把规则提示拼到 contextText 之前并加 `---` 分隔 |
+| `apps/api/src/generations/generations.service.ts` | constructor 注入 PlatformRulesService；generate 流程：加载规则 → 构建 ruleSystemPrompt → 传给 orchestrator → 完成后跑 validator → response 带 violations |
+| `apps/api/src/generations/generations.module.ts` | imports 加 PlatformRulesModule |
+| `apps/api/src/generations/generations.controller.ts` | POST /generate body 把 `platformRuleIds` 透传给 service |
+
+**前端（新增）**：
+
+| 文件 | 说明 |
+|------|------|
+| `apps/web/lib/api/platform-rules.ts` | CRUD 客户端 + `PLATFORM_PRESETS`（4 平台预设：小红书 / 微博 / 抖音 / 公众号） |
+| `apps/web/components/platform-rules/PlatformRulesManager.tsx` | Settings 内嵌的完整管理面板：预设快捷添加 + 现有规则 RuleCard 列表（行内编辑/删除/启用切换） + 自定义新建 |
+| `apps/web/components/platform-rules/RuleSelector.tsx` | Chat 输入框上方多选 chip；空状态 → 链接去 Settings |
+| `apps/web/components/platform-rules/ViolationsBanner.tsx` | 结果上方橙黄警告 banner，按 violation.type 分色 chip |
+
+**前端（修改）**：
+
+| 文件 | 改动 |
+|------|------|
+| `apps/web/lib/api/generations.ts` | GenerateResponse 加 `violations` + 新增 `ViolationItem` 类型；`generate()` 接受 `options.platformRuleIds` |
+| `apps/web/lib/api/index.ts` | 导出 platformRulesApi + ViolationItem 等类型 |
+| `apps/web/app/(workspace)/projects/[id]/settings/page.tsx` | 删除"平台规则（Week 8）"占位 Section，挂上 `<PlatformRulesManager />` |
+| `apps/web/app/(workspace)/projects/[id]/page.tsx` | ChatInput 上方加 RuleSelector；startGenerate 传 platformRuleIds；GeneratedResult 顶部加 ViolationsBanner |
+| `apps/web/next.config.ts` | 加 `output: "standalone"`——Dockerfile 需要 |
+
+**E2E smoke + 部署**：
+
+| 文件 | 说明 |
+|------|------|
+| `scripts/smoke.mjs` | 10 步端到端：注册 → 创建项目 → 上传文档 → 等 ingestion（轮询） → 创建小红书规则 → generate 带规则 → 验证 violations 字段 → 反馈 → 保存笔记 → 列笔记 |
+| `package.json` | 加 `pnpm smoke` 脚本 |
+| `Dockerfile` | 多阶段构建：base / deps / build / runner；runner 用 Next.js standalone + NestJS dist + dumb-init |
+| `.dockerignore` | 排除 node_modules / .next / .git / .claude / 文档元数据等 |
+| `scripts/docker-entrypoint.sh` | 并发启动 API + Web，任一退出整体退出（让 Fly.io / Docker restart 接管） |
+| `fly.toml` | app 配置：双端口（80→3000 前端 / 3001 API）+ HTTP healthcheck + Volume + 2c1g VM |
+| `docs/DEPLOY.md` | 一键部署清单 + secrets 完整列表 + 验证 / 运维命令 |
+
+### 设计决策
+
+- **平台规则是项目级而非用户级**：同一用户的不同项目可能面向不同平台；项目内可多条规则共存（多选启用）
+- **`ON DELETE CASCADE` 而非 SET NULL**：规则不像笔记是"内容资产"——它依附于项目，项目没了规则也没意义
+- **预设 + 自定义双路径**：4 平台预设让 95% 用户零配置上手；自定义留给小众平台 / 品牌特定约束
+- **`listEnabledByIds` 二次过滤 disabled**：前端传过来的 ruleId 可能是缓存的旧值，用户在 Settings 关掉后不应再被注入
+- **prompt 注入 vs 后置 validator 双保险**：LLM 不一定 100% 听话，注入是"软提示"让它尽量遵守，validator 是"硬检查"标出违规；用户拿到结果立刻知道哪里没合规
+- **violations 不阻塞保存**：banner 是橙黄 warn 调，不是红色 error；用户自己决定改不改，体验权在用户手里
+- **`[...text].length` 算字符**：emoji 和中文的字符数计数 JS 默认会算错（emoji 算 2 / surrogate pair）；用 spread 转成 code point 数组才准确
+- **regex try-catch 包住**：用户在 mandatoryTagPattern 填非法正则不能崩进程
+- **Dockerfile 单 VM 双进程**：MVP 阶段省钱（API + Web 一个容器），后续扩容拆双 fly app
+- **deploy 走 Fly.io 而非 Vercel + Render**：单 platform 部署 + Postgres + Volume 一站式；国内访问选东京机房
+
+### 验证
+
+- [x] `pnpm -r typecheck` ✅
+- [x] `pnpm -F @harness/web lint --max-warnings 0` ✅
+- [x] `pnpm -F @harness/api lint` ✅
+- [x] `pnpm smoke` ✅ 10 步 21 秒全过
+- [ ] `fly deploy` 实际部署：需用户操作账号（Dockerfile + fly.toml 就绪）
+
+### MVP 8 周交付总结
+
+| Week | Feature | 状态 |
+|------|---------|------|
+| Week 1 | feat-200.1 Auth + Projects + Tracing 骨架 | ✅ |
+| Week 2 | feat-200.2 Documents + Ingestion + SSE | ✅ |
+| Week 3 | feat-200.3 Pipeline Orchestrator + Generations | ✅ |
+| Week 4 | feat-200.4 Feedbacks + Auto-Gen + Cost Summary | ✅ |
+| Week 5 | feat-200.5 Frontend 骨架 + Login + Project 管理 | ✅ |
+| Week 6 | feat-200.6 Chat 主界面 + 知识库 + PipelineTrace + (patch) | ✅ |
+| Week 7 | feat-200.7 反馈 + 历史 + 笔记库 + Settings | ✅ |
+| Week 8 | feat-200.8 平台规则 + e2e smoke + Fly.io 部署资产 | ✅ |
+
+剩余 backlog（200.8 子 feature 推迟）：
+- `feat-200.8.1` SSE 流式化（generate 推送 stage 事件，前端伪动画切真实事件驱动）
+- `feat-200.8.2` 全局 toast 错误处理 + Loading / Empty / Error 三态 review
+- `feat-200.8.3` 实际 fly deploy + 公网联调 + 性能 review
+
+下一阶段：**Phase 3.5 真 Agent**（feat-010.x，LLM 决策循环替代固定 YAML pipeline）
+
+---
+
 ## 2026-05-28（feat-200.7 Week 7：反馈 + 历史 + 笔记库 + Settings 完善）✅
 
 ### 范围

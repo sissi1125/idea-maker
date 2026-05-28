@@ -10,9 +10,10 @@ import { GenerationsService } from "./generations.service";
 import { GenerationsController } from "./generations.controller";
 import { PipelineOrchestratorModule } from "../pipeline-orchestrator/pipeline-orchestrator.module";
 import { AuthModule } from "../auth/auth.module";
+import { PlatformRulesModule } from "../platform-rules/platform-rules.module";
 
 @Module({
-  imports: [PipelineOrchestratorModule, AuthModule],
+  imports: [PipelineOrchestratorModule, AuthModule, PlatformRulesModule],
   providers: [GenerationsService],
   controllers: [GenerationsController],
   exports: [GenerationsService],

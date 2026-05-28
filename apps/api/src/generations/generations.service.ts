@@ -23,6 +23,11 @@ import { randomUUID } from "crypto";
 import { DbService } from "../db/db.service";
 import { PipelineOrchestratorService } from "../pipeline-orchestrator/pipeline-orchestrator.service";
 import { TraceContextService } from "../common/trace-context.service";
+import { PlatformRulesService } from "../platform-rules/platform-rules.service";
+import {
+  buildRuleSystemPrompt,
+  validateAgainstRules,
+} from "../platform-rules/rule-validator";
 import type { GenerationRow, GenerateResponse } from "../pipeline-orchestrator/pipeline-orchestrator.types";
 
 export type GenerationSource = "manual" | "auto";
@@ -31,6 +36,8 @@ export interface GenerateOptions {
   source?: GenerationSource;
   /** 跳过 owner 校验（仅供 AutoGenerationsService 等可信内部调用使用） */
   skipOwnerCheck?: boolean;
+  /** feat-200.8：本次 generate 要应用的平台规则 ID 列表 */
+  platformRuleIds?: string[];
 }
 
 export interface ListGenerationsOptions {
@@ -51,6 +58,7 @@ export class GenerationsService {
     private readonly db: DbService,
     private readonly orchestrator: PipelineOrchestratorService,
     private readonly tracer: TraceContextService,
+    private readonly platformRules: PlatformRulesService,
   ) {}
 
   /**
@@ -84,10 +92,23 @@ export class GenerationsService {
 
     let response: GenerateResponse;
 
+    // feat-200.8：加载启用的平台规则——空数组时跳过注入和校验
+    const rules = opts.platformRuleIds?.length
+      ? await this.platformRules.listEnabledByIds(projectId, opts.platformRuleIds)
+      : [];
+    const ruleSystemPrompt = buildRuleSystemPrompt(rules);
+
     try {
-      const { trace, resultNotes, retrievedChunks } = await this.orchestrator.run(query);
+      const { trace, resultNotes, retrievedChunks } = await this.orchestrator.run(query, {
+        ruleSystemPrompt,
+      });
       const durationMs = Date.now() - startMs;
       const cost = trace.cost;
+
+      // feat-200.8：跑后置 validator——硬约束检查 LLM 是否真的遵守了规则
+      const violations = resultNotes
+        ? validateAgainstRules(resultNotes, rules)
+        : [];
 
       await this.db.withClient(async (client) => {
         await client.query(
@@ -156,6 +177,7 @@ export class GenerationsService {
         retrievedChunks,
         costBreakdown: cost,
         durationMs,
+        violations,
       };
     } catch (err) {
       const durationMs = Date.now() - startMs;
@@ -182,6 +204,7 @@ export class GenerationsService {
         costBreakdown: cost,
         durationMs,
         error: errorMsg,
+        violations: [],
       };
     }
 

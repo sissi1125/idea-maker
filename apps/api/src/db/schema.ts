@@ -246,6 +246,42 @@ CREATE INDEX IF NOT EXISTS idx_cost_summary_day ON cost_summary (project_id, day
  *   notes 是用户筛选过的精品库，体量小，是营销文案/笔记内容的真实出口。
  */
 
+/**
+ * ── feat-200.8 Week 8：platform_rules（平台合规约束） ──────────────────────────
+ *
+ * 用户在 Settings 里给项目定义一组"平台规则"——每条规则描述一个目标平台
+ * （小红书 / 微博 / 抖音 / 公众号 等）的产出约束。
+ *
+ * generate 时前端按需带上 platformRuleIds[]，orchestrator 把规则配置注入到
+ * prompt-build 的 systemPrompt，并在 generation 完成后跑 RuleValidator 做
+ * 后置校验，返回 violations 数组。
+ *
+ * config JSONB 形状（前后端共享）：
+ *   {
+ *     maxLength?: number;              // 整段最大字符数
+ *     bannedKeywords?: string[];       // 命中即标违规
+ *     mandatoryTagPattern?: string;    // 必须出现的 regex（如 "#\\S+" 表示至少一个话题标签）
+ *     mandatoryTagMin?: number;        // 匹配次数下限
+ *     styleHint?: string;              // 注入到 prompt 的风格提示（自由文本）
+ *   }
+ *
+ *  - enabled 用于"软开关"：禁用的规则不会出现在 Chat 选择器里，但 Settings
+ *    管理面板还能看到 / 编辑 / 重启用，不必删除再重建。
+ */
+
+export const DDL_PLATFORM_RULES = `
+CREATE TABLE IF NOT EXISTS platform_rules (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  config      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_platform_rules_project ON platform_rules (project_id, created_at DESC);
+`;
+
 export const DDL_NOTES = `
 CREATE TABLE IF NOT EXISTS notes (
   id            TEXT PRIMARY KEY,
@@ -281,4 +317,6 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_COST_SUMMARY,
   // feat-200.7
   DDL_NOTES,
+  // feat-200.8
+  DDL_PLATFORM_RULES,
 ];
