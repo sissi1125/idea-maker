@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "MVP 完整收官（feat-200.1~8 + 200.8.2 + 200.8.3 全部 done）。SSE 流式化（200.8.1，Token 级）推迟单独做；next：Phase 3.5 真 Agent（feat-010）或 200.8.1 SSE",
+      "current": "MVP 完整收官（feat-200.1~8 + 200.8.2 + 200.8.3 全部 done）。Phase 3.5 真 Agent 计划已批准（feat-300，见 docs/agent/ARCHITECTURE.md）。feat-010.x / feat-011.x 旧方案已被 feat-300 取代（标为 superseded）。next：feat-300.1（Schema + LLM 层）",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
@@ -541,98 +541,101 @@
     },
     {
       "id": "feat-010",
-      "name": "Pipeline Orchestration Agent（Phase 3.5 真 Agent）",
+      "name": "【已由 feat-300 取代】Phase 3.5 真 Agent（旧方案）",
       "phase": "3.5",
       "track": "A-main",
-      "description": "**注意：MVP（feat-200）采用 Pipeline Orchestrator（YAML 固定编排，非真 Agent）。feat-010 推迟到 Phase 3.5，引入 LLM 决策循环**：基于反馈学习自动决定 stage 顺序、参数调整、是否重试。位于 apps/api/src/agent/。区别于 MVP 的 Pipeline Orchestrator：后者是 YAML 写死的固定 11-stage 顺序，前者是 LLM 自主决策的 ReAct/Plan-and-Execute 混合模式。",
-      "dependencies": [
-        "feat-200.8"
-      ],
-      "status": "epic",
-      "evidence": "父级聚合 feat-010.1~010.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-010"
-    },
-    {
-      "id": "feat-010.1",
-      "name": "Pipeline Agent 核心（NestJS Service + SSE）",
-      "phase": "3.5",
-      "track": "A-main",
-      "description": "在 apps/api/src/agent/ 新增 pipeline-agent.service.ts（runPipeline(config): AsyncIterable<AgentProgressEvent>，注入 RagCoreService）和 pipeline-agent.controller.ts（POST /api/agent/pipeline/start 启动 run 返回 runId；GET /api/agent/pipeline/:runId/events 使用 NestJS @Sse() 装饰器推送事件流）。AgentRunConfig + AgentProgressEvent zod schema 定义在 packages/shared-types/src/agent.ts。",
-      "dependencies": [
-        "feat-010"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-010.2",
-      "name": "AutoRun 入口与预运行配置 Modal",
-      "phase": "3.5",
-      "track": "A-main",
-      "description": "Playground Header 添加「一键生成」按钮；点击弹出 AutoRunModal（apps/web/components/agent/AutoRunModal.tsx），让用户确认：文档选择、默认检索 query（预设 3 个营销向 query 可多选）、是否在 ingestion 完成后暂停。",
-      "dependencies": [
-        "feat-010.1"
-      ],
-      "status": "todo",
-      "evidence": ""
-    },
-    {
-      "id": "feat-010.3",
-      "name": "AgentProgressPanel 时间线（SSE 订阅）",
-      "phase": "3.5",
-      "track": "A-main",
-      "description": "新组件 apps/web/components/agent/AgentProgressPanel.tsx，agent 运行期间替换右侧 OutputTracePanel。通过 EventSource 订阅后端 SSE 流（GET /api/agent/pipeline/:runId/events）。时间线样式：每个 stage 一行（状态点 + 耗时 + 可展开 output 预览）。失败时高亮错误阶段并提供「修复参数后继续」按钮。",
-      "dependencies": [
-        "feat-010.1"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "description": "⚠️ 此条目及 feat-010.1~010.3 / feat-011.x 均已被 feat-300 取代。旧方案描述的是 Plan-and-Execute 混合模式，与最终确认的全面 ReAct 方案不符，保留仅作历史记录，不要执行。新方案见 feat-300。",
+      "dependencies": ["feat-200.8"],
+      "status": "superseded",
+      "evidence": "2026-05-30 在头脑风暴会话中确认：Plan-and-Execute 不是真 Agent，全面改为 ReAct 架构，使用 feat-300 编号重新规划。"
     },
     {
       "id": "feat-011",
-      "name": "Content Generation ReAct Agent",
+      "name": "【已由 feat-300 取代】Content Generation ReAct Agent（旧方案）",
       "phase": "3.5",
       "track": "A-main",
-      "description": "在 RAG 完成后接管内容生成质量迭代。ReAct 模式（推理 + 工具 + 观察），自动迭代「生成 → 评估 → 换角度 → 重生成」直到 hook 评分 ≥7 或达到最大迭代次数。区别于 feat-010 的 Plan-and-Execute（顺序固定），这里迭代次数不确定，体现动态决策循环。",
-      "dependencies": [
-        "feat-005",
-        "feat-006"
-      ],
+      "description": "⚠️ 旧方案。已合并进 feat-300 统一的 ReAct Agent 架构。不要执行。",
+      "dependencies": ["feat-010"],
+      "status": "superseded",
+      "evidence": "2026-05-30 由 feat-300 取代。"
+    },
+    {
+      "id": "feat-300",
+      "name": "Phase 3.5 真 Agent（ReAct + Memory + Eval）",
+      "phase": "3.5",
+      "track": "A-main",
+      "description": "完整 ReAct Agent 改造。核心三件事：(1) 真 ReAct 主循环（LLM 掌控执行路径，rag-core stages 降级为 tools，由 agent 按需调用）；(2) 记忆学习闭环（feedbacks → MemoryDistiller → agent_memory → system prompt 注入）；(3) Agent 评估体系（offline eval suite：golden dataset + LLM-as-judge + trajectory accuracy + CI 回归）。技术栈：Vercel ai-sdk（LLM/tool 抽象）+ 自建 agent loop / memory / eval。详见 docs/agent/ARCHITECTURE.md",
+      "dependencies": ["feat-200.8"],
       "status": "epic",
-      "evidence": "父级聚合 feat-011.1~011.3；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-011"
+      "evidence": "2026-05-30 计划批准。父级聚合 feat-300.1~300.7。"
     },
     {
-      "id": "feat-011.1",
-      "name": "Content Agent 工具集（4 个纯函数工具）",
+      "id": "feat-300.1",
+      "name": "Schema + LLM 层（ai-sdk + Tavily）",
       "phase": "3.5",
       "track": "A-main",
-      "description": "在 packages/rag-core/src/agent/content-tools/ 实现 4 个纯函数工具（无 HTTP / 可独立单测）：generate-ideas.ts / evaluate-hook.ts / evaluate-evidence.ts / suggest-angle.ts。evaluate-hook 双层评估：规则预检（0 token 过滤）+ LLM 精评（prompt 扮演挑剔小红书用户）。suggest-angle 从角度库选未尝试角度。",
-      "dependencies": [
-        "feat-011"
-      ],
+      "description": "新增 3 张表（agent_runs / agent_steps / agent_memory）+ generations.agent_run_id 列。新建 apps/api/src/llm/llm.service.ts（Vercel ai-sdk 统一 provider 封装，替换 rag-core 7 处手写 fetch）。新建 apps/api/src/llm/tavily.client.ts（web search，30 天 LRU 缓存，无 key 时降级）。新增依赖：ai、@ai-sdk/openai。",
+      "dependencies": ["feat-300"],
       "status": "todo",
       "evidence": ""
     },
     {
-      "id": "feat-011.2",
-      "name": "Content Agent ReAct 循环引擎（NestJS Service）",
+      "id": "feat-300.2",
+      "name": "8 个 Tools 定义 + rag-core 委托",
       "phase": "3.5",
       "track": "A-main",
-      "description": "在 apps/api/src/agent/content-agent.service.ts 实现 runContentAgent(config): AsyncIterable<ContentAgentEvent>。注入 rag-core 工具函数。max_iterations=3，threshold=7。三重终止：score ≥ 7 / 达到 max / 用户 abort。POST /api/agent/content/start + GET /api/agent/content/:runId/events SSE + POST /api/agent/content/:runId/accept 接管端点。",
-      "dependencies": [
-        "feat-011.1"
-      ],
+      "description": "在 apps/api/src/agent/tools/ 用 ai-sdk tool() 定义 8 个 tool：search_kb / search_web / search_notes / search_history / generate_draft / critic_review / refine_draft / log_decision。每个 tool 的 execute 委托给现有 rag-core / notes.service / generations.service，不重写业务逻辑。Tool description 写法遵循\"何时应该调\"原则（面试考点）。",
+      "dependencies": ["feat-300.1"],
       "status": "todo",
       "evidence": ""
     },
     {
-      "id": "feat-011.3",
-      "name": "ContentAgentPanel UI",
+      "id": "feat-300.3",
+      "name": "AgentRunner（ReAct loop + 可观测 + 错误处理）",
       "phase": "3.5",
       "track": "A-main",
-      "description": "新组件 apps/web/components/agent/ContentAgentPanel.tsx：通过 EventSource 订阅 SSE 流，每次迭代以折叠卡片展示（角度、hook 预览、评分进度条、反馈原因、下一步决策）。底部固定区：「接受当前版本」按钮（调 /accept 端点）+ 「手动指定角度」输入框。完成后跳转到 Marketing Studio。",
-      "dependencies": [
-        "feat-011.2"
-      ],
+      "description": "apps/api/src/agent/agent-runner.service.ts：generateText + maxSteps + onStepFinish（每步强制入库 agent_steps + SSE 推前端）+ budget cap（超限抛异常）+ context compression（compressHistory，超 8000 token 时压缩早期轮次为摘要）。错误处理：tool retry 指数退避 / schema 校验失败让 LLM 自修 / budget/steps 超限走 fallback（返回已检索 chunks）。apps/api/src/agent/agent.controller.ts：POST /projects/:pid/agent/run（SSE）+ GET run/steps。",
+      "dependencies": ["feat-300.2"],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-300.4",
+      "name": "Memory 子系统（Distiller + notes embedding）",
+      "phase": "3.5",
+      "track": "A-main",
+      "description": "apps/api/src/memory/：memory.service.ts（CRUD agent_memory）+ memory-reader.ts（loadProjectMemory → 分组注入 system prompt）+ memory-distiller.ts（feedbacks → LLM 提炼偏好 → upsert agent_memory，edit_diff 作为核心信号，自动触发：每 5 条新 feedback @OnEvent）+ memory.controller.ts（REST CRUD + POST /memory/distill 手动触发）。notes.service.ts 加 embedding 列（vector 1024），search_notes tool 用 pgvector 检索。",
+      "dependencies": ["feat-300.3"],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-300.5",
+      "name": "Agent 评估体系（offline eval + LLM-as-judge）",
+      "phase": "3.5",
+      "track": "A-main",
+      "description": "apps/api/src/eval/：golden/ 目录存 20-30 条 (query, expected_tools, reference_answer, thresholds) 三元组。eval-runner.ts：对每条 golden item 跑完整 agent，LLM-as-judge 打分（faithfulness/completeness/style），比对 trajectory（expected_tools vs agent_steps 实际调用）。pnpm eval 命令，CI 集成：平均分下降超阈值则 fail。高评分 feedback（overall≥4 + edit_diff 非空）半自动加入 golden set，形成 feedbacks→memory 和 feedbacks→eval 双闭环。",
+      "dependencies": ["feat-300.4"],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-300.6",
+      "name": "前端 AgentTracePanel + MemoryPanel + SSE",
+      "phase": "3.5",
+      "track": "A-main",
+      "description": "新增：apps/web/lib/api/agent.ts（runAgent SSE 客户端 + run/steps 查询）。AgentTracePanel.tsx（按 step 时间轴展示 reasoning + tool calls + observations，项目最佳卖点 UI）。MemoryPanel.tsx（Settings 页「AI 学到的偏好」Tab，列出 agent_memory，可编辑/删除/触发 distill）。EvalReport.tsx（Settings 页最近 eval 报告各维度得分趋势）。Chat 页 Generate 按钮加「Agent 模式」toggle（默认开，开走 /agent/run，关走老 /generate）。",
+      "dependencies": ["feat-300.5"],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "feat-300.7",
+      "name": "LangGraph 文档 + smoke + 面试题",
+      "phase": "3.5",
+      "track": "A-main",
+      "description": "docs/agent/langgraph-equivalent.md：60 行内对比自建 vs LangGraph（AgentRunner ↔ StateGraph、agent_steps ↔ MemorySaver、SSE ↔ graph.stream、Budget cap ↔ recursionLimit、MemoryDistiller 无 LangGraph 等价物），附 50 行 LangGraph 等价代码片段。扩展 scripts/smoke.mjs 覆盖 agent 全流程（4 步：老 pipeline 回归 / agent run / distill / 偏好注入验证）。每个 sub-feature 补 .interview/feat-300.x.md 面试题（8 个核心考点见计划）。",
+      "dependencies": ["feat-300.6"],
       "status": "todo",
       "evidence": ""
     },
