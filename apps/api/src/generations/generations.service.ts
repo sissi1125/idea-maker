@@ -106,6 +106,49 @@ export class GenerationsService {
       const durationMs = Date.now() - startMs;
       const cost = trace.cost;
 
+      // ── 错误检测（feat-200.8.x patch） ────────────────────────────────────
+      // orchestrator.runStage 把 stage 内部错误捕获成 trace.stages[].status='error'，
+      // 不向外抛——是为了让 fallback 阶段能接管。但如果 generation/fallback 都失败
+      // 且 resultNotes 为 null，整体应该标为 failed 而不是 succeeded with null。
+      // 之前没做这层判断 → 前端看到"假成功"（200 + null resultNotes，无错误提示）。
+      const erroredStages = trace.stages.filter((s) => s.status === "error");
+      const isReallyFailed = !resultNotes && erroredStages.length > 0;
+
+      if (isReallyFailed) {
+        const summary = erroredStages
+          .map((s) => `${s.stageId}: ${s.error ?? "未知错误"}`)
+          .join(" | ");
+        const errorMsg = `pipeline 部分阶段失败：${summary}`;
+        await this.db.withClient(async (client) => {
+          await client.query(
+            `UPDATE generations
+             SET status = 'failed', error = $1, pipeline_trace = $2, retrieved_chunks = $3,
+                 cost_breakdown = $4, duration_ms = $5, updated_at = NOW()
+             WHERE id = $6`,
+            [
+              errorMsg,
+              JSON.stringify(trace),
+              JSON.stringify(retrievedChunks),
+              JSON.stringify(cost),
+              durationMs,
+              generationId,
+            ],
+          );
+        });
+        return {
+          generationId,
+          status: "failed",
+          query,
+          resultNotes: null,
+          pipelineTrace: trace,
+          retrievedChunks,
+          costBreakdown: cost,
+          durationMs,
+          error: errorMsg,
+          violations: [],
+        };
+      }
+
       // feat-200.8：跑后置 validator——硬约束检查 LLM 是否真的遵守了规则
       const violations = resultNotes
         ? validateAgainstRules(resultNotes, rules)
