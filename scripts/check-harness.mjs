@@ -119,7 +119,8 @@ for (const [phase, list] of byPhase) {
 
 // ---------- C9 AGENTS.md stage 覆盖 ----------
 // 抽取 AGENTS.md 中提到的 "阶段 X" 编号
-const stageMatches = [...agentsText.matchAll(/阶段\s*([\d.]+)/g)];
+// [ \t]* 不允许换行——避免"当前所在阶段\n3. ✅ docs/…"被误判为 "阶段 3."
+const stageMatches = [...agentsText.matchAll(/阶段[ \t]*([\d.]+)/g)];
 const mentionedStages = new Set(stageMatches.map((m) => m[1]));
 for (const s of mentionedStages) {
   if (!phaseKeys.has(s)) {

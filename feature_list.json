@@ -7,7 +7,8 @@
       "current": "MVP 完整收官（feat-200.1~8 + 200.8.2 + 200.8.3 全部 done）。SSE 流式化（200.8.1，Token 级）推迟单独做；next：Phase 3.5 真 Agent（feat-010）或 200.8.1 SSE",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
-        "feat-010.x / feat-011.x（Phase 3.5 真 Agent，MVP 后）",
+        "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
+        "feat-011.x（Phase 3.5 真 Agent 配套）",
         "feat-012.x（Phase 4 Studio）",
         "feat-013.x（Phase 5 工程化）"
       ],
@@ -523,8 +524,8 @@
       "dependencies": [
         "feat-200.6"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-28 commit ab4bb93：4 块完整交付。后端 DDL_NOTES + NotesModule CRUD 5 端点（POST/GET list/GET one/PATCH/DELETE，generation_id ON DELETE SET NULL 解耦笔记与生成）。前端：feedbacksApi + notesApi 客户端；MultiDimRating（4 维 1-5 星 toggle）+ GenerationEditor（折叠 textarea + 字符数对比，未改动不写 editDiff）+ FeedbackPanel（展开时预填历史反馈）；AddToLibraryButton（内联表单 + Markdown 拆段保存）；history/page（cursor 分页 + source filter + 行内 trace）；notes/page（编辑/删除/tags）；复用 settings/page（685 行旧代码 + 修 set-state-in-effect lint + 平台规则占位 Tab）；Sidebar 加'笔记库'入口。后续 UX 修复 commit ee24d98（fetch 双重 stringify / PipelineTrace 实时计时 / Markdown 渲染 / 单段保存）+ 52c040f（prompt 强化产出完整性）。typecheck + lint 全过；.interview/feat-200.7_*.md 5 题面试题。"
     },
     {
       "id": "feat-200.8",
