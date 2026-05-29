@@ -298,11 +298,121 @@ CREATE INDEX IF NOT EXISTS idx_notes_generation ON notes (generation_id);
 `;
 
 /**
- * 顺序：users → projects → project_settings → documents → ingestion_jobs → generations → ... → notes。
- * 受外键依赖约束。notes 依赖 generations（可选外键）和 projects，所以放在 generations 之后。
+ * ── feat-300.1 Phase 3.5：Agent 三张表 ────────────────────────────────────────
+ *
+ * 真 ReAct Agent 的可观测物理底座。透明性是本项目的核心卖点——所有"LLM 在想
+ * 什么、调了哪个工具、为什么停下来"都必须落库，前端 AgentTracePanel 才能逐步
+ * 回放。
+ *
+ * agent_runs：一次 Agent 跑的总账（订单表）
+ *   - status：'running' → 'succeeded' | 'failed'
+ *   - finish_reason：为什么停（done = LLM 自主结束 / max_steps / budget / error）
+ *   - budget_usd / cost_used_usd：成本闸门，超 budget 触发 fallback
+ *   - max_steps / steps_used：步数闸门，防 ReAct 死循环
+ *   - eval_scores JSONB：本次 critic_review 最后一次评分（在线 runtime 评估）
+ *
+ * agent_steps：逐步流水（物流轨迹），AgentTracePanel 的数据源
+ *   - step_type：'reasoning' = LLM 想法 / 'tool_call' = 调工具入参
+ *                'tool_result' = 工具返回 / 'finish' = LLM 决定收尾
+ *                'context_compress' = 历史摘要压缩（也算一步，保证可观测）
+ *   - tool_name：仅 tool_call/tool_result 有值
+ *   - input/output JSONB：原始结构化数据，前端按 step_type 渲染
+ *   - token_usage JSONB：{ prompt, completion, total }，用于 cost 累计
+ *   - 强制每步入库：哪怕中途崩溃也要看到前 N 步在干嘛
+ *
+ * agent_memory：项目级长期偏好（用户画像），跨会话持久
+ *   - kind：4 类（preference 通用偏好 / style 风格 / taboo 禁忌 / audience 受众）
+ *   - source：'manual' = 用户在 MemoryPanel 手动加 / 'distilled' = 蒸馏自动产生
+ *   - source_feedback_ids JSONB：蒸馏来源的 feedback ID 数组，可溯源（防错误学习）
+ *   - confidence：0-1，多条 feedback 印证则提升，矛盾则降低；阈值过低的偏好不注入
+ *
+ * generations.agent_run_id：把老的 generation 记录挂到 agent_run，前端从
+ * "生成历史"可点进 trace 详情。NULL 表示走的是老 pipeline（非 agent 模式）。
+ *
+ * 为什么不用 ENUM 而用 TEXT + CHECK：与项目现有风格一致（见 generations.status），
+ * 后续加新枚举值不用 ALTER TYPE，迁移最轻。
+ */
+
+export const DDL_AGENT_RUNS = `
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id              TEXT PRIMARY KEY,
+  generation_id   TEXT REFERENCES generations (id) ON DELETE CASCADE,
+  project_id      TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  status          TEXT NOT NULL DEFAULT 'running',
+  max_steps       INTEGER NOT NULL DEFAULT 12,
+  budget_usd      NUMERIC(10, 6) NOT NULL DEFAULT 0.2,
+  steps_used      INTEGER NOT NULL DEFAULT 0,
+  cost_used_usd   NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  finish_reason   TEXT,
+  eval_scores     JSONB,
+  error           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  finished_at     TIMESTAMPTZ,
+  CHECK (status IN ('running', 'succeeded', 'failed')),
+  CHECK (finish_reason IS NULL OR finish_reason IN ('done', 'max_steps', 'budget', 'error'))
+);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_project ON agent_runs (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_generation ON agent_runs (generation_id);
+`;
+
+export const DDL_AGENT_STEPS = `
+CREATE TABLE IF NOT EXISTS agent_steps (
+  id              TEXT PRIMARY KEY,
+  run_id          TEXT NOT NULL REFERENCES agent_runs (id) ON DELETE CASCADE,
+  step_index      INTEGER NOT NULL,
+  step_type       TEXT NOT NULL,
+  tool_name       TEXT,
+  input           JSONB,
+  output          JSONB,
+  token_usage     JSONB,
+  duration_ms     INTEGER,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (step_type IN ('reasoning', 'tool_call', 'tool_result', 'finish', 'context_compress')),
+  UNIQUE (run_id, step_index)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_steps_run ON agent_steps (run_id, step_index ASC);
+`;
+
+export const DDL_AGENT_MEMORY = `
+CREATE TABLE IF NOT EXISTS agent_memory (
+  id                    TEXT PRIMARY KEY,
+  project_id            TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  kind                  TEXT NOT NULL,
+  content               TEXT NOT NULL,
+  source                TEXT NOT NULL DEFAULT 'distilled',
+  source_feedback_ids   JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence            NUMERIC(4, 3) NOT NULL DEFAULT 0.5,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (kind IN ('preference', 'style', 'taboo', 'audience')),
+  CHECK (source IN ('manual', 'distilled')),
+  CHECK (confidence BETWEEN 0 AND 1)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_project ON agent_memory (project_id, kind);
+`;
+
+/**
+ * generations 表追加 agent_run_id 列（幂等加列）。
+ * 老的 pipeline 模式 NULL；新的 agent 模式写入对应 run id。
+ * ON DELETE SET NULL：哪怕 agent_run 被清，generation 仍保留。
+ */
+export const DDL_GENERATIONS_AGENT_RUN_ID = `
+ALTER TABLE generations
+  ADD COLUMN IF NOT EXISTS agent_run_id TEXT
+  REFERENCES agent_runs (id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_generations_agent_run ON generations (agent_run_id);
+`;
+
+/**
+ * 顺序：users → projects → project_settings → documents → ingestion_jobs → generations → ... → notes
+ *      → agent_runs → agent_steps → agent_memory → generations.agent_run_id 加列。
+ * 受外键依赖约束。
+ *   - agent_runs 依赖 generations + projects → 必须排在它们之后
+ *   - agent_steps 依赖 agent_runs
+ *   - generations.agent_run_id 反向指向 agent_runs → 在 agent_runs 之后加列
  *
  * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
- * 依赖 CREATE TABLE IF NOT EXISTS 的幂等性。
+ * 依赖 CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS 的幂等性。
  */
 export const FEAT_200_DDL_BLOCKS = [
   DDL_USERS,
@@ -319,4 +429,9 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_NOTES,
   // feat-200.8
   DDL_PLATFORM_RULES,
+  // feat-300.1
+  DDL_AGENT_RUNS,
+  DDL_AGENT_STEPS,
+  DDL_AGENT_MEMORY,
+  DDL_GENERATIONS_AGENT_RUN_ID,
 ];
