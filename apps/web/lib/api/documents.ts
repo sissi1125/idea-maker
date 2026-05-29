@@ -39,11 +39,12 @@ export interface MvpDocument {
   updatedAt: string;
 }
 
-/** 5 个 ingestion stage 名称（与后端 IngestionStage 对齐） */
+/** 6 个 ingestion stage 名称（与后端 IngestionStage 对齐；feat-experiment-6 加 transform） */
 export type IngestionStage =
   | "idempotency"
   | "preprocess"
   | "chunk"
+  | "transform"
   | "embedding"
   | "storage";
 

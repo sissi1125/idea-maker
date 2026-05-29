@@ -53,28 +53,42 @@ stages:
     method: rule-based
     params: {}
 
+  # feat-experiment-2 验证：单文档场景 dense-vector 最优（bge-m3 语义已饱和，
+  # BM25/hybrid 无增量收益）。threshold=0.1 留出"弱信号缓冲"——dense 分数被
+  # filter 阶段的 minScore + MMR 二次过滤，0.1 几乎不丢任何候选，避免过严卡死。
   - id: retrieval
     method: dense-vector
     params:
       topK: 10
+      threshold: 0.1
       embeddingProvider: openai
-      tableName: chunks
-      contentColumn: content
-      embeddingColumn: embedding
 
+  # feat-experiment-4.x 验证：pipeline-filter（含 MMR + 多样性）优于 score-threshold。
+  #   minScore=0.2：过滤太弱的弱信号
+  #   maxPerDocument=5：防单文档独占（多文档场景关键）
+  #   mmrLambda=0.7：相关性优先但留出 30% 多样性
+  #   finalTopK=10：输出给 rerank 的候选数
   - id: filter
-    method: score-threshold
+    method: pipeline-filter
     params:
-      minScore: 0.3
+      minScore: 0.2
+      maxPerDocument: 5
+      finalTopK: 10
+      mmrLambda: 0.7
 
+  # feat-experiment-3/6 验证：score-only + summary-keywords（在 ingestion 阶段）
+  # 组合最优。metadata-boost 与 summary-keywords 同时开会互相干扰（experiment-6 T04）
   - id: rerank
     method: score-only
     params:
-      topN: 5
+      rerankTopN: 5
 
+  # feat-experiment-4.0/4.1 验证：chunk-citation 全面优于 section-citation。
+  # maxEvidencePerClaim=3：每个 claim 最多引用 3 个 chunk 作证据
   - id: citation
     method: chunk-citation
-    params: {}
+    params:
+      maxEvidencePerClaim: 3
 
   - id: prompt-build
     method: marketing-template

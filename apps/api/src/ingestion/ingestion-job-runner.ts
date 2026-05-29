@@ -31,6 +31,7 @@ import {
   checkIdempotency,
   runPreprocess,
   runChunk,
+  runTransform,
   runEmbedding,
   runStorage,
 } from "@harness/rag-core";
@@ -47,12 +48,15 @@ interface StageMilestone {
   progressAfter: number;
 }
 
+// feat-experiment-6 起 ingestion 是 6 阶段（加 transform）。
+// 权重重新分配：transform 走纯 JS 不调 API，比较快，占 5%。
 const MILESTONES: StageMilestone[] = [
-  { stage: "idempotency", progressBefore: 0, progressAfter: 10 },
-  { stage: "preprocess", progressBefore: 10, progressAfter: 35 },
-  { stage: "chunk", progressBefore: 35, progressAfter: 45 },
-  { stage: "embedding", progressBefore: 45, progressAfter: 85 },
-  { stage: "storage", progressBefore: 85, progressAfter: 100 },
+  { stage: "idempotency", progressBefore: 0,  progressAfter: 10 },
+  { stage: "preprocess",  progressBefore: 10, progressAfter: 35 },
+  { stage: "chunk",       progressBefore: 35, progressAfter: 45 },
+  { stage: "transform",   progressBefore: 45, progressAfter: 50 },
+  { stage: "embedding",   progressBefore: 50, progressAfter: 85 },
+  { stage: "storage",     progressBefore: 85, progressAfter: 100 },
 ];
 
 @Injectable()
@@ -174,11 +178,16 @@ export class IngestionJobRunner {
         progress: MILESTONES[2].progressBefore,
       });
       const chunkStart = Date.now();
+      // feat-experiment-4.1 / 实验 6 最优：chunkSize=512, overlap=64
+      // 256 太小语义不全；1024 太大稀释；512 在中文产品文档（段落 200-400 字）
+      // 对应一个完整语义单元，citation=1.00。
+      const chunkSize = 512;
+      const overlap = 64;
       const chunked = runChunk({
         methodId: "recursive",
         params: {
-          chunkSize: 600,
-          overlap: 80,
+          chunkSize,
+          overlap,
           headingDepth: 3,
           minChunkSize: 50,
         },
@@ -193,8 +202,8 @@ export class IngestionJobRunner {
         method: "recursive",
         durationMs: Date.now() - chunkStart,
         metrics: {
-          chunkSize: 600,
-          overlap: 80,
+          chunkSize,
+          overlap,
           chunksTotal,
           avgChunkSize: Math.round(chunked.output.avgChunkSize),
           maxChunkSize: chunked.output.maxChunkSize,
@@ -205,11 +214,49 @@ export class IngestionJobRunner {
         chunksTotal,
       });
 
-      // ── Stage 4: embedding ───────────────────────────────────────────────
-      currentStage = "embedding";
+      // ── Stage 4: transform（feat-experiment-6 最优配置） ──────────────────
+      // summary-keywords：用 jieba TF 提取 5 个关键词 + 100 token 摘要，
+      // 注入到 chunk.enhancedText（不替换原 text）。
+      // 实验 6 T02 验证 citationCoverage 1.00（vs 基线 0.89）。
+      currentStage = "transform";
       await this.jobs.updateProgress(jobId, {
         currentStage,
         progress: MILESTONES[3].progressBefore,
+      });
+      const transformStart = Date.now();
+      const transformed = runTransform({
+        methodId: "summary-keywords",
+        params: {
+          // 共享 schema 默认值——显式列出便于实验回溯
+          includeTitle: true,
+          includeHeadingPath: true,
+          documentTitle: doc.fileName,
+          keywordCount: 5,
+          summaryMaxTokens: 100,
+          appendToChunk: true,
+        },
+        upstreamChunks: chunked.output.chunks,
+      });
+      await this.jobs.setStageOutput(jobId, "transform", {
+        method: "summary-keywords",
+        durationMs: Date.now() - transformStart,
+        metrics: {
+          chunksTransformed: transformed.output.chunks.length,
+          keywordCount: 5,
+          summaryMaxTokens: 100,
+          // 抽样查 1 个 chunk 的关键词数量，让用户看到 transform 真的注入了内容
+          sampleKeywords: transformed.output.chunks[0]?.keywords?.length ?? 0,
+        },
+      });
+      await this.jobs.updateProgress(jobId, {
+        progress: MILESTONES[3].progressAfter,
+      });
+
+      // ── Stage 5: embedding ───────────────────────────────────────────────
+      currentStage = "embedding";
+      await this.jobs.updateProgress(jobId, {
+        currentStage,
+        progress: MILESTONES[4].progressBefore,
       });
       const embedStart = Date.now();
       // embedding 方法选择：
@@ -239,7 +286,9 @@ export class IngestionJobRunner {
           dimension: 1024,
           batchSize: 16,
         },
-        upstreamChunks: chunked.output.chunks,
+        // feat-experiment-6：用 transform 后的 chunks（含 enhancedText：原文 +
+        // 注入的关键词/摘要）做 embedding，召回信号更强
+        upstreamChunks: transformed.output.chunks,
         openaiClient: embeddingClient,
       });
       await this.jobs.setStageOutput(jobId, "embedding", {
@@ -257,15 +306,15 @@ export class IngestionJobRunner {
           : "无 LLM API key，降级到 debug-deterministic（FNV-1a hash 伪向量，仅供流程验证）",
       });
       await this.jobs.updateProgress(jobId, {
-        progress: MILESTONES[3].progressAfter,
+        progress: MILESTONES[4].progressAfter,
         chunksDone: chunksTotal,
       });
 
-      // ── Stage 5: storage ─────────────────────────────────────────────────
+      // ── Stage 6: storage ─────────────────────────────────────────────────
       currentStage = "storage";
       await this.jobs.updateProgress(jobId, {
         currentStage,
-        progress: MILESTONES[4].progressBefore,
+        progress: MILESTONES[5].progressBefore,
       });
       const storageStart = Date.now();
       const cs = this.db.resolveConnectionString();

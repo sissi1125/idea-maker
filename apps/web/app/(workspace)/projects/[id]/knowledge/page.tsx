@@ -36,11 +36,12 @@ import { useToast } from "@/components/toast/ToastProvider";
 
 // ── Stage 显示顺序 + 中文标签 ────────────────────────────────────────────────
 
-const STAGE_ORDER: IngestionStage[] = ["idempotency", "preprocess", "chunk", "embedding", "storage"];
+const STAGE_ORDER: IngestionStage[] = ["idempotency", "preprocess", "chunk", "transform", "embedding", "storage"];
 const STAGE_LABELS: Record<IngestionStage, string> = {
   idempotency: "去重校验",
   preprocess:  "文档解析",
   chunk:       "文本分块",
+  transform:   "增强注入",
   embedding:   "向量化",
   storage:     "写入索引",
 };

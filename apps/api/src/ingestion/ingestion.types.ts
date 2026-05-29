@@ -8,10 +8,23 @@ export type IngestionStatus = "queued" | "running" | "succeeded" | "failed";
  * 5 个 stage 名称固定，与 rag-core 的 ingestion 链对齐。
  * 未来加 transform 等需要同步前端 SSE 解析。
  */
+/**
+ * Ingestion 6 阶段。
+ *   idempotency  去重校验
+ *   preprocess   文档解析
+ *   chunk        文本分块
+ *   transform    chunk 增强（summary-keywords 注入 TF 关键词+摘要 提升召回，实验 5/6 验证最优）
+ *   embedding    向量化
+ *   storage      写入 pgvector
+ *
+ * transform 位置：chunk 之后、embedding 之前——embedding 用 enhancedText
+ * （chunk.text + 注入的关键词/摘要），retrieval 时语义信号更强。
+ */
 export const INGESTION_STAGES = [
   "idempotency",
   "preprocess",
   "chunk",
+  "transform",
   "embedding",
   "storage",
 ] as const;
