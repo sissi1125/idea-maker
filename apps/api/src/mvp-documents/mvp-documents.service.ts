@@ -212,9 +212,17 @@ export class MvpDocumentsService {
   }
 
   /**
-   * 删除：DB row + 磁盘文件。
-   * 注意：ingestion_jobs 表 FK ON DELETE CASCADE 会自动清理任务记录；
-   * pgvector 中的 chunks 不在 Week 2 范围（Week 3 接 storage stage 后再处理）。
+   * 删除：rag_chunks → documents → 磁盘文件。
+   *
+   * 历史 bug（feat-200.8.x P0 修）：rag_chunks 无 FK 到 documents，文档删除
+   * 后 chunks 残留 → retrieval 仍能命中"幽灵内容"。原注释说"Week 3 再处理"
+   * 但一直没补；现在显式 DELETE FROM rag_chunks。
+   *
+   * 不加 FK 的原因：rag_chunks 还服务 eval-matrix（用 16-char hash documentId，
+   * documents 表无记录）和 legacy-playground 路径，加 FK 会让这些写入失败。
+   * 应用层显式删 + ingestion 走 project_id 隔离 = 用户删除流程闭环。
+   *
+   * ingestion_jobs 走 FK ON DELETE CASCADE 自动清理。
    */
   async delete(
     ownerId: string,
@@ -224,6 +232,12 @@ export class MvpDocumentsService {
     // 先取 storage_ref，再删 DB，最后删文件（顺序：能放手让 DB 兜底）
     const doc = await this.get(ownerId, projectId, docId);
     await this.db.withClient(async (client) => {
+      // 1. 先删 rag_chunks——retrieval 立即不再命中本文档（防"幽灵召回"）
+      const chunksRes = await client.query(
+        `DELETE FROM rag_chunks WHERE document_id = $1`,
+        [docId],
+      );
+      // 2. 删 documents（ingestion_jobs 通过 FK ON DELETE CASCADE 自动清掉）
       const res = await client.query(
         `DELETE FROM documents WHERE id = $1 AND project_id = $2`,
         [docId, projectId],
@@ -234,6 +248,10 @@ export class MvpDocumentsService {
          WHERE id = $1`,
         [projectId],
       );
+      // 删除的 chunks 数量打日志，便于诊断
+      if ((chunksRes.rowCount ?? 0) > 0) {
+        console.log(`[mvp-documents] doc=${docId} 删除时连带清理 ${chunksRes.rowCount} 个 chunks`);
+      }
     });
     // 文件删除：失败也不回滚 DB（已删的 record 留着比文件孤儿好处理）
     this.storage.delete(doc.storageRef);
