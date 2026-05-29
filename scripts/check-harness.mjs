@@ -7,7 +7,7 @@
 //   C2 feature 必填字段：id / name / phase / track / description / dependencies / status / evidence
 //   C3 track 值合法：必须是 tracks 顶层键之一 或 "historical"
 //   C4 phase 值合法：必须是 phases 顶层键之一
-//   C5 status 合法：done / todo / in-progress / blocked / epic
+//   C5 status 合法：done / todo / in-progress / blocked / epic / superseded
 //   C6 依赖闭包合法：所有 dependency id 都存在
 //   C7 done 不能依赖 todo / blocked / in-progress（epic 可以）
 //   C8 同 phase 内 001-099 段位按数字升序（100+ 段位豁免）
@@ -45,7 +45,7 @@ const phaseKeys = new Set(Object.keys(data.phases ?? {}));
 
 // ---------- C2-C5 逐 feature ----------
 const required = ["id", "name", "phase", "track", "description", "dependencies", "status", "evidence"];
-const allowedStatus = new Set(["done", "todo", "in-progress", "blocked", "epic"]);
+const allowedStatus = new Set(["done", "todo", "in-progress", "blocked", "epic", "superseded"]);
 const ids = new Set();
 
 for (const f of data.features ?? []) {

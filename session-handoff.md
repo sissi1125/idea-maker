@@ -2,28 +2,23 @@
 
 ## 最后更新
 
-2026-05-28（feat-200.8.2 + 200.8.3 ✅ 全局 toast + 三态 review + 部署联调资产）
+2026-05-30（Phase 3.5 真 Agent 计划制定完成，feat-300 启动就绪）
 
 ## 本次变更摘要
 
-【200.8.2 toast + 三态】
-- ToastProvider 自写（4 variant + auto-dismiss + reducer）
-- Chat/Settings/Notes/Knowledge/Feedback/AddToLibrary 全部接入 toast
-- 项目列表加 Empty state + Loading skeleton
-- 顺手修了 knowledge 页 set-state-in-effect lint
+【Phase 3.5 计划（头脑风暴 + 计划制定）】
+- 架构方向确认：全面 ReAct（非 Plan-and-Execute），rag-core stages 降级为 tools
+- 技术栈确认：Vercel ai-sdk（LLM/tool 抽象）+ 自建 agent loop / memory / eval
+- 旧方案 feat-010.x / feat-011.x 标为 superseded，由 feat-300.1~300.7 取代
+- 架构文档：docs/agent/ARCHITECTURE.md
 
-【200.8.3 部署联调】
-- DbService.initSchema 加 `CREATE EXTENSION IF NOT EXISTS vector`
-- apiFetch BASE_URL 三级回退：env > window.origin > localhost
-- .github/workflows/ci.yml：PR 跑 typecheck/lint/unit；smoke 走 workflow_dispatch
-- DEPLOY.md 补充 NEXT_PUBLIC_API_URL + CI 章节
+【Harness 文档更新】
+- feature_list.json：feat-300 epic + 7 个子 feature 定义；feat-010/011 标 superseded；tracks.A-main.current 更新
+- AGENTS.md：新增「阶段 3.5 真 Agent 开发规范」章节（agent vs pipeline 边界 / 记忆规范 / eval 规范 / 技术栈约束）
+- session-handoff.md：本条目
 
-【验证】
-- pnpm -r typecheck + lint 全过
-- pnpm smoke 10 步 18s 全过
-
-**进度**：MVP 完整收官；推迟到 200.8.1 的只剩 SSE 流式化（Token 级）。
-next：Phase 3.5 真 Agent（feat-010.x）或 200.8.1 SSE。
+**进度**：Phase 3.5 计划批准，harness 就绪。
+**next：feat-300.1**（Schema 3 张新表 + LLM 层 ai-sdk 接入 + Tavily client）
 
 ---
 
