@@ -15,6 +15,7 @@ vi.mock("@harness/rag-core", () => ({
 
 import { buildSearchKbTool } from "../search-kb.tool";
 import type { AgentToolContext } from "../types";
+import { makeFakeSpillStorage } from "./_test-utils";
 
 function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
   return {
@@ -47,7 +48,7 @@ describe("search_kb tool", () => {
 
   it("入参默认值：受 SEARCH_KB_MAX_CHUNKS 上限约束（300.3 任务 0.5）", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
-    const t = buildSearchKbTool(makeCtx());
+    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx());
     await exec(t, { query: "护肤功效" });
 
     // 引入 SEARCH_KB_MAX_CHUNKS=3 后，默认 topK 受硬上限约束
@@ -63,7 +64,7 @@ describe("search_kb tool", () => {
 
   it("retrieval 返回 0 条 → status=empty", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
-    const t = buildSearchKbTool(makeCtx());
+    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx());
     const out = (await exec(t, { query: "Q" })) as { status: string };
     expect(out.status).toBe("empty");
   });
@@ -81,7 +82,7 @@ describe("search_kb tool", () => {
       trace: {},
       warnings: [],
     });
-    const t = buildSearchKbTool(makeCtx());
+    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx());
     const out = (await exec(t, { query: "Q", topK: 3 })) as {
       status: string;
       chunks: { score: number }[];
@@ -102,7 +103,7 @@ describe("search_kb tool", () => {
       trace: {},
       warnings: [],
     });
-    const t = buildSearchKbTool(makeCtx());
+    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx());
     const out = (await exec(t, { query: "Q", category: "product" })) as {
       chunks: { chunkId: string }[];
     };
@@ -112,7 +113,7 @@ describe("search_kb tool", () => {
 
   it("ctx.options.retrievalTopK 仍受 SEARCH_KB_MAX_CHUNKS 上限约束（截 3）", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
-    const t = buildSearchKbTool(makeCtx({ options: { retrievalTopK: 12 } }));
+    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx({ options: { retrievalTopK: 12 } }));
     await exec(t, { query: "Q" });
     // 即使 options 要求 12，硬上限会压回 3——保护 messages 不爆是不可绕过的
     expect(runRetrievalMock).toHaveBeenCalledWith(

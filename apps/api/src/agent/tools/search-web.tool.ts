@@ -19,6 +19,8 @@ import {
   SEARCH_WEB_CONTENT_CHARS,
   truncateText,
 } from "./util/output-limits";
+import { spillIfLarge } from "./util/spill-if-large";
+import type { SpillStorage } from "../spill-storage.service";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("web 搜索的英文/中文 query"),
@@ -50,7 +52,10 @@ const DESCRIPTION = `做实时 web 搜索（通过 Tavily）。
  * 工厂闭包式注入 TavilyClient：tool factory 不能直接拿 NestJS 容器，
  * 由上层 AgentToolsService 在 build 时把 tavilyClient 绑进闭包。
  */
-export function buildSearchWebTool(tavilyClient: TavilyClient): AgentToolFactory {
+export function buildSearchWebTool(
+  tavilyClient: TavilyClient,
+  spillStorage: SpillStorage,
+): AgentToolFactory {
   return (_ctx: AgentToolContext) =>
     tool({
       description: DESCRIPTION,
@@ -72,13 +77,24 @@ export function buildSearchWebTool(tavilyClient: TavilyClient): AgentToolFactory
         if (raw.status !== "ok") return raw;
 
         // ok 状态：再截断 content 字段，保 LLM messages 不爆
-        return {
+        const truncated = {
           ...raw,
           results: raw.results.slice(0, effectiveMax).map((r) => ({
             ...r,
             content: truncateText(r.content, SEARCH_WEB_CONTENT_CHARS),
           })),
         };
+        // advanced 模式偶尔会让单 content 超长——加 spill 兜底
+        return spillIfLarge(truncated, {
+          kind: "search_web",
+          preview: (r) =>
+            r.results
+              .slice(0, 2)
+              .map((x, i) => `[${i + 1}] ${x.title} - ${x.url}\n${x.content.slice(0, 100)}`)
+              .join("\n\n"),
+          summary: (r) => ({ resultCount: r.results.length, query: r.query }),
+          storage: spillStorage,
+        });
       },
     });
 }

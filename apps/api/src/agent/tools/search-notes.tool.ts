@@ -15,6 +15,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Client as PgClient } from "pg";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import { spillIfLarge } from "./util/spill-if-large";
+import type { SpillStorage } from "../spill-storage.service";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("检索关键词；建议用产品/主题名词"),
@@ -61,8 +63,9 @@ interface NoteSearchRow {
   created_at: Date;
 }
 
-export const buildSearchNotesTool: AgentToolFactory = (ctx: AgentToolContext) =>
-  tool({
+export function buildSearchNotesTool(spillStorage: SpillStorage): AgentToolFactory {
+  return (ctx: AgentToolContext) =>
+    tool({
     description: DESCRIPTION,
     parameters: ParamsSchema,
     execute: async ({ query, tags, limit }) => {
@@ -86,7 +89,7 @@ export const buildSearchNotesTool: AgentToolFactory = (ctx: AgentToolContext) =>
         };
       }
 
-      return {
+      const okResult = {
         status: "ok" as const,
         query,
         notes: rows.map((r) => ({
@@ -98,5 +101,13 @@ export const buildSearchNotesTool: AgentToolFactory = (ctx: AgentToolContext) =>
           createdAt: r.created_at.toISOString(),
         })),
       };
+      return spillIfLarge(okResult, {
+        kind: "search_notes",
+        preview: (r) =>
+          r.notes.slice(0, 3).map((n) => `[${n.id}] ${n.title}`).join("\n"),
+        summary: (r) => ({ noteCount: r.notes.length, query: r.query }),
+        storage: spillStorage,
+      });
     },
   });
+}

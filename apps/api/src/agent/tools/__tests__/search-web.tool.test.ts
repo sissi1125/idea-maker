@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildSearchWebTool } from "../search-web.tool";
 import type { AgentToolContext } from "../types";
 import type { TavilyClient } from "../../../llm/tavily.client";
+import { makeFakeSpillStorage } from "./_test-utils";
 
 function makeCtx(): AgentToolContext {
   return {
@@ -33,7 +34,7 @@ describe("search_web tool", () => {
       .fn()
       .mockResolvedValue({ status: "ok", query: "Q", results: [], source: "live" });
     const fakeClient = { search: searchMock } as unknown as TavilyClient;
-    const factory = buildSearchWebTool(fakeClient);
+    const factory = buildSearchWebTool(fakeClient, makeFakeSpillStorage());
     const t = factory(makeCtx());
     await exec(t, { query: "Q", maxResults: 7, searchDepth: "advanced" });
     // 300.3 任务 0.5：LLM 即使要 7，硬上限 SEARCH_WEB_MAX_RESULTS 压回 3
@@ -52,7 +53,7 @@ describe("search_web tool", () => {
         message: "no key",
       }),
     } as unknown as TavilyClient;
-    const t = buildSearchWebTool(fakeClient)(makeCtx());
+    const t = buildSearchWebTool(fakeClient, makeFakeSpillStorage())(makeCtx());
     const out = (await exec(t, { query: "Q" })) as { status: string };
     expect(out.status).toBe("unavailable");
   });

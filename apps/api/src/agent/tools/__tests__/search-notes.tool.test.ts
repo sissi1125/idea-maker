@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildSearchNotesTool } from "../search-notes.tool";
 import type { AgentToolContext } from "../types";
+import { makeFakeSpillStorage } from "./_test-utils";
 
 function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
   return {
@@ -29,7 +30,7 @@ const exec = async (toolObj: ReturnType<typeof buildSearchNotesTool>, args: unkn
 describe("search_notes tool", () => {
   it("tags 为空时传 null 入参（避免 @> '{}'::text[] 永真）", async () => {
     const pgQuery = vi.fn().mockResolvedValue({ rows: [] });
-    const t = buildSearchNotesTool(makeCtx(pgQuery));
+    const t = buildSearchNotesTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     await exec(t, { query: "护肤" });
     const [, params] = pgQuery.mock.calls[0];
     expect(params[0]).toBe("proj-1");
@@ -40,7 +41,7 @@ describe("search_notes tool", () => {
 
   it("tags 非空时传数组", async () => {
     const pgQuery = vi.fn().mockResolvedValue({ rows: [] });
-    const t = buildSearchNotesTool(makeCtx(pgQuery));
+    const t = buildSearchNotesTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     await exec(t, { query: "Q", tags: ["spring", "skincare"] });
     const [, params] = pgQuery.mock.calls[0];
     expect(params[2]).toEqual(["spring", "skincare"]);
@@ -48,7 +49,7 @@ describe("search_notes tool", () => {
 
   it("空结果 → status=empty + 建议改用其他 tool", async () => {
     const pgQuery = vi.fn().mockResolvedValue({ rows: [] });
-    const t = buildSearchNotesTool(makeCtx(pgQuery));
+    const t = buildSearchNotesTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     const out = (await exec(t, { query: "Q" })) as { status: string; message: string };
     expect(out.status).toBe("empty");
     expect(out.message).toMatch(/search_kb|search_history/);
@@ -67,7 +68,7 @@ describe("search_notes tool", () => {
         },
       ],
     });
-    const t = buildSearchNotesTool(makeCtx(pgQuery));
+    const t = buildSearchNotesTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     const out = (await exec(t, { query: "Q" })) as {
       notes: { contentPreview: string }[];
     };

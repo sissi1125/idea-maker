@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildSearchHistoryTool } from "../search-history.tool";
 import type { AgentToolContext } from "../types";
+import { makeFakeSpillStorage } from "./_test-utils";
 
 function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
   return {
@@ -29,7 +30,7 @@ const exec = async (toolObj: ReturnType<typeof buildSearchHistoryTool>, args: un
 describe("search_history tool", () => {
   it("默认 status=succeeded、source=null、limit=5", async () => {
     const pgQuery = vi.fn().mockResolvedValue({ rows: [] });
-    const t = buildSearchHistoryTool(makeCtx(pgQuery));
+    const t = buildSearchHistoryTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     await exec(t, { query: "Q" });
     const [, params] = pgQuery.mock.calls[0];
     expect(params).toEqual(["proj-1", "succeeded", null, "Q", 5]);
@@ -37,7 +38,7 @@ describe("search_history tool", () => {
 
   it("status='failed' 透传给 SQL", async () => {
     const pgQuery = vi.fn().mockResolvedValue({ rows: [] });
-    const t = buildSearchHistoryTool(makeCtx(pgQuery));
+    const t = buildSearchHistoryTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     await exec(t, { query: "Q", status: "failed", source: "auto", limit: 3 });
     const [, params] = pgQuery.mock.calls[0];
     expect(params).toEqual(["proj-1", "failed", "auto", "Q", 3]);
@@ -56,7 +57,7 @@ describe("search_history tool", () => {
         },
       ],
     });
-    const t = buildSearchHistoryTool(makeCtx(pgQuery));
+    const t = buildSearchHistoryTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     const out = (await exec(t, { query: "Q" })) as {
       generations: { resultPreview: string }[];
     };
@@ -76,7 +77,7 @@ describe("search_history tool", () => {
         },
       ],
     });
-    const t = buildSearchHistoryTool(makeCtx(pgQuery));
+    const t = buildSearchHistoryTool(makeFakeSpillStorage())(makeCtx(pgQuery));
     const out = (await exec(t, { query: "Q" })) as {
       generations: { resultPreview: string | null }[];
     };

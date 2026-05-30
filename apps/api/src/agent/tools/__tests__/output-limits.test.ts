@@ -10,6 +10,7 @@ import {
   SEARCH_WEB_CONTENT_CHARS,
   truncateText,
 } from "../util/output-limits";
+import { makeFakeSpillStorage } from "./_test-utils";
 
 describe("truncateText", () => {
   it("短于阈值不截断", () => {
@@ -52,7 +53,7 @@ describe("集成：search_kb 截断行为", () => {
       }),
     }));
     const { buildSearchKbTool } = await import("../search-kb.tool");
-    const t = buildSearchKbTool({
+    const t = buildSearchKbTool(makeFakeSpillStorage())({
       projectId: "p",
       userId: "u",
       runId: "r",
@@ -80,7 +81,7 @@ describe("集成：search_kb 截断行为", () => {
       }),
     }));
     const { buildSearchKbTool } = await import("../search-kb.tool");
-    const t = buildSearchKbTool({
+    const t = buildSearchKbTool(makeFakeSpillStorage())({
       projectId: "p",
       userId: "u",
       runId: "r",
@@ -115,7 +116,7 @@ describe("集成：search_web 截断行为", () => {
         })),
       }),
     };
-    const factory = buildSearchWebTool(fakeTavily as never);
+    const factory = buildSearchWebTool(fakeTavily as never, makeFakeSpillStorage());
     const t = factory({} as never);
     const out = (await (
       t.execute as (a: unknown, o: { toolCallId: string; messages: [] }) => Promise<unknown>
@@ -135,7 +136,7 @@ describe("集成：search_web 截断行为", () => {
         message: "no key",
       }),
     };
-    const t = buildSearchWebTool(fakeTavily as never)({} as never);
+    const t = buildSearchWebTool(fakeTavily as never, makeFakeSpillStorage())({} as never);
     const out = (await (
       t.execute as (a: unknown, o: { toolCallId: string; messages: [] }) => Promise<unknown>
     )({ query: "Q" }, { toolCallId: "t", messages: [] })) as { status: string };

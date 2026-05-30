@@ -20,6 +20,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Tool } from "ai";
 import { TavilyClient } from "../llm/tavily.client";
+import { SpillStorage } from "./spill-storage.service";
 import {
   AGENT_TOOL_NAMES,
   type AgentToolContext,
@@ -43,7 +44,10 @@ export interface BuildToolsOptions {
 
 @Injectable()
 export class AgentToolsService {
-  constructor(private readonly tavilyClient: TavilyClient) {}
+  constructor(
+    private readonly tavilyClient: TavilyClient,
+    private readonly spillStorage: SpillStorage,
+  ) {}
 
   /**
    * 根据 ctx 构造一套绑定该 run 的 8 个 tool。AgentRunner 每次新建 run 时调一次。
@@ -57,11 +61,12 @@ export class AgentToolsService {
       memoryPreferences: [],
     };
 
+    // 4 个 search tool 都绑定 SpillStorage 闭包（大输出自动落盘）
     return {
-      [AGENT_TOOL_NAMES.searchKb]: buildSearchKbTool(ctx),
-      [AGENT_TOOL_NAMES.searchNotes]: buildSearchNotesTool(ctx),
-      [AGENT_TOOL_NAMES.searchHistory]: buildSearchHistoryTool(ctx),
-      [AGENT_TOOL_NAMES.searchWeb]: buildSearchWebTool(this.tavilyClient)(ctx),
+      [AGENT_TOOL_NAMES.searchKb]: buildSearchKbTool(this.spillStorage)(ctx),
+      [AGENT_TOOL_NAMES.searchNotes]: buildSearchNotesTool(this.spillStorage)(ctx),
+      [AGENT_TOOL_NAMES.searchHistory]: buildSearchHistoryTool(this.spillStorage)(ctx),
+      [AGENT_TOOL_NAMES.searchWeb]: buildSearchWebTool(this.tavilyClient, this.spillStorage)(ctx),
       [AGENT_TOOL_NAMES.generateDraft]: buildGenerateDraftTool(ctx),
       [AGENT_TOOL_NAMES.refineDraft]: buildRefineDraftTool(ctx),
       [AGENT_TOOL_NAMES.criticReview]: buildCriticReviewTool(criteria)(ctx),

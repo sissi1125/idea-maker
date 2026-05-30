@@ -16,6 +16,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Client as PgClient } from "pg";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import { spillIfLarge } from "./util/spill-if-large";
+import type { SpillStorage } from "../spill-storage.service";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("从 generations.query 或 result_notes 文本里匹配的关键词"),
@@ -67,8 +69,9 @@ interface HistoryRow {
   created_at: Date;
 }
 
-export const buildSearchHistoryTool: AgentToolFactory = (ctx: AgentToolContext) =>
-  tool({
+export function buildSearchHistoryTool(spillStorage: SpillStorage): AgentToolFactory {
+  return (ctx: AgentToolContext) =>
+    tool({
     description: DESCRIPTION,
     parameters: ParamsSchema,
     execute: async ({ query, status, source, limit }) => {
@@ -93,7 +96,7 @@ export const buildSearchHistoryTool: AgentToolFactory = (ctx: AgentToolContext) 
         };
       }
 
-      return {
+      const okResult = {
         status: "ok" as const,
         query,
         generations: rows.map((r) => ({
@@ -105,5 +108,13 @@ export const buildSearchHistoryTool: AgentToolFactory = (ctx: AgentToolContext) 
           createdAt: r.created_at.toISOString(),
         })),
       };
+      return spillIfLarge(okResult, {
+        kind: "search_history",
+        preview: (r) =>
+          r.generations.slice(0, 3).map((g) => `[${g.id}] ${g.query}`).join("\n"),
+        summary: (r) => ({ generationCount: r.generations.length, query: r.query }),
+        storage: spillStorage,
+      });
     },
   });
+}
