@@ -1,18 +1,53 @@
 /**
- * AgentModule — feat-300.2 Phase 3.5
+ * AgentModule — feat-300.3 任务 8（汇总）
  *
- * 暴露 AgentToolsService（8 个 tool 的 factory 工厂）。
- * 依赖 LlmModule（@Global，自动注入 TavilyClient）。
+ * 完整暴露 Phase 3.5 Agent 子系统：
+ *   - Controller：6 个 HTTP / SSE 端点
+ *   - Runner：ReAct 主循环
+ *   - Repository：agent_runs / agent_steps CRUD
+ *   - SSE：EventEmitter2 桥 + 心跳
+ *   - ContextManager / MemoryReader / SpillStorage / AgentToolsService
  *
- * feat-300.3 起会在本模块里加 AgentRunnerService / AgentSseController；本期只到 tools 层。
+ * 依赖：
+ *   - LlmModule (@Global) → LlmService / TavilyClient
+ *   - DbModule (@Global) → DbService
+ *   - AuthModule → JwtAuthGuard
+ *   - PipelineModule → ProvidersService（embedding client 构造）
+ *   - ProjectsModule → ProjectsService（鉴权 + settings 加载）
+ *   - EventEmitterModule（app.module.ts 已全局注册）
  */
 
 import { Module } from "@nestjs/common";
+import { AuthModule } from "../auth/auth.module";
+import { PipelineModule } from "../pipeline/pipeline.module";
+import { ProjectsModule } from "../projects/projects.module";
+
+import { AgentController } from "./agent.controller";
+import { AgentRunnerService } from "./agent-runner.service";
+import { AgentRunsRepository } from "./agent-runs.repository";
+import { AgentSseService } from "./agent-sse.service";
 import { AgentToolsService } from "./agent-tools.service";
+import { ContextManager } from "./context-manager";
+import { MemoryReader } from "./memory-reader";
 import { SpillStorage } from "./spill-storage.service";
 
 @Module({
-  providers: [AgentToolsService, SpillStorage],
-  exports: [AgentToolsService, SpillStorage],
+  imports: [AuthModule, PipelineModule, ProjectsModule],
+  controllers: [AgentController],
+  providers: [
+    AgentRunnerService,
+    AgentRunsRepository,
+    AgentSseService,
+    AgentToolsService,
+    ContextManager,
+    MemoryReader,
+    SpillStorage,
+  ],
+  exports: [
+    AgentToolsService,
+    SpillStorage,
+    AgentRunsRepository,
+    AgentSseService,
+  ],
 })
 export class AgentModule {}
