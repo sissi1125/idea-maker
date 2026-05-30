@@ -170,4 +170,5 @@
 - [x] 单测覆盖 158 用例：done / budget / max_steps / abort / error / compression 全路径
 - [x] AgentModule 注册依赖 + AppModule 引入
 - [x] 面试题 10 道（含 ⚠️ 8 个易忽略点）
-- [ ] **TODO（task 8 hookup）**：PlatformRulesService 集成 / cost_summary 聚合 / project name 注入
+- [x] **TODO 全部 done**：PlatformRulesService 集成（TODO a）/ cost_summary 聚合（TODO b）/ project name 注入（TODO c）
+- [ ] **延后**：pg.Pool 改造（TODO d，运维侧，等流量起来再做）

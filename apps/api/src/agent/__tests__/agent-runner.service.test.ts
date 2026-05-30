@@ -64,6 +64,9 @@ function makeRunner() {
   const costs = {
     recordGeneration: vi.fn().mockResolvedValue(undefined),
   };
+  const platformRulesService = {
+    list: vi.fn().mockResolvedValue([]),
+  };
 
   const runner = new AgentRunnerService(
     projects as never,
@@ -76,8 +79,21 @@ function makeRunner() {
     sse as never,
     spillStorage as never,
     costs as never,
+    platformRulesService as never,
   );
-  return { runner, projects, llm, providers, memory, tools, contextManager, repo, sse, costs };
+  return {
+    runner,
+    projects,
+    llm,
+    providers,
+    memory,
+    tools,
+    contextManager,
+    repo,
+    sse,
+    costs,
+    platformRulesService,
+  };
 }
 
 const sampleInput: AgentRunInput = {
@@ -164,6 +180,54 @@ describe("AgentRunnerService 成功路径", () => {
       expect.anything(),
       "p", // projectId
       expect.objectContaining({ costUsd: expect.any(Number) }),
+    );
+  });
+
+  it("启用的 platform_rules 注入 system prompt + critic 评判标准", async () => {
+    const { runner, platformRulesService, tools } = makeRunner();
+    platformRulesService.list.mockResolvedValue([
+      {
+        id: "1",
+        projectId: "p",
+        name: "小红书",
+        config: { maxLength: 100, bannedKeywords: ["秒杀"] },
+        enabled: true,
+        createdAt: "2026-05-30T00:00:00Z",
+        updatedAt: "2026-05-30T00:00:00Z",
+      },
+      {
+        id: "2",
+        projectId: "p",
+        name: "已禁用",
+        config: { maxLength: 200 },
+        enabled: false,
+      },
+    ]);
+    const pg = makePg();
+    let capturedSystem: string | undefined;
+    generateTextMock.mockImplementationOnce(async ({ system }) => {
+      capturedSystem = system;
+      return {
+        text: "ok",
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1 },
+      };
+    });
+
+    await runner.run(pg as never, sampleInput);
+    // 启用的小红书规则注入 system prompt
+    expect(capturedSystem).toContain("小红书");
+    expect(capturedSystem).toContain("整段不超过 100 字");
+    expect(capturedSystem).toContain("秒杀");
+    // 禁用规则不出现
+    expect(capturedSystem).not.toContain("已禁用");
+    // criticCriteria 也带上展平后的约束
+    const buildOpts = tools.build.mock.calls[0][1];
+    expect(buildOpts.criticCriteria.platformRules).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/100 字/),
+        expect.stringMatching(/秒杀/),
+      ]),
     );
   });
 

@@ -30,6 +30,8 @@ import { LlmService } from "../llm/llm.service";
 import { ProvidersService } from "../pipeline/providers.service";
 import { ProjectsService } from "../projects/projects.service";
 import { CostService } from "../cost/cost.service";
+import { PlatformRulesService } from "../platform-rules/platform-rules.service";
+import { adaptPlatformRules } from "./platform-rules-adapter";
 
 import { AgentRunsRepository } from "./agent-runs.repository";
 import { AgentSseService } from "./agent-sse.service";
@@ -83,6 +85,7 @@ export class AgentRunnerService {
     private readonly sse: AgentSseService,
     private readonly spillStorage: SpillStorage,
     private readonly costs: CostService,
+    private readonly platformRulesService: PlatformRulesService,
   ) {}
 
   /**
@@ -119,10 +122,12 @@ export class AgentRunnerService {
       settings.encryptedApiKey ?? undefined,
     );
 
-    // ── 3. 加载 memory（platformRules 留 TODO，feat-300.3 任务 8 接入） ──
+    // ── 3. 加载 memory + platform_rules ───────────────────────────────────
     const memoryEntries = await this.memory.load(pgClient, input.projectId);
-    // TODO(task-8): 接 PlatformRulesService.list(projectId, { enabled: true })
-    const platformRules: Array<{ name: string; constraints: string[] }> = [];
+    // PlatformRulesService.list 走 DbService.withClient（短查询），不复用本 run 的
+    // pgClient——projectId 隔离 + enabled 过滤都在 adapter 里完成
+    const ruleRows = await this.platformRulesService.list(input.userId, input.projectId);
+    const platformRules = adaptPlatformRules(ruleRows);
 
     // ── 4. 创建 generations + agent_runs 记录 ────────────────────────────
     const generationId = await this.createPendingGeneration(
