@@ -14,6 +14,11 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { TavilyClient } from "../../llm/tavily.client";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import {
+  SEARCH_WEB_MAX_RESULTS,
+  SEARCH_WEB_CONTENT_CHARS,
+  truncateText,
+} from "./util/output-limits";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("web 搜索的英文/中文 query"),
@@ -51,9 +56,29 @@ export function buildSearchWebTool(tavilyClient: TavilyClient): AgentToolFactory
       description: DESCRIPTION,
       parameters: ParamsSchema,
       execute: async ({ query, maxResults, searchDepth }) => {
-        // TavilyClient 已经返回 discriminated union，原样透传——
-        // 不要在 tool 层吞 error，否则 agent 看不到为什么失败、无法决策。
-        return tavilyClient.search({ query, maxResults, searchDepth });
+        // 调用方传入的 maxResults 与硬上限 SEARCH_WEB_MAX_RESULTS 取 min——
+        // 即使 LLM 要 10 条，最多给 SEARCH_WEB_MAX_RESULTS 条。
+        const effectiveMax = Math.min(
+          maxResults ?? SEARCH_WEB_MAX_RESULTS,
+          SEARCH_WEB_MAX_RESULTS,
+        );
+        const raw = await tavilyClient.search({
+          query,
+          maxResults: effectiveMax,
+          searchDepth,
+        });
+
+        // 非 ok 状态原样透传——agent 需要看到 unavailable / error 才能自主 fallback
+        if (raw.status !== "ok") return raw;
+
+        // ok 状态：再截断 content 字段，保 LLM messages 不爆
+        return {
+          ...raw,
+          results: raw.results.slice(0, effectiveMax).map((r) => ({
+            ...r,
+            content: truncateText(r.content, SEARCH_WEB_CONTENT_CHARS),
+          })),
+        };
       },
     });
 }

@@ -17,6 +17,11 @@ import { tool } from "ai";
 import { z } from "zod";
 import { runRetrieval } from "@harness/rag-core";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import {
+  SEARCH_KB_MAX_CHUNKS,
+  SEARCH_KB_CHUNK_TEXT_CHARS,
+  truncateText,
+} from "./util/output-limits";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("检索 query。从用户问题里提炼关键词，不要照搬整句"),
@@ -52,7 +57,10 @@ export const buildSearchKbTool: AgentToolFactory = (ctx: AgentToolContext) =>
     description: DESCRIPTION,
     parameters: ParamsSchema,
     execute: async ({ query, topK, category }) => {
-      const effectiveTopK = topK ?? ctx.options?.retrievalTopK ?? 5;
+      // topK 三段优先级：参数 > ctx.options > 默认。再与 SEARCH_KB_MAX_CHUNKS 取 min
+      // 作为返还给 LLM 的硬上限——即使调用方要 20，也只返 SEARCH_KB_MAX_CHUNKS 条。
+      const requested = topK ?? ctx.options?.retrievalTopK ?? SEARCH_KB_MAX_CHUNKS;
+      const effectiveTopK = Math.min(requested, SEARCH_KB_MAX_CHUNKS);
       const method = ctx.options?.retrievalMethod ?? "hybrid-bm25-rrf";
       const embeddingModel = ctx.options?.embeddingModel ?? "text-embedding-v4";
       const embeddingDimension = ctx.options?.embeddingDimension ?? 1024;
@@ -96,7 +104,9 @@ export const buildSearchKbTool: AgentToolFactory = (ctx: AgentToolContext) =>
         query,
         chunks: filtered.slice(0, effectiveTopK).map((m) => ({
           chunkId: m.chunkId,
-          text: m.text,
+          // 截断到 SEARCH_KB_CHUNK_TEXT_CHARS 字符，避免一次返回撑爆 LLM messages
+          // 原文如果需要全文检视，agent_steps trace 里保存的是同一截断版（一致性）
+          text: truncateText(m.text, SEARCH_KB_CHUNK_TEXT_CHARS),
           source: m.sourceRef,
           score: Number((m.score ?? 0).toFixed(4)),
         })),

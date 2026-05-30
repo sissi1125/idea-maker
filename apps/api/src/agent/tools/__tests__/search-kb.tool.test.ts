@@ -45,15 +45,16 @@ describe("search_kb tool", () => {
   });
   afterEach(() => vi.clearAllMocks());
 
-  it("入参默认值：topK=5, method=hybrid-bm25-rrf", async () => {
+  it("入参默认值：受 SEARCH_KB_MAX_CHUNKS 上限约束（300.3 任务 0.5）", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
     const t = buildSearchKbTool(makeCtx());
     await exec(t, { query: "护肤功效" });
 
+    // 引入 SEARCH_KB_MAX_CHUNKS=3 后，默认 topK 受硬上限约束
     expect(runRetrievalMock).toHaveBeenCalledWith(
       expect.objectContaining({
         methodId: "hybrid-bm25-rrf",
-        params: expect.objectContaining({ topK: 5 }),
+        params: expect.objectContaining({ topK: 3 }),
         queries: ["护肤功效"],
         projectId: "proj-1",
       }),
@@ -109,12 +110,13 @@ describe("search_kb tool", () => {
     expect(out.chunks[0].chunkId).toBe("1");
   });
 
-  it("ctx.options.retrievalTopK 覆盖默认值", async () => {
+  it("ctx.options.retrievalTopK 仍受 SEARCH_KB_MAX_CHUNKS 上限约束（截 3）", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
     const t = buildSearchKbTool(makeCtx({ options: { retrievalTopK: 12 } }));
     await exec(t, { query: "Q" });
+    // 即使 options 要求 12，硬上限会压回 3——保护 messages 不爆是不可绕过的
     expect(runRetrievalMock).toHaveBeenCalledWith(
-      expect.objectContaining({ params: expect.objectContaining({ topK: 12 }) }),
+      expect.objectContaining({ params: expect.objectContaining({ topK: 3 }) }),
     );
   });
 });

@@ -28,7 +28,7 @@ const exec = async (toolObj: ReturnType<ReturnType<typeof buildSearchWebTool>>, 
   )(args, { toolCallId: "t1", messages: [] });
 
 describe("search_web tool", () => {
-  it("原样转发参数到 TavilyClient.search", async () => {
+  it("maxResults 受 SEARCH_WEB_MAX_RESULTS 上限压回，searchDepth 透传", async () => {
     const searchMock = vi
       .fn()
       .mockResolvedValue({ status: "ok", query: "Q", results: [], source: "live" });
@@ -36,9 +36,10 @@ describe("search_web tool", () => {
     const factory = buildSearchWebTool(fakeClient);
     const t = factory(makeCtx());
     await exec(t, { query: "Q", maxResults: 7, searchDepth: "advanced" });
+    // 300.3 任务 0.5：LLM 即使要 7，硬上限 SEARCH_WEB_MAX_RESULTS 压回 3
     expect(searchMock).toHaveBeenCalledWith({
       query: "Q",
-      maxResults: 7,
+      maxResults: 3,
       searchDepth: "advanced",
     });
   });
