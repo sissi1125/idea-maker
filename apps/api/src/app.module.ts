@@ -16,6 +16,8 @@ import { CostModule } from "./cost/cost.module";
 import { AutoGenerationsModule } from "./auto-generations/auto-generations.module";
 import { NotesModule } from "./notes/notes.module";
 import { PlatformRulesModule } from "./platform-rules/platform-rules.module";
+import { LlmModule } from "./llm/llm.module";
+import { AgentModule } from "./agent/agent.module";
 
 @Module({
   controllers: [HealthController],
@@ -45,6 +47,10 @@ import { PlatformRulesModule } from "./platform-rules/platform-rules.module";
     NotesModule,
     // feat-200.8 Week 8
     PlatformRulesModule,
+    // feat-300.1 Phase 3.5：Agent LLM 底座（@Global，供后续 AgentModule 等复用）
+    LlmModule,
+    // feat-300.2 Phase 3.5：8 个 Agent tools（暴露 AgentToolsService）
+    AgentModule,
   ],
 })
 export class AppModule {}

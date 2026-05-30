@@ -24,6 +24,7 @@ import { DbService } from "../db/db.service";
 import { PipelineOrchestratorService } from "../pipeline-orchestrator/pipeline-orchestrator.service";
 import { TraceContextService } from "../common/trace-context.service";
 import { PlatformRulesService } from "../platform-rules/platform-rules.service";
+import { CostService } from "../cost/cost.service";
 import {
   buildRuleSystemPrompt,
   validateAgainstRules,
@@ -59,6 +60,8 @@ export class GenerationsService {
     private readonly orchestrator: PipelineOrchestratorService,
     private readonly tracer: TraceContextService,
     private readonly platformRules: PlatformRulesService,
+    // feat-300.3 TODO b：从内联 SQL 改为 CostService.recordGeneration 共用接口
+    private readonly costs: CostService,
   ) {}
 
   /**
@@ -183,33 +186,15 @@ export class GenerationsService {
           );
         }
 
-        // 按天 upsert cost_summary（即便 costUsd=0 也累计 generations_count，便于看活跃度）
-        await client.query(
-          `INSERT INTO cost_summary
-             (project_id, day, generations_count,
-              llm_tokens_prompt, llm_tokens_completion,
-              embedding_calls, retrieval_calls, reranker_calls,
-              cost_usd, updated_at)
-           VALUES ($1, (NOW() AT TIME ZONE 'UTC')::date, 1, $2, $3, $4, $5, $6, $7, NOW())
-           ON CONFLICT (project_id, day) DO UPDATE SET
-             generations_count     = cost_summary.generations_count + 1,
-             llm_tokens_prompt     = cost_summary.llm_tokens_prompt + EXCLUDED.llm_tokens_prompt,
-             llm_tokens_completion = cost_summary.llm_tokens_completion + EXCLUDED.llm_tokens_completion,
-             embedding_calls       = cost_summary.embedding_calls + EXCLUDED.embedding_calls,
-             retrieval_calls       = cost_summary.retrieval_calls + EXCLUDED.retrieval_calls,
-             reranker_calls        = cost_summary.reranker_calls + EXCLUDED.reranker_calls,
-             cost_usd              = cost_summary.cost_usd + EXCLUDED.cost_usd,
-             updated_at            = NOW()`,
-          [
-            projectId,
-            cost.llmTokensPrompt,
-            cost.llmTokensCompletion,
-            cost.embeddingCalls,
-            cost.retrievalCalls,
-            cost.rerankerCalls,
-            cost.costUsd,
-          ],
-        );
+        // 按天 upsert cost_summary（feat-300.3 TODO b：与 AgentRunner 共用 CostService.recordGeneration）
+        await this.costs.recordGeneration(client, projectId, {
+          llmTokensPrompt: cost.llmTokensPrompt,
+          llmTokensCompletion: cost.llmTokensCompletion,
+          embeddingCalls: cost.embeddingCalls,
+          retrievalCalls: cost.retrievalCalls,
+          rerankerCalls: cost.rerankerCalls,
+          costUsd: cost.costUsd,
+        });
       });
 
       response = {
