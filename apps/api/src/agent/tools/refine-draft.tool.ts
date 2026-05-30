@@ -16,6 +16,11 @@ import { tool } from "ai";
 import { z } from "zod";
 import { generateText } from "ai";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import {
+  refineDraftSystemPrompt,
+  refineDraftUserPrompt,
+  type RefineIntensity,
+} from "../prompts/tools/refine-draft.prompt";
 
 const ParamsSchema = z.object({
   draft: z.string().min(1).describe("待修改的原稿"),
@@ -49,20 +54,9 @@ export const buildRefineDraftTool: AgentToolFactory = (ctx: AgentToolContext) =>
     description: DESCRIPTION,
     parameters: ParamsSchema,
     execute: async ({ draft, feedback, intensity, temperature }) => {
-      const intensityHint = intensityToInstruction(intensity ?? "moderate");
-
-      const system = `你是文案修订助手。任务：根据 feedback 修改原稿。
-- 保留 [evidence-N] 引用标记（不要随意删除或新增）
-- 修改幅度：${intensityHint}
-- 输出格式：先输出修订后正文，再附一行 "===CHANGES===" 然后用一句话概括改了什么`;
-
-      const prompt = `原稿：
-${draft}
-
-修改意见：
-${feedback}
-
-请输出修订后正文。`;
+      const effectiveIntensity: RefineIntensity = intensity ?? "moderate";
+      const system = refineDraftSystemPrompt.render({ intensity: effectiveIntensity });
+      const prompt = refineDraftUserPrompt.render({ draft, feedback });
 
       const result = await generateText({
         model: ctx.llmModel,
@@ -78,6 +72,8 @@ ${feedback}
         status: "ok" as const,
         revisedDraft,
         changes,
+        promptIds: [refineDraftSystemPrompt.id, refineDraftUserPrompt.id],
+        promptVersions: [refineDraftSystemPrompt.version, refineDraftUserPrompt.version],
         usage: {
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
@@ -85,18 +81,6 @@ ${feedback}
       };
     },
   });
-
-function intensityToInstruction(intensity: "minor" | "moderate" | "rewrite"): string {
-  switch (intensity) {
-    case "minor":
-      return "仅做语言润色和措辞调整，不动结构";
-    case "rewrite":
-      return "可以大幅重写，包括改变叙述顺序与开头";
-    case "moderate":
-    default:
-      return "可以调整段落顺序和重写句子，但保留核心信息和 evidence 关联";
-  }
-}
 
 /**
  * 解析 "正文 \n===CHANGES=== \n 一句话总结" 的输出。

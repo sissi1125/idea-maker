@@ -29,6 +29,10 @@ import { tool } from "ai";
 import { z } from "zod";
 import { generateObject } from "ai";
 import type { AgentToolContext, AgentToolFactory } from "./types";
+import {
+  criticReviewSystemPrompt,
+  criticReviewUserPrompt,
+} from "../prompts/tools/critic-review.prompt";
 
 /**
  * 评判标准。本期 AgentToolsService 传空数组占位；feat-300.3/300.4 接 AgentRunner 时动态注入。
@@ -89,35 +93,17 @@ export function buildCriticReviewTool(criteria: CriticCriteria): AgentToolFactor
       execute: async ({ draft, task, evidence }) => {
         const passThreshold = criteria.passThreshold ?? 3.5;
 
-        const system = `你是营销/产品笔记的资深审稿编辑。任务：按 4 个维度对 draft 打 0-5 分并给出修改建议。
-
-打分规则：
-- faithfulness：draft 的每个事实声明都能被提供的 evidence 支持。无 evidence 支持的声明扣分。
-- completeness：是否完整覆盖 task 要求的所有要点。遗漏关键要点扣分。
-- style：是否符合下列风格偏好。
-- safety：是否违反下列硬约束。违反任一硬约束直接 0 分。
-
-平台硬约束（safety 维度依据）：
-${criteria.platformRules.length > 0 ? criteria.platformRules.map((r) => `- ${r}`).join("\n") : "(无显式硬约束)"}
-
-用户/项目风格偏好（style 维度依据）：
-${criteria.memoryPreferences.length > 0 ? criteria.memoryPreferences.map((p) => `- ${p}`).join("\n") : "(无显式偏好，按通用标准评)"}
-
-输出要求：严格按 JSON schema 输出；suggestions 每条都要具体（"把第二段开头改成XX"而不是"改改第二段"）。`;
-
-        const evidenceBlock = (evidence ?? [])
-          .map((e, i) => `[evidence-${i + 1}, source:${e.source}]\n${e.text}`)
-          .join("\n\n");
-
-        const prompt = `Task：${task}
-
-Evidence：
-${evidenceBlock || "(无 evidence)"}
-
-Draft：
-${draft}
-
-请按 schema 输出 4 维评分 + 违规 + 建议。`;
+        // System + user prompt 走 prompts/ 集中管理。这是与 feat-300.5 离线 eval
+        // 共享的唯一一份打分规则——修改时必须 bump version 并同步评估前后 trace。
+        const system = criticReviewSystemPrompt.render({
+          platformRules: criteria.platformRules,
+          memoryPreferences: criteria.memoryPreferences,
+        });
+        const prompt = criticReviewUserPrompt.render({
+          task,
+          draft,
+          evidence: evidence ?? [],
+        });
 
         const result = await generateObject({
           model: ctx.llmModel,
@@ -146,6 +132,8 @@ ${draft}
           passed,
           violations: result.object.violations,
           suggestions: result.object.suggestions,
+          promptIds: [criticReviewSystemPrompt.id, criticReviewUserPrompt.id],
+          promptVersions: [criticReviewSystemPrompt.version, criticReviewUserPrompt.version],
           usage: {
             promptTokens: result.usage.promptTokens,
             completionTokens: result.usage.completionTokens,
