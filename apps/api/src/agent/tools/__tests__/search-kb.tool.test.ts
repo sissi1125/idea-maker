@@ -30,7 +30,7 @@ function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
   };
 }
 
-const exec = async (toolObj: ReturnType<typeof buildSearchKbTool>, args: unknown) => {
+const exec = async (toolObj: ReturnType<ReturnType<typeof buildSearchKbTool>>, args: unknown) => {
   // ai-sdk Tool type 的 execute 是可选的；这里我们的实现保证存在
   return (
     toolObj.execute as (

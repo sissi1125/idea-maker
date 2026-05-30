@@ -19,7 +19,7 @@ function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
   };
 }
 
-const exec = async (toolObj: ReturnType<typeof buildSearchHistoryTool>, args: unknown) =>
+const exec = async (toolObj: ReturnType<ReturnType<typeof buildSearchHistoryTool>>, args: unknown) =>
   (
     toolObj.execute as (
       args: unknown,
