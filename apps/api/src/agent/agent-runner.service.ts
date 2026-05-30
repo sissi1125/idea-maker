@@ -101,7 +101,9 @@ export class AgentRunnerService {
     const budgetUsd = input.budgetUsd ?? DEFAULT_BUDGET_USD;
 
     // ── 1. 鉴权 + 加载项目配置 ────────────────────────────────────────────
-    await this.projects.get(input.userId, input.projectId); // 抛 404 即未授权
+    // get() 既校验 ownership（不属于用户抛 404）又拿到 project row，name 后面
+    // 注入 system prompt 让 LLM 知道"在为哪个项目工作"
+    const project = await this.projects.get(input.userId, input.projectId);
     const settings = await this.projects.getSettings(input.userId, input.projectId);
 
     // ── 2. 构造 LLM + embedding 客户端 ───────────────────────────────────
@@ -165,7 +167,8 @@ export class AgentRunnerService {
 
     // ── 7. 组装 system prompt（base + memory + rules + 早期摘要） ─────────
     const systemPrompt = agentSystemPrompt.render({
-      projectName: input.projectId, // TODO(task-8): 项目真实 name 而非 ID
+      // 走 projects.name，缺省时回落到 projectId（防 NULL/空字符串边界）
+      projectName: project.name?.trim() || input.projectId,
       memory: memoryEntries,
       platformRules,
       contextSummary,

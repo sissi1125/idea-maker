@@ -118,6 +118,43 @@ describe("AgentRunnerService 成功路径", () => {
     );
     expect(sse.emitFinish).toHaveBeenCalled();
   });
+
+  it("system prompt 注入项目真实 name（来自 projects.get）", async () => {
+    const { runner, projects } = makeRunner();
+    projects.get.mockResolvedValue({ id: "p", name: "护肤项目" });
+    const pg = makePg();
+    let capturedSystem: string | undefined;
+    generateTextMock.mockImplementationOnce(async ({ system }) => {
+      capturedSystem = system;
+      return {
+        text: "ok",
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1 },
+      };
+    });
+
+    await runner.run(pg as never, sampleInput);
+    expect(capturedSystem).toContain("护肤项目");
+    expect(capturedSystem).not.toContain("「p」"); // 不应回落到 projectId
+  });
+
+  it("project.name 为空时回落到 projectId", async () => {
+    const { runner, projects } = makeRunner();
+    projects.get.mockResolvedValue({ id: "p", name: "   " }); // 全空白
+    const pg = makePg();
+    let capturedSystem: string | undefined;
+    generateTextMock.mockImplementationOnce(async ({ system }) => {
+      capturedSystem = system;
+      return {
+        text: "ok",
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1 },
+      };
+    });
+
+    await runner.run(pg as never, sampleInput);
+    expect(capturedSystem).toContain("「p」"); // 回落到 projectId
+  });
 });
 
 describe("AgentRunnerService budget 路径", () => {
