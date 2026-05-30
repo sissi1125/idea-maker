@@ -61,6 +61,9 @@ function makeRunner() {
     emitError: vi.fn(),
   };
   const spillStorage = {};
+  const costs = {
+    recordGeneration: vi.fn().mockResolvedValue(undefined),
+  };
 
   const runner = new AgentRunnerService(
     projects as never,
@@ -72,8 +75,9 @@ function makeRunner() {
     repo as never,
     sse as never,
     spillStorage as never,
+    costs as never,
   );
-  return { runner, projects, llm, providers, memory, tools, contextManager, repo, sse };
+  return { runner, projects, llm, providers, memory, tools, contextManager, repo, sse, costs };
 }
 
 const sampleInput: AgentRunInput = {
@@ -138,6 +142,31 @@ describe("AgentRunnerService 成功路径", () => {
     expect(capturedSystem).not.toContain("「p」"); // 不应回落到 projectId
   });
 
+  it("成功收尾后调 costs.recordGeneration 写入 cost_summary", async () => {
+    const { runner, costs } = makeRunner();
+    const pg = makePg();
+    generateTextMock.mockImplementationOnce(async ({ onStepFinish }) => {
+      await onStepFinish({
+        text: "x",
+        toolCalls: [],
+        toolResults: [],
+        usage: { promptTokens: 100, completionTokens: 30 },
+      });
+      return {
+        text: "ok",
+        finishReason: "stop",
+        usage: { promptTokens: 100, completionTokens: 30 },
+      };
+    });
+
+    await runner.run(pg as never, sampleInput);
+    expect(costs.recordGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      "p", // projectId
+      expect.objectContaining({ costUsd: expect.any(Number) }),
+    );
+  });
+
   it("project.name 为空时回落到 projectId", async () => {
     const { runner, projects } = makeRunner();
     projects.get.mockResolvedValue({ id: "p", name: "   " }); // 全空白
@@ -200,6 +229,22 @@ describe("AgentRunnerService budget 路径", () => {
       expect.objectContaining({ finishReason: "budget" }),
     );
     expect(sse.emitFinish).toHaveBeenCalled();
+  });
+
+  it("budget 路径也调 recordGeneration（钱花了就要算账）", async () => {
+    const { runner, costs } = makeRunner();
+    const pg = makePg();
+    generateTextMock.mockImplementationOnce(async ({ onStepFinish }) => {
+      await onStepFinish({
+        text: "x",
+        toolCalls: [],
+        toolResults: [],
+        usage: { promptTokens: 10_000_000, completionTokens: 10_000_000 },
+      });
+      return { text: "", finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } };
+    });
+    await runner.run(pg as never, { ...sampleInput, budgetUsd: 0.0001 });
+    expect(costs.recordGeneration).toHaveBeenCalled();
   });
 
   it("budget 路径但无 chunks → 返回兜底文案不抛错", async () => {
@@ -281,6 +326,14 @@ describe("AgentRunnerService abort 路径", () => {
 
 describe("AgentRunnerService 系统异常路径", () => {
   beforeEach(() => generateTextMock.mockReset());
+
+  it("系统异常路径 NOT 调 recordGeneration（系统错算不清账，不污染 cost_summary）", async () => {
+    const { runner, costs } = makeRunner();
+    const pg = makePg();
+    generateTextMock.mockRejectedValueOnce(new Error("DB 故障"));
+    await expect(runner.run(pg as never, sampleInput)).rejects.toThrow(/Internal error/);
+    expect(costs.recordGeneration).not.toHaveBeenCalled();
+  });
 
   it("非预期错误 → 脱敏 'Internal error: xxx' + status='failed' + emit error", async () => {
     const { runner, repo, sse } = makeRunner();

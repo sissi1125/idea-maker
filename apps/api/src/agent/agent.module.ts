@@ -21,6 +21,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { PipelineModule } from "../pipeline/pipeline.module";
 import { ProjectsModule } from "../projects/projects.module";
+import { CostModule } from "../cost/cost.module";
 
 import { AgentController } from "./agent.controller";
 import { AgentRunnerService } from "./agent-runner.service";
@@ -32,7 +33,7 @@ import { MemoryReader } from "./memory-reader";
 import { SpillStorage } from "./spill-storage.service";
 
 @Module({
-  imports: [AuthModule, PipelineModule, ProjectsModule],
+  imports: [AuthModule, PipelineModule, ProjectsModule, CostModule],
   controllers: [AgentController],
   providers: [
     AgentRunnerService,

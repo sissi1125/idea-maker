@@ -29,6 +29,7 @@ import { generateText, type CoreMessage } from "ai";
 import { LlmService } from "../llm/llm.service";
 import { ProvidersService } from "../pipeline/providers.service";
 import { ProjectsService } from "../projects/projects.service";
+import { CostService } from "../cost/cost.service";
 
 import { AgentRunsRepository } from "./agent-runs.repository";
 import { AgentSseService } from "./agent-sse.service";
@@ -81,6 +82,7 @@ export class AgentRunnerService {
     private readonly repo: AgentRunsRepository,
     private readonly sse: AgentSseService,
     private readonly spillStorage: SpillStorage,
+    private readonly costs: CostService,
   ) {}
 
   /**
@@ -287,6 +289,8 @@ export class AgentRunnerService {
         finishReason,
       });
       await this.updateGenerationSuccess(pgClient, generationId, finalText, runId);
+      // 写 cost_summary 让 agent 跑的钱出现在项目级仪表盘（与 pipeline 路径共用 CostService）
+      await this.recordCostSummary(pgClient, input.projectId, cost.total);
 
       const output: AgentRunOutput = {
         runId,
@@ -299,7 +303,15 @@ export class AgentRunnerService {
       this.sse.emitFinish({ ...output, status: "succeeded" });
       return output;
     } catch (err) {
-      return await this.handleError(err, pgClient, runId, generationId, cost, stepIndex);
+      return await this.handleError(
+        err,
+        pgClient,
+        runId,
+        generationId,
+        input.projectId,
+        cost,
+        stepIndex,
+      );
     } finally {
       this.abortRegistry.delete(runId);
     }
@@ -339,6 +351,7 @@ export class AgentRunnerService {
     pgClient: PgClient,
     runId: string,
     generationId: string,
+    projectId: string,
     cost: CostTracker,
     stepIndex: number,
   ): Promise<AgentRunOutput> {
@@ -350,6 +363,8 @@ export class AgentRunnerService {
         finishReason: "budget",
       });
       await this.updateGenerationSuccess(pgClient, generationId, fallback, runId);
+      // 超 budget 的钱也是花掉的钱，照样入 cost_summary（账要算干净）
+      await this.recordCostSummary(pgClient, projectId, cost.total);
       const out: AgentRunOutput = {
         runId,
         generationId,
@@ -370,6 +385,8 @@ export class AgentRunnerService {
       });
       const partial = await this.buildFallbackText(pgClient, runId);
       await this.updateGenerationSuccess(pgClient, generationId, partial, runId);
+      // abort 前累计的 token 也是真花的，照入账
+      await this.recordCostSummary(pgClient, projectId, cost.total);
       const out: AgentRunOutput = {
         runId,
         generationId,
@@ -400,6 +417,36 @@ export class AgentRunnerService {
       eventId,
     });
     throw new Error(safeMessage);
+  }
+
+  /**
+   * 包一层 CostService.recordGeneration：
+   * - 只记 LLM token + cost，agent 不直接调 embedding/retrieval/rerank
+   *   （tool 内部 rag-core 会调；但那些 trace 由 rag-core 自己回填，agent 层不重复算）
+   * - **失败时静默吞错**：cost_summary 写失败不应该让用户拿不到生成结果。
+   *   错误进 Logger，运维侧追。
+   */
+  private async recordCostSummary(
+    pgClient: PgClient,
+    projectId: string,
+    costUsd: number,
+  ): Promise<void> {
+    try {
+      await this.costs.recordGeneration(pgClient, projectId, {
+        // TODO(精度)：CostTracker 当前只暴露累计 USD；token 分项可在 feat-300.5
+        //          eval 接入后扩展，agent 暂记 0 不影响汇总金额
+        llmTokensPrompt: 0,
+        llmTokensCompletion: 0,
+        embeddingCalls: 0,
+        retrievalCalls: 0,
+        rerankerCalls: 0,
+        costUsd,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `recordCostSummary failed (runId=N/A, projectId=${projectId}): ${(e as Error).message}`,
+      );
+    }
   }
 
   private isAbortError(err: unknown): boolean {
