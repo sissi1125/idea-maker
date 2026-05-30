@@ -9,9 +9,10 @@
 
 import { Module } from "@nestjs/common";
 import { AgentToolsService } from "./agent-tools.service";
+import { SpillStorage } from "./spill-storage.service";
 
 @Module({
-  providers: [AgentToolsService],
-  exports: [AgentToolsService],
+  providers: [AgentToolsService, SpillStorage],
+  exports: [AgentToolsService, SpillStorage],
 })
 export class AgentModule {}
