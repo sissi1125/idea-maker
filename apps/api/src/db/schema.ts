@@ -306,7 +306,7 @@ CREATE INDEX IF NOT EXISTS idx_notes_generation ON notes (generation_id);
  *
  * agent_runs：一次 Agent 跑的总账（订单表）
  *   - status：'running' → 'succeeded' | 'failed'
- *   - finish_reason：为什么停（done = LLM 自主结束 / max_steps / budget / error）
+ *   - finish_reason：为什么停（done = LLM 自主结束 / max_steps / budget / aborted = 用户中断 / error）
  *   - budget_usd / cost_used_usd：成本闸门，超 budget 触发 fallback
  *   - max_steps / steps_used：步数闸门，防 ReAct 死循环
  *   - eval_scores JSONB：本次 critic_review 最后一次评分（在线 runtime 评估）
@@ -349,7 +349,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   finished_at     TIMESTAMPTZ,
   CHECK (status IN ('running', 'succeeded', 'failed')),
-  CHECK (finish_reason IS NULL OR finish_reason IN ('done', 'max_steps', 'budget', 'error'))
+  CHECK (finish_reason IS NULL OR finish_reason IN ('done', 'max_steps', 'budget', 'aborted', 'error'))
 );
 CREATE INDEX IF NOT EXISTS idx_agent_runs_project ON agent_runs (project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_generation ON agent_runs (generation_id);
@@ -389,6 +389,46 @@ CREATE TABLE IF NOT EXISTS agent_memory (
   CHECK (confidence BETWEEN 0 AND 1)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_memory_project ON agent_memory (project_id, kind);
+`;
+
+/**
+ * feat-300.3 任务 4：扩展 agent_runs.finish_reason CHECK 增加 'aborted' 值。
+ *
+ * Postgres 不能直接 "ALTER CHECK"——必须 DROP + ADD。约束名是隐式生成的
+ * （类似 agent_runs_finish_reason_check），用 DO 块在运行时动态查名删除，
+ * 避免 Postgres 跨版本约束名约定差异。
+ *
+ * 幂等：DROP IF EXISTS + ADD（已存在的约束名两次跑安全）。新库已经在
+ * DDL_AGENT_RUNS 里加了正确 CHECK，本块对新库 no-op。
+ */
+export const DDL_AGENT_RUNS_ADD_ABORTED = `
+DO $$
+DECLARE
+  c_name text;
+BEGIN
+  -- 查找现有的 finish_reason CHECK 约束名
+  SELECT conname INTO c_name
+  FROM pg_constraint
+  WHERE conrelid = 'agent_runs'::regclass
+    AND contype = 'c'
+    AND pg_get_constraintdef(oid) ILIKE '%finish_reason%';
+
+  IF c_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE agent_runs DROP CONSTRAINT %I', c_name);
+  END IF;
+
+  -- 加新版 CHECK（包含 'aborted'）
+  ALTER TABLE agent_runs
+    ADD CONSTRAINT agent_runs_finish_reason_check
+    CHECK (finish_reason IS NULL OR finish_reason IN ('done', 'max_steps', 'budget', 'aborted', 'error'));
+EXCEPTION
+  WHEN undefined_table THEN
+    -- 新库还没有 agent_runs 表时本块 no-op，DDL_AGENT_RUNS 已用新版 CHECK
+    NULL;
+  WHEN duplicate_object THEN
+    -- 约束已存在（重复跑）no-op
+    NULL;
+END $$;
 `;
 
 /**
@@ -434,4 +474,6 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_AGENT_STEPS,
   DDL_AGENT_MEMORY,
   DDL_GENERATIONS_AGENT_RUN_ID,
+  // feat-300.3 task 4：扩展 finish_reason CHECK 加 'aborted'
+  DDL_AGENT_RUNS_ADD_ABORTED,
 ];
