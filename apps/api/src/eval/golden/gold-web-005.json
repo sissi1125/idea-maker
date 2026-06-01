@@ -1,0 +1,8 @@
+{
+  "id": "gold-web-005",
+  "query": "结合最近行业内的环保趋势，给我们的可持续包装策略写一段对外口径",
+  "expectedTools": ["search_web", "generate_draft", "critic_review"],
+  "referenceAnswer": "我们正以可循环 PCR 材料替换传统包装；2026 年起，主线产品瓶身 PCR 占比 60%，目标 2028 年 90%。同步建立逆向回收点，与第三方机构共建闭环——我们相信「可持续」首先是责任，其次才是叙事。",
+  "thresholds": { "faithfulness": 4, "completeness": 3, "style": 3 },
+  "meta": { "source": "manual", "tags": ["web", "esg", "corporate"] }
+}
