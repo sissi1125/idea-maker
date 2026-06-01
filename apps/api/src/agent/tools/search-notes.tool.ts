@@ -1,14 +1,14 @@
 /**
- * search_notes tool — feat-300.2 Phase 3.5
+ * search_notes tool — feat-300.2 + feat-300.4 升级
  *
  * 在用户的"笔记库"（精选/保存过的 generation 结果）中找近似内容。
  *
- * 当前实现：text 检索（标题 ILIKE + 内容 ILIKE + tags 包含）。
- * 未来（feat-300.4）：notes 表加 embedding vector(1024) 列 → pgvector 余弦检索。
- * 接入点在 NotesService（届时该 tool 改委托 notesService.searchByEmbedding()）。
+ * 检索策略（feat-300.4 实装）：
+ *   1) 优先委托 NotesService.searchByEmbedding（pgvector 余弦）
+ *   2) embedding 不可用（API 挂了 / 库里全 NULL）→ fallback ILIKE
  *
- * 为什么 text 检索是合格的 MVP：笔记数量级远小于 rag_chunks（每个项目几十~上百条），
- * ILIKE 全表扫描成本可控；语义匹配上限可以接受到 feat-300.4 升级。
+ * 为什么保留 ILIKE fallback：笔记可能在 embedding 列上线前已存在（NULL）；
+ * 此外 embedding 服务挂掉也不应阻塞 agent 调 search_notes —— 召回少总比报错好。
  */
 
 import { tool } from "ai";
@@ -17,6 +17,7 @@ import type { Client as PgClient } from "pg";
 import type { AgentToolContext, AgentToolFactory } from "./types";
 import { spillIfLarge } from "./util/spill-if-large";
 import type { SpillStorage } from "../spill-storage.service";
+import type { NotesService } from "../../notes/notes.service";
 
 const ParamsSchema = z.object({
   query: z.string().min(1).describe("检索关键词；建议用产品/主题名词"),
@@ -63,7 +64,10 @@ interface NoteSearchRow {
   created_at: Date;
 }
 
-export function buildSearchNotesTool(spillStorage: SpillStorage): AgentToolFactory {
+export function buildSearchNotesTool(
+  spillStorage: SpillStorage,
+  notesService: NotesService,
+): AgentToolFactory {
   return (ctx: AgentToolContext) =>
     tool({
     description: DESCRIPTION,
@@ -73,6 +77,39 @@ export function buildSearchNotesTool(spillStorage: SpillStorage): AgentToolFacto
       // tags 为空数组时传 null，避免 @> '{}'::text[] 永真匹配语义混淆
       const tagsParam = tags && tags.length > 0 ? tags : null;
 
+      // ── 1) 优先 pgvector 余弦检索 ────────────────────────────────────
+      const semantic = await notesService.searchByEmbedding(
+        ctx.projectId,
+        query,
+        effectiveLimit,
+        tagsParam,
+      );
+
+      if (semantic && semantic.length > 0) {
+        const okResult = {
+          status: "ok" as const,
+          query,
+          mode: "embedding" as const,
+          notes: semantic.map((r) => ({
+            id: r.id,
+            title: r.title,
+            contentPreview: r.content.slice(0, 300),
+            tags: r.tags,
+            createdAt: r.createdAt,
+            // distance 越小越相似（cosine distance）；展示给 LLM 评估相关性
+            distance: r.distance,
+          })),
+        };
+        return spillIfLarge(okResult, {
+          kind: "search_notes",
+          preview: (r) =>
+            r.notes.slice(0, 3).map((n) => `[${n.id}] ${n.title}`).join("\n"),
+          summary: (r) => ({ noteCount: r.notes.length, query: r.query, mode: r.mode }),
+          storage: spillStorage,
+        });
+      }
+
+      // ── 2) Fallback：ILIKE 文本检索（embedding 不可用 / 命中为空） ──
       const pg = ctx.pgClient as PgClient;
       const { rows } = await pg.query<NoteSearchRow>(SEARCH_SQL, [
         ctx.projectId,
@@ -92,6 +129,7 @@ export function buildSearchNotesTool(spillStorage: SpillStorage): AgentToolFacto
       const okResult = {
         status: "ok" as const,
         query,
+        mode: "ilike" as const,
         notes: rows.map((r) => ({
           id: r.id,
           title: r.title,

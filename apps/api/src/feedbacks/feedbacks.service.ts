@@ -10,17 +10,43 @@
  *     ↳ 跨用户提交别人 generation 的反馈直接 404，与 generation 详情同语义
  */
 
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { randomUUID } from "crypto";
 import { DbService } from "../db/db.service";
 import { GenerationsService } from "../generations/generations.service";
 import { FEEDBACK_DIMENSIONS, type FeedbackInput, type FeedbackRow } from "./feedbacks.types";
 
+/**
+ * Feedback 事件常量 — feat-300.4
+ *
+ * 解耦 feedback 写入与 memory 蒸馏：
+ *   - FeedbacksService 只负责 upsert + emit 事件
+ *   - MemoryDistiller @OnEvent 监听 → 累计 5 条触发 LLM 提炼
+ *
+ * 为什么 EventEmitter2 不直接 inject MemoryDistiller：避免循环依赖（MemoryDistiller
+ * 需要 FeedbacksService 读 feedback 详情）；事件总线让两个模块"互不知道对方"。
+ */
+export const FEEDBACK_EVENT = {
+  upserted: "feedback.upserted",
+} as const;
+
+export interface FeedbackUpsertedEvent {
+  projectId: string;
+  generationId: string;
+  feedbackId: string;
+  /** 这次是否包含 edit_diff（distill 主信号；事件订阅方可据此优先级排序） */
+  hasEditDiff: boolean;
+}
+
 @Injectable()
 export class FeedbacksService {
+  private readonly logger = new Logger(FeedbacksService.name);
+
   constructor(
     private readonly db: DbService,
     private readonly generations: GenerationsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   /** 提交或覆盖反馈，返回最新行。 */
@@ -31,7 +57,7 @@ export class FeedbacksService {
     }
     await this.generations.assertOwnedByUser(userId, generationId);
 
-    return this.db.withClient(async (client) => {
+    const row = await this.db.withClient(async (client) => {
       const id = randomUUID();
       const { rows } = await client.query(
         `INSERT INTO feedbacks
@@ -62,6 +88,34 @@ export class FeedbacksService {
       );
       return mapRow(rows[0] as DbFeedbackRow);
     });
+
+    // 发事件之前补 projectId（feedback 表本身不存 projectId，靠 generation 反查）
+    // 单独一次查询：避免把上面的 INSERT/RETURNING 改成 JOIN（保持 upsert 语义清晰）
+    let projectId: string | null = null;
+    try {
+      projectId = await this.db.withClient(async (client) => {
+        const r = await client.query<{ project_id: string }>(
+          `SELECT project_id FROM generations WHERE id = $1`,
+          [generationId],
+        );
+        return r.rows[0]?.project_id ?? null;
+      });
+    } catch (err) {
+      this.logger.warn(`feedback.upserted 事件 projectId 反查失败: ${(err as Error).message}`);
+    }
+
+    if (projectId) {
+      const evt: FeedbackUpsertedEvent = {
+        projectId,
+        generationId,
+        feedbackId: row.id,
+        hasEditDiff: !!row.editDiff?.trim(),
+      };
+      // emit 异步出去；订阅方（MemoryDistiller）出错不影响 feedback 写入响应
+      this.events.emit(FEEDBACK_EVENT.upserted, evt);
+    }
+
+    return row;
   }
 
   /** 查询指定 generation 的反馈；不存在返回 null（而非 404）。 */

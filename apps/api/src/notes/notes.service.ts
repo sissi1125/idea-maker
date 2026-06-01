@@ -12,9 +12,12 @@
  *   - update 不传字段 → SQL set 该字段保持原值，不影响其他列。
  */
 
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import { embedSingleText } from "@harness/rag-core";
+import type OpenAI from "openai";
 import { DbService } from "../db/db.service";
+import { ProvidersService } from "../pipeline/providers.service";
 import type { CreateNoteInput, NoteRow, UpdateNoteInput } from "./notes.types";
 
 interface DbNoteRow {
@@ -45,7 +48,46 @@ const COLS = `id, project_id, generation_id, title, content, tags, created_at, u
 
 @Injectable()
 export class NotesService {
-  constructor(private readonly db: DbService) {}
+  private readonly logger = new Logger(NotesService.name);
+
+  constructor(
+    private readonly db: DbService,
+    private readonly providers: ProvidersService,
+  ) {}
+
+  /**
+   * 算 note 的 embedding 向量（feat-300.4）。
+   *
+   * 失败兜底：返回 null 而非抛错——embedding 是检索时的优化，写入时如果
+   * embedding 服务挂掉不应该阻塞用户保存笔记。NULL 的笔记 search_notes tool
+   * 走 ILIKE fallback。
+   *
+   * 输入策略：title + "\n" + content 前 2KB 拼接。title 给重要权重（被截前），
+   * content 截短避免 OpenAI token 上限。
+   */
+  private async computeEmbedding(title: string, content: string): Promise<number[] | null> {
+    try {
+      const cfg = this.providers.createEmbeddingClient();
+      const text = `${title}\n${content.slice(0, 2000)}`;
+      const vec = await embedSingleText(
+        text,
+        cfg.defaultModel,
+        cfg.defaultDimension,
+        cfg.client as unknown as OpenAI,
+      );
+      return vec;
+    } catch (err) {
+      this.logger.warn(
+        `[notes] embedding 计算失败，落 NULL，search_notes 走 ILIKE fallback: ${(err as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /** pgvector 把 number[] 序列化成字符串字面量 '[1,2,3]' */
+  private toVectorLiteral(vec: number[]): string {
+    return `[${vec.join(",")}]`;
+  }
 
   /** owner 校验：项目必须属于当前用户 */
   private async assertOwner(userId: string, projectId: string): Promise<void> {
@@ -81,13 +123,15 @@ export class NotesService {
     }
 
     const id = randomUUID();
+    // 先算 embedding（外部 IO，放在 withClient 之外避免独占 DB 连接）
+    const embedding = await this.computeEmbedding(input.title.trim(), input.content);
     return this.db.withClient(async (client) => {
       const { rows } = await client.query<DbNoteRow>(
-        `INSERT INTO notes (id, project_id, generation_id, title, content, tags)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO notes (id, project_id, generation_id, title, content, tags, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::vector)
          RETURNING ${COLS}`,
         [id, projectId, input.generationId ?? null, input.title.trim(),
-         input.content, input.tags ?? []],
+         input.content, input.tags ?? [], embedding ? this.toVectorLiteral(embedding) : null],
       );
       return mapRow(rows[0]);
     });
@@ -162,6 +206,27 @@ export class NotesService {
     if (updates.length === 0) {
       throw new BadRequestException("至少提供一个要更新的字段");
     }
+
+    // feat-300.4：title / content 变更时同步刷新 embedding
+    // tags 改了不重算（语义不变，省一次 embedding 调用）
+    if (input.title !== undefined || input.content !== undefined) {
+      // 拿到完整 title+content（缺的那个用 DB 现有值）
+      const current = await this.db.withClient(async (client) => {
+        const { rows } = await client.query<{ title: string; content: string }>(
+          `SELECT title, content FROM notes WHERE id = $1 AND project_id = $2`,
+          [noteId, projectId],
+        );
+        return rows[0];
+      });
+      if (current) {
+        const newTitle = input.title !== undefined ? input.title.trim() : current.title;
+        const newContent = input.content !== undefined ? input.content : current.content;
+        const embedding = await this.computeEmbedding(newTitle, newContent);
+        updates.push(`embedding = $${p++}::vector`);
+        values.push(embedding ? this.toVectorLiteral(embedding) : null);
+      }
+    }
+
     updates.push("updated_at = NOW()");
     values.push(noteId, projectId);
 
@@ -174,6 +239,40 @@ export class NotesService {
       );
       if (rows.length === 0) throw new NotFoundException("笔记不存在");
       return mapRow(rows[0]);
+    });
+  }
+
+  /**
+   * pgvector 余弦检索（feat-300.4 升级 search_notes tool）。
+   *
+   * 行为：
+   *   - 传 query 文本进来，本地算 embedding，按 1 - (embedding <=> q) 排序取 topK
+   *   - 当某条 note.embedding 为 NULL（embedding 服务挂过）时跳过——这条只能 ILIKE 召回
+   *   - 调用方拿到 ID 列表后再按需取 content（避免向量列大字段传输）
+   *
+   * 注意：embedding 服务挂掉时返回 null，调用方应 fallback 走 ILIKE。
+   */
+  async searchByEmbedding(
+    projectId: string,
+    query: string,
+    limit: number,
+    tags?: string[] | null,
+  ): Promise<Array<NoteRow & { distance: number }> | null> {
+    const vec = await this.computeEmbedding(query, "");
+    if (!vec) return null;
+    const tagsParam = tags && tags.length > 0 ? tags : null;
+    return this.db.withClient(async (client) => {
+      const { rows } = await client.query<DbNoteRow & { distance: string }>(
+        `SELECT ${COLS}, (embedding <=> $2::vector) AS distance
+         FROM notes
+         WHERE project_id = $1
+           AND embedding IS NOT NULL
+           AND ($3::text[] IS NULL OR tags @> $3::text[])
+         ORDER BY embedding <=> $2::vector
+         LIMIT $4`,
+        [projectId, this.toVectorLiteral(vec), tagsParam, limit],
+      );
+      return rows.map((r) => ({ ...mapRow(r), distance: Number(r.distance) }));
     });
   }
 

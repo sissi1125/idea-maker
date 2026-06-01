@@ -23,6 +23,7 @@ import { PipelineModule } from "../pipeline/pipeline.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { CostModule } from "../cost/cost.module";
 import { PlatformRulesModule } from "../platform-rules/platform-rules.module";
+import { NotesModule } from "../notes/notes.module";
 
 import { AgentController } from "./agent.controller";
 import { AgentRunnerService } from "./agent-runner.service";
@@ -34,7 +35,7 @@ import { MemoryReader } from "./memory-reader";
 import { SpillStorage } from "./spill-storage.service";
 
 @Module({
-  imports: [AuthModule, PipelineModule, ProjectsModule, CostModule, PlatformRulesModule],
+  imports: [AuthModule, PipelineModule, ProjectsModule, CostModule, PlatformRulesModule, NotesModule],
   controllers: [AgentController],
   providers: [
     AgentRunnerService,
@@ -50,6 +51,8 @@ import { SpillStorage } from "./spill-storage.service";
     SpillStorage,
     AgentRunsRepository,
     AgentSseService,
+    // feat-300.5：EvalRunner 直接调 AgentRunnerService.run
+    AgentRunnerService,
   ],
 })
 export class AgentModule {}
