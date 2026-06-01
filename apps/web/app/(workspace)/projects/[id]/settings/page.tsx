@@ -40,6 +40,8 @@ import type { ProjectSettings } from "@/lib/api";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { PlatformRulesManager } from "@/components/platform-rules/PlatformRulesManager";
 import { useToast } from "@/components/toast/ToastProvider";
+import { Tabs } from "@/components/common/Tabs";
+import { MemoryPanel } from "@/components/memory/MemoryPanel";
 
 // ── 常量：下拉选项 ──────────────────────────────────────────────────────────
 
@@ -557,9 +559,21 @@ export default function ProjectSettingsPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-5">
-          {/* ── Section 1: LLM 配置 ────────────────────────────────── */}
-          <Section icon={Cpu} title="LLM 配置" desc="选择大模型供应商、模型和生成参数">
+        {/* feat-300.6：Tab 化重构。LLM/思考/RAG/平台规则 保留为受控表单（共用 isDirty 保存），
+            Memory tab 独立组件，自己管 CRUD。Eval 已搬到 /projects/[id]/eval 顶级路由。
+            URL ?tab= 同步：可分享 deep link + 刷新保留 */}
+        <Tabs
+          tabs={[
+            { id: "llm", label: "LLM 配置" },
+            { id: "thinking", label: "思考深度" },
+            { id: "rag", label: "RAG 策略" },
+            { id: "platform", label: "平台规则" },
+            { id: "memory", label: "AI 偏好" },
+          ]}
+          defaultTab="llm"
+          children={{
+            llm: (
+              <Section icon={Cpu} title="LLM 配置" desc="选择大模型供应商、模型和生成参数">
             <Field label="Provider" hint="选择 LLM 供应商，留空则使用系统默认（需后端已配置 OPENAI_API_KEY）">
               <SelectInput value={form.provider} onChange={handleProviderChange} options={PROVIDERS} />
             </Field>
@@ -619,9 +633,9 @@ export default function ProjectSettingsPage() {
               </Field>
             </div>
           </Section>
-
-          {/* ── Section 2: 思考深度 ──────────────────────────────── */}
-          <Section icon={Brain} title="思考深度" desc="控制 Agent 推理和评估的精细程度">
+            ),
+            thinking: (
+              <Section icon={Brain} title="思考深度" desc="控制 Agent 推理和评估的精细程度">
             <Field label="Thinking Depth" hint="深度越高，质量越好但耗时更长、成本更高">
               <SelectInput value={form.thinkingDepth} onChange={(v) => set("thinkingDepth", v)} options={THINKING_DEPTHS} />
             </Field>
@@ -650,14 +664,14 @@ export default function ProjectSettingsPage() {
               </table>
             </div>
           </Section>
-
-          {/* ── Section 3: RAG 策略（只读） ──────────────────────── */}
-          <Section
-            icon={Layers}
-            title="RAG 策略"
-            desc="从文档入库到内容生成的完整 pipeline 各阶段方法"
-            badge="只读"
-          >
+            ),
+            rag: (
+              <Section
+                icon={Layers}
+                title="RAG 策略"
+                desc="从文档入库到内容生成的完整 pipeline 各阶段方法"
+                badge="只读"
+              >
             {/* 说明 */}
             <div
               className="rounded-lg p-3 text-[12px] leading-relaxed flex items-start gap-2"
@@ -692,22 +706,28 @@ export default function ProjectSettingsPage() {
               stages={GENERATION_STAGES}
               accentColor="#F59E0B"
             />
-          </Section>
-
-          {/*
-            ── Section 4：平台规则（feat-200.8 实装） ──────────────────────
-            定义本项目产出内容的平台合规约束。Chat 主界面发起 generate 时
-            可勾选启用，后端在 prompt-build 注入规则、generation 完成后跑
-            后置 validator 返回 violations。
-          */}
-          <Section
-            icon={ShieldCheck}
-            title="平台规则"
-            desc="定义产出内容的平台合规约束。Chat 提问时可选启用，生成后会自动检查合规性"
-          >
-            <PlatformRulesManager />
-          </Section>
-        </div>
+              </Section>
+            ),
+            platform: (
+              <Section
+                icon={ShieldCheck}
+                title="平台规则"
+                desc="定义产出内容的平台合规约束。Chat 提问时可选启用，生成后会自动检查合规性"
+              >
+                <PlatformRulesManager />
+              </Section>
+            ),
+            memory: (
+              <Section
+                icon={Brain}
+                title="AI 学到的偏好"
+                desc="AI 从你的反馈中自动学习的偏好，下次生成时会主动遵守。可手动编辑/删除。"
+              >
+                <MemoryPanel projectId={projectId} />
+              </Section>
+            ),
+          }}
+        />
       </div>
     </main>
   );

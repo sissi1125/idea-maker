@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "Phase 3.5 真 Agent 进度：feat-300.1 / 300.2 / 300.3 / 300.4 / 300.5 全部 done；feat-300.6 MVP scope（任务 0-7）done 并端到端跑通（GLM + ollama bge-m3 实测）。前端接入 Agent 模式 toggle + SSE trace 时间轴。调试链路上发现并修复 5 个真实 bug（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）全部入 .interview/feat-300.6_frontend.md。MemoryPanel / EvalReport / Settings Tab 化进行中。next：feat-300.6 任务 8-10（MemoryPanel + EvalReport + Settings Tab）→ feat-300.7（LangGraph 文档 + smoke）。",
+      "current": "Phase 3.5 真 Agent 进度：feat-300.1 / 300.2 / 300.3 / 300.4 / 300.5 / 300.6 全部 done。300.6 含端到端跑通（GLM + ollama bge-m3）+ AgentTracePanel + MemoryPanel + EvalReport（独立 /eval 路由 + 自建 SVG 趋势图 + Drawer）+ Settings Tab 化（LLM/思考/RAG/平台/Memory 五标签 URL 同步）+ sidebar 加 Eval 入口。调试链路 5 个真实 bug 全修（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）。199 单测全过，typecheck 干净。next：feat-300.7（LangGraph 文档 + smoke）。",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
@@ -626,8 +626,8 @@
       "track": "A-main",
       "description": "新增：apps/web/lib/api/{agent,memory,eval}.ts（API client）+ useEventSourceWithReplay hook（SSE + 历史回放 + watchdog + 重连）+ useAgentRun hook + AgentStepCard 5 类多态渲染 + AgentCostBar + AgentAbortButton + AgentTracePanel 时间轴。ui-store agentModeEnabled 默认开。Chat 页接入 Agent 模式 toggle 路由分支。MemoryPanel.tsx（Settings 页「AI 学到的偏好」Tab）+ EvalReport.tsx（独立 /eval 路由趋势图）+ Settings Tab 化（任务 8-10）。",
       "dependencies": ["feat-300.5"],
-      "status": "in-progress",
-      "evidence": "2026-06-01 MVP scope（任务 0-7）完成。新增 apps/web/lib/api/{agent,memory,eval}.ts + index re-export。新增 apps/web/lib/hooks/{useEventSourceWithReplay,useAgentRun}.ts：SSE + stepIndex 去重 + 历史 fetch 回放 + 45s watchdog 自动重连 + 最大 3 次重连限制。新增 apps/web/components/agent/{AgentStepCard,AgentCostBar,AgentAbortButton,AgentTracePanel}.tsx：5 种 stepType 多态 + reasoning markdown + 长文本 max-h overflow + budget 进度条三段颜色 + 二次确认 inline confirm + 自动滚到底（用户上滚暂停 sticky）。新增 apps/web/lib/stores/ui-store.ts（zustand persist，agentModeEnabled 默认 true）。Chat 页接入 Agent 模式 toggle：runAgent → 拿 runId → AgentTracePanel 实时展示 → finish 回调切 done。typecheck + lint 全过。待办：MemoryPanel（任务 8）/ EvalReport + 独立路由（任务 9）/ Settings Tab 化（任务 10）/ hook 单测（vitest 接入）。"
+      "status": "done",
+      "evidence": "2026-06-01 完整 done。MVP scope（任务 0-7）：apps/web/lib/api/{agent,memory,eval}.ts API client + index re-export；apps/web/lib/hooks/{useEventSourceWithReplay,useAgentRun}.ts SSE + stepIndex 去重 + 历史 fetch 回放 + 45s watchdog + 最多 3 次重连 + ref 隔离防 effect 假重启；apps/web/components/agent/{AgentStepCard,AgentCostBar,AgentAbortButton,AgentTracePanel}.tsx 5 种 stepType 多态 + reasoning markdown + 长文本 max-h overflow + budget 进度条三段颜色 + inline 二次确认 + 自动滚到底；apps/web/lib/stores/ui-store.ts zustand persist agentModeEnabled 默认 true；Chat 页接入 Agent 模式 toggle 路由分支 + 经典模式 fallback。任务 8-10：apps/web/components/common/Tabs.tsx URL 同步受控；apps/web/components/memory/{KindBadge,MemoryRow,MemoryPanel}.tsx 4 kind 分组 + 行内编辑悲观更新 + 顶部 lastDistilledAt 自动学习时间 + 高级折叠区 Distill 按钮（4 态 toast + 5s cooldown）；apps/web/components/eval/{EvalTrendChart,EvalRunDrawer,EvalReport}.tsx 自建 SVG 折线图（零依赖）+ Drawer 详情 + 立即运行按钮（同步阻塞 + 30s 进度提示）；apps/web/app/(workspace)/projects/[id]/eval/page.tsx 独立顶级路由 + sidebar 加 Eval 入口；Settings 页 Tab 化（LLM/思考/RAG/平台/Memory 五标签）。e2e 跑通：GLM glm-4-flash + ollama bge-m3，POST /agent/run 142ms 返回，SSE 实时流，finish 后无 reconnect。调试链 5 个真实 bug 全修并入 .interview/feat-300.6_frontend.md（题 9-13）：Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态（ReplaySubject）/ close 副作用触发 onerror 误判（finishedRef 三重防御）/ useEffect deps 不稳定（ref 隔离 doConnect 等 helpers）。199 单测全过，typecheck 干净。"
     },
     {
       "id": "feat-300.7",

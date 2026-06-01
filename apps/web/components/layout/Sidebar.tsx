@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  MessageSquare, Upload, Clock, Settings, BookOpen,
+  MessageSquare, Upload, Clock, Settings, BookOpen, Activity,
   Folder, ChevronDown, Check, DollarSign, LogOut,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -26,6 +26,8 @@ const NAV_ITEMS = [
   { id: "knowledge",label: "知识库",   icon: Upload,        path: "/knowledge" },
   { id: "history",  label: "生成历史", icon: Clock,         path: "/history" },
   { id: "notes",    label: "笔记库",   icon: BookOpen,      path: "/notes" },
+  // feat-300.6：Eval 报告独立顶级路由（质量监控不是项目设置）
+  { id: "eval",     label: "评估报告", icon: Activity,      path: "/eval" },
   { id: "settings", label: "项目设置", icon: Settings,      path: "/settings" },
 ] as const;
 
