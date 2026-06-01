@@ -56,6 +56,8 @@ describe("search_kb spill 集成", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      // feat-300.6：search_kb 要求 ctx.options.embeddingModel/Dimension（fail loud）
+      options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
     // text 会被截到 200 字，所以小 payload 不触发 spill。这就是测试要确认的：
     // 截断 + spill 协同后，正常路径无 spill。
@@ -108,7 +110,10 @@ describe("search_notes spill 集成", () => {
         created_at: new Date("2026-05-01"),
       })),
     });
-    const t = buildSearchNotesTool(storage as never)({
+    // feat-300.4：tool 还接 NotesService（embedding 检索）；这里测 ILIKE 路径，
+    // 让 searchByEmbedding 返回 null 走 fallback
+    const fakeNotes = { searchByEmbedding: vi.fn().mockResolvedValue(null) } as never;
+    const t = buildSearchNotesTool(storage as never, fakeNotes)({
       projectId: "p",
       userId: "u",
       runId: "r",
@@ -116,6 +121,8 @@ describe("search_notes spill 集成", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      // feat-300.6：search_kb 要求 ctx.options.embeddingModel/Dimension（fail loud）
+      options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
     const out = (await (
       t.execute as (a: unknown, o: { toolCallId: string; messages: [] }) => Promise<unknown>

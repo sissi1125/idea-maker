@@ -67,17 +67,22 @@ export class AgentController {
   ) {}
 
   /**
-   * 启动 agent run。
+   * 启动 agent run（feat-300.6 修复：真正的非阻塞启动）。
    *
-   * 同步返回 runId + generationId 后客户端再连 GET /stream 看 SSE。
-   * 这是"POST 启动 + GET 流"的两步式分离设计——浏览器 EventSource 不支持
-   * POST body 所以必须分离（feat-300.3-plan HTTP 接口契约）。
+   * 设计：POST 启动 + GET /stream 流——这是 EventSource 不支持 POST body 的标准绕过。
    *
-   * 注意：本端点 await 整个 run 跑完才返回——但前端不需要等待这个 response，
-   * 真正的实时输出走 SSE。这样设计是因为：
-   *   - 不等 run 跑完直接返回 → 主请求结束 = process 想退出 = ai-sdk 被 kill
-   *   - 等 run 跑完才返回 → response payload 有完整结果，客户端 SSE 已经看完
-   *   后续考虑改用 process.nextTick 触发后台任务，但 MVP 同步阻塞够用。
+   * **关键修复**（vs 原实现）：原 `runner.run` 阻塞到整个 ReAct 跑完才返回 → 前端
+   * 拿到 runId 时 run 已结束 → SSE 流空。
+   *
+   * 现在用 `runner.startInBackground`：
+   *   - 几十毫秒内（仅等 createRun DB 写入）返回 { runId, generationId }
+   *   - 余下 ReAct 在后台进程跑（Node 单进程，promise chain 不被 GC，进程不会因
+   *     主请求结束而退出——这是 Node async 模型的天然属性）
+   *   - SSE 事件持续推；DELETE /runs/:id 仍可 abort
+   *
+   * 错误语义：
+   *   - 在 ids ready 之前的错误（鉴权/settings/memory 加载失败）→ 冒泡到本 HTTP 响应
+   *   - ids ready 之后的错误 → 后端记 agent_runs.error + 通过 SSE error 帧推前端
    */
   @Post("run")
   @UseGuards(JwtAuthGuard)
@@ -97,7 +102,7 @@ export class AgentController {
       maxSteps: body.maxSteps,
       modelOverride: body.modelOverride,
     };
-    return this.db.withClient((pgClient) => this.runner.run(pgClient, input));
+    return this.runner.startInBackground(input);
   }
 
   /**
