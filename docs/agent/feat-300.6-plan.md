@@ -6,6 +6,32 @@
 
 ---
 
+## 📌 实施回顾（2026-06-01）
+
+MVP scope（任务 0-7）端到端跑通：GLM `glm-4-flash` + ollama `bge-m3`，POST `/agent/run` 142ms 返回 runId，
+SSE 实时流，finish 后无 reconnect。199 单测全过，typecheck 干净。
+
+**实施过程中暴露 5 个真实 bug，全部修复并入 .interview/feat-300.6_frontend.md 面试题 #9-#13**：
+
+| Bug | 表现 | 根因 | 修复 |
+|---|---|---|---|
+| #9  | search_kb 404 `text-embedding-v4` not found | 配置默认值散落 3 处，Provider 抽象漏抽 | AgentRunner 透传 ctx.options.embeddingModel/Dimension；search-kb 删 hardcode fallback → fail loud |
+| #10 | UI 卡"启动中"，POST 阻塞 60s | 注释说异步实则 await 整个 ReAct | `runner.startInBackground` + `run() onIdsReady hook` |
+| #11 | UI 仍空 + SSE reconnect 死循环 | `fromEvent` Pub-Sub 竞态，订阅前 emit 丢失 | `ReplaySubject` per-runId 缓冲 + 60s TTL |
+| #12 | finish 后仍 reconnect | `closeStream` 置 null → `null?.readyState !== CLOSED` 误判 | `finishedRef` 终态标记 + 三重防御（unmount / finished / stale-closure） |
+| #13 | effect 跑 2294 次 | useEffect deps 含 doConnect，doConnect 依赖 inline callback | ref 隔离 doConnect/mergeHistory/closeStream，effect deps 只留 `[enabled,connect,fetchHistory]` |
+
+**调试链路特点**：
+- 修了 N 才能看到 N+1 —— 5 层洋葱式 bug，每层修完下一层才浮现
+- 199 单测全过但产品全炸 —— 单测只验 unit correctness，不验 system correctness
+- 加 `console.log` 抓 effect 调用次数是 #13 的破案关键
+
+详见 [.interview/feat-300.6_frontend.md](../.interview/feat-300.6_frontend.md) 题 #9-#13。
+
+**MVP 剩余（任务 8-10）**：MemoryPanel / EvalReport 独立路由 / Settings Tab 化。
+
+---
+
 ## 1. 范围与目标
 
 把 300.1–300.5 攒下的后端能力暴露给前端，让"透明可观测"成为项目可演示的卖点。新增：
