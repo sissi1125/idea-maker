@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "Phase 3.5 真 Agent 进度：feat-300.1（Schema+LLM 层）/ 300.2（8 个 Tools）/ 300.3（AgentRunner ReAct 主循环 + 完整可观测 + 错误处理 + Spill + Prompt 体系）全部 done。180 单测全过，agent 端到端可跑。next：feat-300.4（Memory 子系统：MemoryDistiller + notes embedding + UI）。",
+      "current": "Phase 3.5 真 Agent 进度：feat-300.1 / 300.2 / 300.3 / 300.4 / 300.5 全部 done；feat-300.6 MVP scope（任务 0-7）done 并端到端跑通（GLM + ollama bge-m3 实测）。前端接入 Agent 模式 toggle + SSE trace 时间轴。调试链路上发现并修复 5 个真实 bug（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）全部入 .interview/feat-300.6_frontend.md。MemoryPanel / EvalReport / Settings Tab 化进行中。next：feat-300.6 任务 8-10（MemoryPanel + EvalReport + Settings Tab）→ feat-300.7（LangGraph 文档 + smoke）。",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
@@ -606,8 +606,8 @@
       "track": "A-main",
       "description": "apps/api/src/memory/：memory.service.ts（CRUD agent_memory）+ memory-reader.ts（loadProjectMemory → 分组注入 system prompt）+ memory-distiller.ts（feedbacks → LLM 提炼偏好 → upsert agent_memory，edit_diff 作为核心信号，自动触发：每 5 条新 feedback @OnEvent）+ memory.controller.ts（REST CRUD + POST /memory/distill 手动触发）。notes.service.ts 加 embedding 列（vector 1024），search_notes tool 用 pgvector 检索。",
       "dependencies": ["feat-300.3"],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-30 完成。新增 apps/api/src/memory/（service+distiller+controller+module+types），含 agent_memory CRUD + UpsertDistilled（同 content 内存级判重、confidence 取大、source_feedback_ids 合并）；MemoryDistiller @OnEvent('feedback.upserted')，水位线 last_distilled_at 累计 5 条触发，edit_diff 优先排序；apps/api/src/agent/prompts/memory/distill.prompt.ts（v1，强 JSON-only 输出 + 四类 kind）；FeedbacksService.upsert 发 'feedback.upserted' 事件（含 hasEditDiff 标志）；notes 表加 vector(1024) 列 + HNSW cosine 索引；NotesService.computeEmbedding 写时刷 embedding（IO 失败落 NULL 不阻塞写入），新增 searchByEmbedding pgvector 检索；search_notes tool 升级双路径（embedding 优先，ILIKE fallback）。REST：GET/POST/PATCH/DELETE/POST distill 共 5 个端点。MemoryModule 注册到 app.module。typecheck 干净 + 187 单测全过（含 distill prompt 快照、MemoryService.upsertDistilled merge 语义）。"
     },
     {
       "id": "feat-300.5",
@@ -616,18 +616,18 @@
       "track": "A-main",
       "description": "apps/api/src/eval/：golden/ 目录存 20-30 条 (query, expected_tools, reference_answer, thresholds) 三元组。eval-runner.ts：对每条 golden item 跑完整 agent，LLM-as-judge 打分（faithfulness/completeness/style），比对 trajectory（expected_tools vs agent_steps 实际调用）。pnpm eval 命令，CI 集成：平均分下降超阈值则 fail。高评分 feedback（overall≥4 + edit_diff 非空）半自动加入 golden set，形成 feedbacks→memory 和 feedbacks→eval 双闭环。",
       "dependencies": ["feat-300.4"],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-05-30 完成。新增 apps/api/src/eval/（types + golden-loader + trajectory-match + eval.repository + eval-runner.service + eval.service + eval.controller + eval.module），golden/ 目录 5 条 sample（含 rag/compete/history/notes/web 五类场景）。LLM-as-judge prompt v1（三维 faithfulness/completeness/style 1-5 + 锚点 + rationale 必填）。trajectoryMatch 集合相似度（precision/recall/jaccard/fullCover）解释见 trajectory-match.ts 注释。DDL 新增 eval_runs / eval_items 双表，eval_runs 含 baseline_run_id 自动指向上次 succeeded 用于 delta 对比 + threshold_drop 持久化。REST：POST /eval/run（同步阻塞返回 summary）/ GET /eval/runs / GET /eval/runs/:id / POST /eval/golden/from-feedback/:generationId（仅 overall>=4 可入，edit_diff 优先做 reference，expectedTools 从 agent_steps 自动反推）。scripts/eval.ts + pnpm eval CLI 输出 markdown 报告 + 退出码 0/1/2（CI 集成关键）。199 单测全过（含 trajectory 6 场景、judge prompt 快照、golden-loader 异常路径）。"
     },
     {
       "id": "feat-300.6",
-      "name": "前端 AgentTracePanel + MemoryPanel + SSE",
+      "name": "前端 AgentTracePanel + MemoryPanel + EvalReport + SSE",
       "phase": "3.5",
       "track": "A-main",
-      "description": "新增：apps/web/lib/api/agent.ts（runAgent SSE 客户端 + run/steps 查询）。AgentTracePanel.tsx（按 step 时间轴展示 reasoning + tool calls + observations，项目最佳卖点 UI）。MemoryPanel.tsx（Settings 页「AI 学到的偏好」Tab，列出 agent_memory，可编辑/删除/触发 distill）。EvalReport.tsx（Settings 页最近 eval 报告各维度得分趋势）。Chat 页 Generate 按钮加「Agent 模式」toggle（默认开，开走 /agent/run，关走老 /generate）。",
+      "description": "新增：apps/web/lib/api/{agent,memory,eval}.ts（API client）+ useEventSourceWithReplay hook（SSE + 历史回放 + watchdog + 重连）+ useAgentRun hook + AgentStepCard 5 类多态渲染 + AgentCostBar + AgentAbortButton + AgentTracePanel 时间轴。ui-store agentModeEnabled 默认开。Chat 页接入 Agent 模式 toggle 路由分支。MemoryPanel.tsx（Settings 页「AI 学到的偏好」Tab）+ EvalReport.tsx（独立 /eval 路由趋势图）+ Settings Tab 化（任务 8-10）。",
       "dependencies": ["feat-300.5"],
-      "status": "todo",
-      "evidence": ""
+      "status": "in-progress",
+      "evidence": "2026-06-01 MVP scope（任务 0-7）完成。新增 apps/web/lib/api/{agent,memory,eval}.ts + index re-export。新增 apps/web/lib/hooks/{useEventSourceWithReplay,useAgentRun}.ts：SSE + stepIndex 去重 + 历史 fetch 回放 + 45s watchdog 自动重连 + 最大 3 次重连限制。新增 apps/web/components/agent/{AgentStepCard,AgentCostBar,AgentAbortButton,AgentTracePanel}.tsx：5 种 stepType 多态 + reasoning markdown + 长文本 max-h overflow + budget 进度条三段颜色 + 二次确认 inline confirm + 自动滚到底（用户上滚暂停 sticky）。新增 apps/web/lib/stores/ui-store.ts（zustand persist，agentModeEnabled 默认 true）。Chat 页接入 Agent 模式 toggle：runAgent → 拿 runId → AgentTracePanel 实时展示 → finish 回调切 done。typecheck + lint 全过。待办：MemoryPanel（任务 8）/ EvalReport + 独立路由（任务 9）/ Settings Tab 化（任务 10）/ hook 单测（vitest 接入）。"
     },
     {
       "id": "feat-300.7",
