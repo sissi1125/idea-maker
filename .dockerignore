@@ -1,20 +1,47 @@
+# 构建上下文排除（feat-013.5 ECS 部署 + 既有 dev 配置合并）
+
+# 依赖（镜像内重新装）
 node_modules
 **/node_modules
-.git
-.github
+**/.pnpm-store
+
+# 编译产物
 .next
 **/.next
 dist
 **/dist
-*.log
+**/tsconfig.tsbuildinfo
+
+# Git
+.git
+.github
+
+# 本地 env（生产 env 通过 docker compose 注入）
 .env
 .env.*
 !.env.example
+!**/.env.example
+!.env.production.example
+
+# 本地数据
 apps/web/data/documents.json
 apps/api/data/uploads
+apps/api/data/agent-spills
+
+# Claude / 工作树元数据
 .claude
+.claude.local.json
+
+# 大文件夹
 docs/SESSION-*
 .interview
 progress.md
 session-handoff.md
-README.md
+
+# Logs / OS 噪声
+*.log
+.DS_Store
+*.swp
+
+# Smoke / scripts（容器里不跑）
+scripts/eval-matrix
