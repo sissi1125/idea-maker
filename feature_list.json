@@ -4,7 +4,7 @@
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "Phase 3.5 真 Agent 进度：feat-300.1 / 300.2 / 300.3 / 300.4 / 300.5 / 300.6 全部 done。300.6 含端到端跑通（GLM + ollama bge-m3）+ AgentTracePanel + MemoryPanel + EvalReport（独立 /eval 路由 + 自建 SVG 趋势图 + Drawer）+ Settings Tab 化（LLM/思考/RAG/平台/Memory 五标签 URL 同步）+ sidebar 加 Eval 入口。调试链路 5 个真实 bug 全修（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）。199 单测全过，typecheck 干净。next：feat-300.7（LangGraph 文档 + smoke）。",
+      "current": "🎉 Phase 3.5 真 Agent 系列收官（feat-300.1 → 300.7 全 done）。完整链路：Schema/LLM 层 + 8 个 Tools + ReAct Runner + Memory 蒸馏（自动 + 手动 + edit_diff 主信号）+ Eval 体系（LLM-as-judge 三维 + trajectory 集合相似度 + baseline 漂移检测 + pnpm eval CLI 退出码 0/1/2）+ 前端 AgentTracePanel + MemoryPanel + EvalReport（独立 /eval 路由 + 自建 SVG 趋势）+ Settings Tab 化 + LangGraph 对比文档 + 17 步 e2e smoke。调试链路 5 个真实 bug 全修 + 入面试题（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）。199 单测全过，typecheck 干净，e2e 跑通（GLM + ollama bge-m3）。next：录屏/截图 → README 改造 → 进 feat-012 Studio 或 feat-013 工程化。",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
@@ -576,8 +576,8 @@
       "track": "A-main",
       "description": "新增 3 张表（agent_runs / agent_steps / agent_memory）+ generations.agent_run_id 列。新建 apps/api/src/llm/llm.service.ts（Vercel ai-sdk 统一 provider 封装，替换 rag-core 7 处手写 fetch）。新建 apps/api/src/llm/tavily.client.ts（web search，30 天 LRU 缓存，无 key 时降级）。新增依赖：ai、@ai-sdk/openai。",
       "dependencies": ["feat-300"],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "随 feat-300.3 merge commit d60bc16 落地。DDL_AGENT_RUNS / DDL_AGENT_STEPS / DDL_AGENT_MEMORY 三表 + DDL_GENERATIONS_AGENT_RUN_ID 加列已入 db/schema.ts FEAT_200_DDL_BLOCKS。LlmService (apps/api/src/llm/llm.service.ts) BYOK 支持 + OpenAI 兼容协议，覆盖 OpenAI/Qwen/GLM/SiliconFlow/DeepSeek 等所有 OpenAI 兼容 provider。TavilyClient (apps/api/src/llm/tavily.client.ts) 30 天 LRU 缓存 + 无 key 降级。.interview/feat-300.1_schema-llm-layer.md 含 6 个面试题。e2e 实测 GLM glm-4-flash + ollama bge-m3 跑通。"
     },
     {
       "id": "feat-300.2",
@@ -586,8 +586,8 @@
       "track": "A-main",
       "description": "在 apps/api/src/agent/tools/ 用 ai-sdk tool() 定义 8 个 tool：search_kb / search_web / search_notes / search_history / generate_draft / critic_review / refine_draft / log_decision。每个 tool 的 execute 委托给现有 rag-core / notes.service / generations.service，不重写业务逻辑。Tool description 写法遵循\"何时应该调\"原则（面试考点）。",
       "dependencies": ["feat-300.1"],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "随 feat-300.3 merge commit d60bc16 落地。apps/api/src/agent/tools/ 8 个 tool 文件 + AgentToolsService + AGENT_TOOL_NAMES 常量集中。每个 tool description 严格遵守『何时调 / 何时不调』结构（见 search-kb.tool.ts:DESCRIPTION）。委托规则：search_kb→runRetrieval、search_notes→NotesService.searchByEmbedding、search_history→generations DB、search_web→TavilyClient、generate_draft/refine_draft/critic_review→prompts/tools/*+ai-sdk generateText、log_decision→agent_steps 落库。所有 search* tool 走 spillIfLarge 8KB 落盘机制。.interview/feat-300.2_agent-tools.md 含 6 个面试题。feat-300.6 调试链发现并修复 ctx.options.embeddingModel hardcode fallback bug（见面试题 #9 Provider 抽象漏抽）。"
     },
     {
       "id": "feat-300.3",
@@ -636,8 +636,8 @@
       "track": "A-main",
       "description": "docs/agent/langgraph-equivalent.md：60 行内对比自建 vs LangGraph（AgentRunner ↔ StateGraph、agent_steps ↔ MemorySaver、SSE ↔ graph.stream、Budget cap ↔ recursionLimit、MemoryDistiller 无 LangGraph 等价物），附 50 行 LangGraph 等价代码片段。扩展 scripts/smoke.mjs 覆盖 agent 全流程（4 步：老 pipeline 回归 / agent run / distill / 偏好注入验证）。每个 sub-feature 补 .interview/feat-300.x.md 面试题（8 个核心考点见计划）。",
       "dependencies": ["feat-300.6"],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "2026-06-02 完成。docs/agent/langgraph-equivalent.md 8 行概念对照表 + 50 行 LangGraph 等价 Python 代码 + 4 个『为什么自建』理由 + 5 个『LangGraph 这些地方比我们好』场景（human-in-the-loop / multi-agent / time-travel / Streaming abstractions / 生态）。scripts/smoke.mjs 扩展从 10 步 → 17 步，新增 7 步覆盖 agent 端到端（settings 配置 / POST /agent/run < 5s 非阻塞断言（防 feat-300.6 #10 bug 复发）/ 后台轮询完成 / agent_steps 入库 / 高分 feedback + edit_diff / POST /memory/distill / GET /memory 表可读）。实测 17/17 全过，agent run 7.6s，distill 蒸馏出 3 条偏好。.interview/feat-300.{1..6}_*.md 6 个面试题文件已就位（300.6 含 13 题含 5 个真实 bug 调试链）。Phase 3.5 真 Agent 系列收官。"
     },
     {
       "id": "feat-012",
