@@ -26,6 +26,12 @@ function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "gpt-4o-mini",
+    // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension，否则 fail loud
+    // 测试默认值用 bge-m3（与 ollama 本地路径一致）；覆盖时用 overrides.options 传别的
+    options: {
+      embeddingModel: "bge-m3",
+      embeddingDimension: 1024,
+    },
     ...overrides,
   };
 }
@@ -113,7 +119,10 @@ describe("search_kb tool", () => {
 
   it("ctx.options.retrievalTopK 仍受 SEARCH_KB_MAX_CHUNKS 上限约束（截 3）", async () => {
     runRetrievalMock.mockResolvedValue({ output: { matches: [] }, trace: {}, warnings: [] });
-    const t = buildSearchKbTool(makeFakeSpillStorage())(makeCtx({ options: { retrievalTopK: 12 } }));
+    // 注意：overrides.options 整体替换默认 options，故必须把 embeddingModel/Dimension 也带上
+    const t = buildSearchKbTool(makeFakeSpillStorage())(
+      makeCtx({ options: { retrievalTopK: 12, embeddingModel: "bge-m3", embeddingDimension: 1024 } }),
+    );
     await exec(t, { query: "Q" });
     // 即使 options 要求 12，硬上限会压回 3——保护 messages 不爆是不可绕过的
     expect(runRetrievalMock).toHaveBeenCalledWith(

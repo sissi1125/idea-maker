@@ -68,6 +68,9 @@ function makeRunner() {
     list: vi.fn().mockResolvedValue([]),
   };
 
+  // feat-300.6：startInBackground 自己 withClient 跑后台 run，所以构造时要注入 DbService
+  // 测试里只跑 runner.run(pgClient, input)（外部传 pgClient），不会触发 startInBackground 路径
+  const db = { withClient: vi.fn() };
   const runner = new AgentRunnerService(
     projects as never,
     llm as never,
@@ -80,6 +83,7 @@ function makeRunner() {
     spillStorage as never,
     costs as never,
     platformRulesService as never,
+    db as never,
   );
   return {
     runner,

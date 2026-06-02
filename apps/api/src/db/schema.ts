@@ -298,6 +298,39 @@ CREATE INDEX IF NOT EXISTS idx_notes_generation ON notes (generation_id);
 `;
 
 /**
+ * feat-300.4：notes.embedding 列（vector 1024 维）+ HNSW 索引
+ *
+ * 为什么 1024 维：和 RAG 主链路（rag_chunks）的 EMBEDDING_DIMENSION 默认值对齐（
+ * text-embedding-v4 / text-embedding-3-large 截 1024）；避免笔记库和 KB 用不同
+ * embedding 模型造成的"明明同一句话向量距离很远"的诡异现象。
+ *
+ * 为什么 HNSW 不是 ivfflat：notes 体量小（一个项目几十~几百条），HNSW 构建快、
+ * 查询恒定 O(log N)；ivfflat 需要在数据到达一定量后 ANALYZE 才稳定。
+ *
+ * NULL 兼容：老笔记 embedding=NULL 时 search_notes tool fallback 走 ILIKE。
+ * 新笔记 / update 时 NotesService 主动算 embedding 写入。
+ *
+ * 幂等：ADD COLUMN IF NOT EXISTS + CREATE INDEX IF NOT EXISTS。
+ */
+export const DDL_NOTES_EMBEDDING = `
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS embedding vector(1024);
+CREATE INDEX IF NOT EXISTS idx_notes_embedding_hnsw
+  ON notes USING hnsw (embedding vector_cosine_ops);
+`;
+
+/**
+ * feat-300.4：agent_memory 增加 last_distilled_at 列（distill 触发用的时间锚点）
+ *
+ * 用途：MemoryDistiller 用 max(last_distilled_at) 作为 "上次蒸馏到哪儿了" 的水位线，
+ * 累积 5 条 updated_at > 水位线的 feedback 才触发下一次 distill。
+ *
+ * 不复用 updated_at：updated_at 在每次 confidence 调整时也会动，不能反映"蒸馏批次"。
+ */
+export const DDL_AGENT_MEMORY_DISTILLED_AT = `
+ALTER TABLE agent_memory ADD COLUMN IF NOT EXISTS last_distilled_at TIMESTAMPTZ;
+`;
+
+/**
  * ── feat-300.1 Phase 3.5：Agent 三张表 ────────────────────────────────────────
  *
  * 真 ReAct Agent 的可观测物理底座。透明性是本项目的核心卖点——所有"LLM 在想
@@ -454,6 +487,77 @@ CREATE INDEX IF NOT EXISTS idx_generations_agent_run ON generations (agent_run_i
  * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
  * 依赖 CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS 的幂等性。
  */
+/**
+ * ── feat-300.5 Phase 3.5：Agent 评估体系 ──────────────────────────────────────
+ *
+ * 双表分工：
+ *   eval_runs  = "这次跑的总账"（一行）：commit/branch/触发方式/平均分/通过率
+ *   eval_items = "这次跑的每条 golden 明细"（多行）：与 agent_runs 通过 agent_run_id 关联
+ *
+ * 为什么不把 scores 全塞进 agent_runs：
+ *   agent_runs 是「面向 in-app 用户的生成」事实表，eval_items 是「面向开发的回归测试」结果表，
+ *   生命周期 / 写入触发 / 查询模式都不一样（agent_runs 单条详情、eval_items 批量趋势），
+ *   独立表可以独立加索引、独立清理。
+ *
+ * eval_runs.threshold_drop：本次跑的「平均分允许下降阈值」（默认 0.5），
+ *   超过则 CI 标 fail。存进表里，事后能复现「当时是什么阈值跑出的红」。
+ *
+ * eval_runs.baseline_run_id：自动指向上一次成功 eval_run（同 project_id）便于对比。
+ *
+ * eval_items.scores JSONB 形状：{ faithfulness, completeness, style }（1-5 整数）
+ * eval_items.trajectory JSONB 形状：{ expected: string[], actual: string[],
+ *   precision, recall, jaccard }
+ * eval_items.passed BOOL：综合判定（avg_score >= threshold && jaccard >= 0.5）
+ *
+ * agent_run_id：每条 eval_item 跑出来的 agent run，便于点进 trace 看细节。
+ *   ON DELETE SET NULL（agent_run 被清理时 eval_item 保留分数但失去 trace 钻取入口）。
+ */
+
+export const DDL_EVAL_RUNS = `
+CREATE TABLE IF NOT EXISTS eval_runs (
+  id                  TEXT PRIMARY KEY,
+  project_id          TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  triggered_by        TEXT NOT NULL DEFAULT 'manual',
+  git_commit          TEXT,
+  git_branch          TEXT,
+  baseline_run_id     TEXT REFERENCES eval_runs (id) ON DELETE SET NULL,
+  threshold_drop      NUMERIC(4, 3) NOT NULL DEFAULT 0.5,
+  total_items         INTEGER NOT NULL DEFAULT 0,
+  passed_items        INTEGER NOT NULL DEFAULT 0,
+  avg_faithfulness    NUMERIC(4, 3),
+  avg_completeness    NUMERIC(4, 3),
+  avg_style           NUMERIC(4, 3),
+  avg_overall         NUMERIC(4, 3),
+  status              TEXT NOT NULL DEFAULT 'running',
+  error               TEXT,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  finished_at         TIMESTAMPTZ,
+  CHECK (status IN ('running', 'succeeded', 'failed')),
+  CHECK (triggered_by IN ('manual', 'cli', 'ci', 'cron'))
+);
+CREATE INDEX IF NOT EXISTS idx_eval_runs_project ON eval_runs (project_id, created_at DESC);
+`;
+
+export const DDL_EVAL_ITEMS = `
+CREATE TABLE IF NOT EXISTS eval_items (
+  id              TEXT PRIMARY KEY,
+  eval_run_id     TEXT NOT NULL REFERENCES eval_runs (id) ON DELETE CASCADE,
+  agent_run_id    TEXT REFERENCES agent_runs (id) ON DELETE SET NULL,
+  golden_id       TEXT NOT NULL,
+  query           TEXT NOT NULL,
+  candidate_text  TEXT,
+  scores          JSONB,
+  trajectory      JSONB,
+  passed          BOOLEAN NOT NULL DEFAULT FALSE,
+  judge_rationale TEXT,
+  error           TEXT,
+  duration_ms     INTEGER,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_eval_items_run ON eval_items (eval_run_id);
+CREATE INDEX IF NOT EXISTS idx_eval_items_golden ON eval_items (golden_id, created_at DESC);
+`;
+
 export const FEAT_200_DDL_BLOCKS = [
   DDL_USERS,
   DDL_PROJECTS,
@@ -476,4 +580,10 @@ export const FEAT_200_DDL_BLOCKS = [
   DDL_GENERATIONS_AGENT_RUN_ID,
   // feat-300.3 task 4：扩展 finish_reason CHECK 加 'aborted'
   DDL_AGENT_RUNS_ADD_ABORTED,
+  // feat-300.4：notes embedding 列 + HNSW 索引；agent_memory.last_distilled_at
+  DDL_NOTES_EMBEDDING,
+  DDL_AGENT_MEMORY_DISTILLED_AT,
+  // feat-300.5：eval_runs / eval_items
+  DDL_EVAL_RUNS,
+  DDL_EVAL_ITEMS,
 ];

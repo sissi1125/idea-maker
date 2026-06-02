@@ -1,0 +1,8 @@
+{
+  "id": "gold-history-003",
+  "query": "翻一下我们之前写过的母亲节文案，给我一版改良后的版本，要更克制不要太煽情",
+  "expectedTools": ["search_history", "refine_draft"],
+  "referenceAnswer": "今年的母亲节，不必长篇大论。她记得你的偏好；你也该懂她的喜欢。一份得体的礼，胜过千言。",
+  "thresholds": { "faithfulness": 3, "completeness": 3, "style": 4 },
+  "meta": { "source": "manual", "tags": ["history", "refine", "tone-control"] }
+}

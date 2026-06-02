@@ -26,6 +26,7 @@ import { randomUUID } from "crypto";
 import type { Client as PgClient } from "pg";
 import { generateText, type CoreMessage } from "ai";
 
+import { DbService } from "../db/db.service";
 import { LlmService } from "../llm/llm.service";
 import { ProvidersService } from "../pipeline/providers.service";
 import { ProjectsService } from "../projects/projects.service";
@@ -86,6 +87,8 @@ export class AgentRunnerService {
     private readonly spillStorage: SpillStorage,
     private readonly costs: CostService,
     private readonly platformRulesService: PlatformRulesService,
+    /** feat-300.6：startInBackground 自己开 pgClient 跑完整 run，不再由 controller 包 */
+    private readonly db: DbService,
   ) {}
 
   /**
@@ -99,9 +102,70 @@ export class AgentRunnerService {
   }
 
   /**
-   * 主入口。**pgClient 由调用方持有**（controller 用 DbService.withClient 包外层）。
+   * 非阻塞启动入口（feat-300.6 修复）。
+   *
+   * 历史问题：原 `run()` 阻塞到整个 ReAct 跑完才返回，导致 controller POST /agent/run
+   * 必须等 60-120s 才回 runId，前端拿不到 runId 无法连 SSE，等收到 runId 时 run 已结束 → SSE 永不工作。
+   *
+   * 现在：startInBackground 拆成两阶段：
+   *   1) 立即等 run() 里的 createRun 完成，把 runId/generationId 解析给 caller（毫秒级）
+   *   2) 余下 ReAct 主循环在 background 跑（不被 caller 等待），事件持续推 SSE
+   *
+   * 调用方 controller 拿到 ids 后立刻返回 HTTP response，前端马上连 SSE 看 trace 实时流。
    */
-  async run(pgClient: PgClient, input: AgentRunInput): Promise<AgentRunOutput> {
+  async startInBackground(
+    input: AgentRunInput,
+  ): Promise<{ runId: string; generationId: string }> {
+    let resolveIds!: (ids: { runId: string; generationId: string }) => void;
+    let rejectIds!: (err: Error) => void;
+    const idsReady = new Promise<{ runId: string; generationId: string }>((res, rej) => {
+      resolveIds = res;
+      rejectIds = rej;
+    });
+
+    let idsResolved = false;
+    const onIdsReady = (ids: { runId: string; generationId: string }) => {
+      if (!idsResolved) {
+        idsResolved = true;
+        resolveIds(ids);
+      }
+    };
+
+    // 关键：不 await 这个 promise——后台跑完整 ReAct，错误进日志不冒泡
+    // controller 只等 idsReady（< 100ms），就立即返回 HTTP 响应
+    void this.db
+      .withClient((pgClient) => this.run(pgClient, input, { onIdsReady }))
+      .catch((err) => {
+        if (!idsResolved) {
+          // 错误发生在 ids 创建之前（如鉴权 / settings 加载失败），冒泡给 controller
+          idsResolved = true;
+          rejectIds(err as Error);
+        } else {
+          // ids 已经返回给前端，后台 run 失败：runner 内部已记 agent_runs.error + SSE error 帧
+          this.logger.error(
+            `[agent] background run failed after ids ready: ${(err as Error).message}`,
+          );
+        }
+      });
+
+    return idsReady;
+  }
+
+  /**
+   * 主入口。**pgClient 由调用方持有**（controller 用 DbService.withClient 包外层）。
+   *
+   * 第二参数 `hooks.onIdsReady`：feat-300.6 新增——run() 创建 generation+run rows 后
+   * 立即触发回调，把 ids 暴露给 startInBackground，让 HTTP controller 能早返回。
+   *
+   * 不传 hooks → 行为与原版完全一致（保持 EvalRunner / 测试代码不破坏）。
+   */
+  async run(
+    pgClient: PgClient,
+    input: AgentRunInput,
+    hooks?: {
+      onIdsReady?: (ids: { runId: string; generationId: string }) => void;
+    },
+  ): Promise<AgentRunOutput> {
     const maxSteps = input.maxSteps ?? DEFAULT_MAX_STEPS;
     const budgetUsd = input.budgetUsd ?? DEFAULT_BUDGET_USD;
 
@@ -141,6 +205,10 @@ export class AgentRunnerService {
       maxSteps,
       budgetUsd,
     });
+
+    // feat-300.6：通知 startInBackground caller ids 就绪 → controller 可立即返回 HTTP，
+    // 前端拿到 ids 后马上连 SSE 看 trace 实时流。
+    hooks?.onIdsReady?.({ runId, generationId });
 
     // ── 5. AbortController 注册 ──────────────────────────────────────────
     const abortController = new AbortController();
@@ -182,6 +250,9 @@ export class AgentRunnerService {
     });
 
     // ── 8. 构造 tools ────────────────────────────────────────────────────
+    // 关键：把 ProvidersService 解析出的 embedding model + dimension 透传给 tools，
+    // 否则 search_kb 会 fallback 到硬编码 "text-embedding-v4"（Qwen 命名），
+    // 在 OpenAI / GLM / Ollama 等其他 provider 上 404。
     const ctx = {
       projectId: input.projectId,
       userId: input.userId,
@@ -191,6 +262,10 @@ export class AgentRunnerService {
       embeddingClient: embedding.client,
       llmModel,
       llmDefaultModel: modelName,
+      options: {
+        embeddingModel: embedding.defaultModel,
+        embeddingDimension: embedding.defaultDimension,
+      },
     };
     const tools = this.tools.build(ctx, {
       criticCriteria: {

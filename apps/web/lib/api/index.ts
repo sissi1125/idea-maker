@@ -39,3 +39,21 @@ export type {
   GenerationRow, GenerateResponse, PipelineTrace, StageResult, CostBreakdown,
   ViolationItem,
 } from "./generations";
+// feat-300.6
+export * as agentApi from "./agent";
+export type {
+  AgentRunStartOpts, AgentRunStartResponse, AgentRunRow, AgentStepRow,
+  AgentFinishReason, AgentRunStatus, AgentStepType, ChatMessage,
+  StepFramePayload, CostFramePayload, FinishFramePayload, ErrorFramePayload,
+} from "./agent";
+export * as memoryApi from "./memory";
+export type {
+  MemoryRow, MemoryKind, MemorySource,
+  CreateMemoryInput, UpdateMemoryInput, DistillResult,
+} from "./memory";
+export { MEMORY_KINDS } from "./memory";
+export * as evalApi from "./eval";
+export type {
+  EvalRunSummary, EvalRunRowLite, EvalRunStatus,
+  RunEvalBody, PromoteFeedbackResponse,
+} from "./eval";

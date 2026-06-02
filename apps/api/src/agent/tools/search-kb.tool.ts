@@ -70,8 +70,28 @@ export function buildSearchKbTool(spillStorage: SpillStorage): AgentToolFactory 
       const requested = topK ?? ctx.options?.retrievalTopK ?? SEARCH_KB_MAX_CHUNKS;
       const effectiveTopK = Math.min(requested, SEARCH_KB_MAX_CHUNKS);
       const method = ctx.options?.retrievalMethod ?? "hybrid-bm25-rrf";
-      const embeddingModel = ctx.options?.embeddingModel ?? "text-embedding-v4";
-      const embeddingDimension = ctx.options?.embeddingDimension ?? 1024;
+
+      /*
+       * feat-300.6 修复：删除 "text-embedding-v4" / 1024 硬编码 fallback。
+       *
+       * 历史 bug：tool 默认值是 Qwen 的命名 + 维度，换到 GLM / OpenAI / Ollama 等
+       * 任何非 Qwen provider 时 LLM 就会拿到 404，且错误信息看起来像「ollama 没装这个
+       * 模型」——实际上是 tool 默默 fallback 到错误的 model 名。配置默认值散落在
+       * env / ProvidersService / 本文件 3 处，换 provider 时任一层漏改都炸。
+       *
+       * 现在：必须由 AgentRunner 显式透传 ctx.options.embeddingModel/Dimension，
+       * 否则 fail loud（早死早超生）。AgentRunner 从 ProvidersService.createEmbeddingClient
+       * 返回的 defaultModel/defaultDimension 注入，这是 env → 配置层 → tool 的唯一路径。
+       */
+      const embeddingModel = ctx.options?.embeddingModel;
+      const embeddingDimension = ctx.options?.embeddingDimension;
+      if (!embeddingModel || !embeddingDimension) {
+        throw new Error(
+          "search_kb: ctx.options.embeddingModel / embeddingDimension 未注入。" +
+            "请检查 AgentRunner 是否把 ProvidersService.createEmbeddingClient " +
+            "返回的 defaultModel/defaultDimension 透传到 ctx.options（feat-300.6 修复）。",
+        );
+      }
 
       const retrieval = await runRetrieval({
         methodId: method,

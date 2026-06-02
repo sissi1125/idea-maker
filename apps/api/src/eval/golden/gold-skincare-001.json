@@ -1,0 +1,8 @@
+{
+  "id": "gold-skincare-001",
+  "query": "为我们的新款保湿面霜写一段适合小红书发布的种草文案，突出温和成分",
+  "expectedTools": ["search_kb", "generate_draft", "critic_review"],
+  "referenceAnswer": "姐妹们！这款保湿面霜真的太温柔了——零添加酒精/香精/色素，敏感肌也能放心冲。质地是那种入手即化的奶霜状，上脸两周肉眼可见的稳定，干燥脱皮全部告别。早晚都能用，叠在精华之后超贴肤。#敏感肌救星 #保湿面霜",
+  "thresholds": { "faithfulness": 3, "completeness": 3, "style": 3 },
+  "meta": { "source": "manual", "tags": ["xiaohongshu", "skincare", "long-form"] }
+}

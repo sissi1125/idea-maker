@@ -25,7 +25,9 @@ import {
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { generationsApi, autoGenerationsApi } from "@/lib/api";
+import { useUiStore } from "@/lib/stores/ui-store";
+import { generationsApi, autoGenerationsApi, agentApi } from "@/lib/api";
+import { AgentTracePanel } from "@/components/agent/AgentTracePanel";
 import type {
   GenerateResponse, ProjectAutoGenLatest, ProjectAutoGenInFlight, AutoGenCardType,
 } from "@/lib/api";
@@ -429,7 +431,12 @@ export default function ProjectChatPage() {
   const toast = useToast();
   const { setCurrentProject, currentProject: getCurrent } = useProjectsStore();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const project = getCurrent();
+
+  // feat-300.6：Agent 模式 toggle（localStorage 持久化，默认开）
+  const agentModeEnabled = useUiStore((s) => s.agentModeEnabled);
+  const setAgentModeEnabled = useUiStore((s) => s.setAgentModeEnabled);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [input, setInput] = useState("");
@@ -439,6 +446,10 @@ export default function ProjectChatPage() {
   const [error, setError] = useState<string | null>(null);
   // feat-200.8：当前 generate 要应用的平台规则 IDs
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
+
+  // feat-300.6：当前 agent run（仅 agent 模式有值）
+  const [agentRunId, setAgentRunId] = useState<string | null>(null);
+  const [agentFinalText, setAgentFinalText] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) setCurrentProject(projectId);
@@ -508,7 +519,28 @@ export default function ProjectChatPage() {
     setShowPresets(false);
     setResult(null);
     setError(null);
+    setAgentFinalText(null);
+    setAgentRunId(null);
 
+    // feat-300.6：Agent 模式分支
+    if (agentModeEnabled) {
+      try {
+        const { runId } = await agentApi.runAgent(projectId, [
+          { role: "user", content: text.trim() },
+        ]);
+        // ⚠️ phase 保持 'running'；AgentTracePanel 监听 SSE，finish 帧回调
+        // 通过 onFinish prop 触发 setAgentFinalText + 后续切 'done'。
+        setAgentRunId(runId);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Agent 启动失败";
+        setError(msg);
+        setPhase("done");
+        toast.error(`Agent 启动失败：${msg}`);
+      }
+      return;
+    }
+
+    // 经典 generate 路径
     try {
       const res = await generationsApi.generate(projectId, text.trim(), {
         platformRuleIds: selectedRuleIds,
@@ -528,6 +560,13 @@ export default function ProjectChatPage() {
       setPhase("done");
       toast.error(`生成失败：${msg}`);
     }
+  };
+
+  /** Agent finish 帧到达：切 done + 重拉摘要 + 保存最终文本 */
+  const onAgentFinish = (finalText: string) => {
+    setAgentFinalText(finalText);
+    setPhase("done");
+    setSummariesReloadTick((t) => t + 1);
   };
 
   const onSend = () => {
@@ -592,21 +631,52 @@ export default function ProjectChatPage() {
                 Harness Agent · {phase === "running" ? "思考中…" : "回复"}
               </div>
 
-              <PipelineTraceView
-                running={phase === "running"}
-                finished={phase === "done"}
-                trace={result?.pipelineTrace ?? null}
-                retrievedChunks={result?.retrievedChunks ?? []}
-              />
+              {/* feat-300.6：Agent 模式走 trace 时间轴；经典模式走 11-stage pipeline 视图 */}
+              {agentModeEnabled ? (
+                <>
+                  <div className="h-[520px]">
+                    <AgentTracePanel
+                      projectId={projectId}
+                      runId={agentRunId}
+                      token={token}
+                      onFinish={onAgentFinish}
+                    />
+                  </div>
+                  {phase === "done" && agentFinalText && (
+                    <div className="card p-4 text-[14px] leading-[1.6]"
+                         style={{ background: "#fff", border: "1px solid var(--border)" }}>
+                      <Markdown content={agentFinalText} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <PipelineTraceView
+                  running={phase === "running"}
+                  finished={phase === "done"}
+                  trace={result?.pipelineTrace ?? null}
+                  retrievedChunks={result?.retrievedChunks ?? []}
+                />
+              )}
 
-              {phase === "done" && result && (
+              {!agentModeEnabled && phase === "done" && result && (
                 <GeneratedResult result={result} />
               )}
 
-              {phase === "done" && error && !result && (
+              {phase === "done" && error && !result && !agentFinalText && (
                 <div className="card p-4 text-[13px]"
                      style={{ background: "rgba(179,38,30,.06)", border: "1px solid rgba(179,38,30,.18)", color: "var(--err)" }}>
                   {error}
+                  {agentModeEnabled && (
+                    <button
+                      onClick={() => {
+                        setAgentModeEnabled(false);
+                        if (lastPrompt) startGenerate(lastPrompt);
+                      }}
+                      className="ml-3 underline text-[12px]"
+                    >
+                      切回经典模式重试
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -633,8 +703,32 @@ export default function ProjectChatPage() {
               <PresetGrid onPick={(text) => startGenerate(text)} />
             </div>
           )}
-          {/* feat-200.8：平台规则多选——本次 generate 要应用哪些规则 */}
-          {projectId && (
+          {/* feat-300.6：Agent 模式 toggle（默认开） */}
+          <div className="flex items-center justify-end gap-2 mx-0.5 mb-2 text-[11.5px]"
+               style={{ color: "var(--ink-3)" }}>
+            <Sparkles size={12} className={agentModeEnabled ? "text-purple-500" : "text-gray-400"} />
+            <span>Agent 模式</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={agentModeEnabled}
+              onClick={() => setAgentModeEnabled(!agentModeEnabled)}
+              className={`relative inline-flex h-4 w-7 items-center rounded-full transition ${
+                agentModeEnabled ? "bg-purple-500" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 rounded-full bg-white shadow transform transition ${
+                  agentModeEnabled ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+            <span className="text-[10px] opacity-60 ml-1">
+              {agentModeEnabled ? "ReAct 多步推理 + 工具调用" : "经典 11-stage pipeline"}
+            </span>
+          </div>
+          {/* feat-200.8：平台规则多选——本次 generate 要应用哪些规则（仅经典模式生效，agent 自己读 platform_rules）*/}
+          {projectId && !agentModeEnabled && (
             <RuleSelector
               projectId={projectId}
               selectedIds={selectedRuleIds}

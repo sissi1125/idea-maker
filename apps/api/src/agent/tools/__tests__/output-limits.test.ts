@@ -61,6 +61,8 @@ describe("集成：search_kb 截断行为", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension（fail loud）
+      options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
     const out = (await (
       t.execute as (a: unknown, o: { toolCallId: string; messages: [] }) => Promise<unknown>
@@ -89,6 +91,8 @@ describe("集成：search_kb 截断行为", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension（fail loud）
+      options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
     const out = (await (
       t.execute as (a: unknown, o: { toolCallId: string; messages: [] }) => Promise<unknown>

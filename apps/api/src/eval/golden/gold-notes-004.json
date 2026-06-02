@@ -1,0 +1,8 @@
+{
+  "id": "gold-notes-004",
+  "query": "我之前保存过一篇关于秋冬护肤的内容，参考它的风格再写一篇春季版",
+  "expectedTools": ["search_notes", "generate_draft"],
+  "referenceAnswer": "春日肌肤的反复，是季节切换给的小提醒：清洁可以再轻一点，水分可以再多一点，防晒别再省略。挑一支贴肤的轻乳，每天稳一稳屏障，状态自然会回来。",
+  "thresholds": { "faithfulness": 3, "completeness": 3, "style": 4 },
+  "meta": { "source": "manual", "tags": ["notes", "style-transfer"] }
+}

@@ -210,9 +210,120 @@ async function main() {
     if (!r.notes?.length) throw new Error("笔记列表为空");
   });
 
+  // ── feat-300.7：Agent 全流程 e2e（300.3 + 300.4 + 300.5 链路） ─────────────
+  //
+  // 在 MVP smoke 之后追加 4 步 agent 验证：
+  //   (A) 设 project_settings 让 agent 用得上 LLM（默认空设置 fallback 到 gpt-4o-mini 会 404）
+  //   (B) POST /agent/run 验证非阻塞返回 ids（feat-300.6 修的关键 bug）
+  //   (C) 轮询 /agent/runs/:id 等 run 跑完，验证 finish_reason='done' + steps ≥ 1
+  //   (D) 提多条高分 feedback + POST /memory/distill 验证蒸馏（成功 or no_candidates 都算 OK）
+  //
+  // 任何一步失败 → 进程 exit 1，CI 直接红。
+  console.log(`\n\x1b[1m▶ feat-300 Agent 全流程\x1b[0m`);
+
+  await step("配置项目 LLM settings（让 agent 用得上 GLM/Qwen 兼容协议）", async () => {
+    // settings.model 为空时 AgentRunner 硬编码 fallback 到 'gpt-4o-mini'
+    // smoke 环境通常没 OpenAI 真 key，所以显式设成 env 里配的 model
+    const envModel = process.env.LLM_MODEL || "glm-4-flash";
+    await http("PUT", `/projects/${projectId}/settings`, {
+      provider: "openai-compat",
+      model: envModel,
+    });
+  });
+
+  let agentRunId, agentGenerationId;
+  await step("POST /agent/run 验证非阻塞返回 ids（< 5s）", async () => {
+    const start = Date.now();
+    const r = await http("POST", `/projects/${projectId}/agent/run`, {
+      messages: [{ role: "user", content: "用一句话夸我们的产品" }],
+      maxSteps: 3,
+      budgetUsd: 0.05,
+    });
+    const took = Date.now() - start;
+    if (!r?.runId) throw new Error("agent/run 未返回 runId");
+    if (!r?.generationId) throw new Error("agent/run 未返回 generationId");
+    if (took > 5000) {
+      // feat-300.6 修的 bug：原来 await 整个 ReAct 60-120s 才返回
+      throw new Error(`agent/run 返回慢 ${took}ms，疑似阻塞 bug 复发`);
+    }
+    agentRunId = r.runId;
+    agentGenerationId = r.generationId;
+  });
+
+  await step("等 agent 后台跑完（轮询 ≤ 60s）", async () => {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const r = await http("GET", `/projects/${projectId}/agent/runs/${agentRunId}`);
+      if (r.status === "succeeded" || r.status === "failed") {
+        if (r.status === "failed") {
+          throw new Error(`agent run failed: ${r.error ?? "unknown"}`);
+        }
+        if (!r.finishReason) throw new Error("succeeded 但 finishReason 为空");
+        return;
+      }
+      await sleep(1500);
+    }
+    throw new Error("agent run 超 60s 未结束");
+  });
+
+  await step("验证 agent_steps 有 ≥ 1 步入库", async () => {
+    const r = await http("GET", `/projects/${projectId}/agent/runs/${agentRunId}/steps?limit=50`);
+    const arr = Array.isArray(r) ? r : r?.steps;
+    if (!Array.isArray(arr) || arr.length < 1) {
+      throw new Error(`agent_steps 为空或非数组: ${JSON.stringify(arr).slice(0, 100)}`);
+    }
+  });
+
+  // 准备 distill：先提一条高分 feedback（distiller 阈值默认 5 条，但手动 distill 会跑现有的）
+  await step("对 agent 输出提一条高分 feedback（含 edit_diff）", async () => {
+    await http("POST", `/generations/${agentGenerationId}/feedback`, {
+      relevance: 5,
+      accuracy: 5,
+      creativity: 4,
+      overall: 5,
+      editDiff: "（用户改写版本）这产品真的太好用了——简洁、稳定、贴心。",
+      comment: "smoke：模拟用户改写后的最终版本",
+    });
+  });
+
+  await step("POST /memory/distill 手动触发蒸馏", async () => {
+    // 手动触发返回形状：{ inserted, merged, processed, skipped? }
+    // （`triggered` 字段只在 auto 路径 @OnEvent 的 maybeDistill 返回，REST 端点不带）
+    const r = await http("POST", `/projects/${projectId}/memory/distill`);
+    const result = r?.result ?? r;
+    if (typeof result?.processed !== "number") {
+      throw new Error(`distill 返回结构异常: ${JSON.stringify(result).slice(0, 200)}`);
+    }
+    // 合法终态：
+    //   inserted/merged > 0（蒸馏出新偏好）
+    //   skipped='no_new_feedback' / 'no_candidates' / 'in_flight'
+    const ok =
+      result.inserted > 0 ||
+      result.merged > 0 ||
+      result.skipped === "no_new_feedback" ||
+      result.skipped === "no_candidates" ||
+      result.skipped === "in_flight";
+    if (!ok) {
+      throw new Error(`distill 异常状态: ${JSON.stringify(result).slice(0, 200)}`);
+    }
+    const counts = result.skipped
+      ? `skipped=${result.skipped}`
+      : `inserted=${result.inserted ?? 0} merged=${result.merged ?? 0} processed=${result.processed}`;
+    process.stdout.write(`\x1b[90m${counts}\x1b[0m `);
+  });
+
+  await step("GET /memory 验证表可读（不强制有内容）", async () => {
+    const r = await http("GET", `/projects/${projectId}/memory`);
+    if (!Array.isArray(r?.memory)) {
+      throw new Error(`memory 列表结构异常: ${JSON.stringify(r).slice(0, 100)}`);
+    }
+    process.stdout.write(`\x1b[90m${r.memory.length} 条偏好\x1b[0m `);
+  });
+
   console.log(`\n\x1b[32m\x1b[1m✓ All ${stepNum} steps passed.\x1b[0m`);
   console.log(`\x1b[90m用户：${TEST_USER.email}\x1b[0m`);
   console.log(`\x1b[90m项目：${projectId}\x1b[0m`);
+  console.log(`\x1b[90mAgent run：${agentRunId}\x1b[0m`);
 }
 
 main().catch((err) => {

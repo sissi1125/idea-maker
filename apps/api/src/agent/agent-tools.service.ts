@@ -20,6 +20,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Tool } from "ai";
 import { TavilyClient } from "../llm/tavily.client";
+import { NotesService } from "../notes/notes.service";
 import { SpillStorage } from "./spill-storage.service";
 import {
   AGENT_TOOL_NAMES,
@@ -47,6 +48,7 @@ export class AgentToolsService {
   constructor(
     private readonly tavilyClient: TavilyClient,
     private readonly spillStorage: SpillStorage,
+    private readonly notesService: NotesService,
   ) {}
 
   /**
@@ -64,7 +66,7 @@ export class AgentToolsService {
     // 4 个 search tool 都绑定 SpillStorage 闭包（大输出自动落盘）
     return {
       [AGENT_TOOL_NAMES.searchKb]: buildSearchKbTool(this.spillStorage)(ctx),
-      [AGENT_TOOL_NAMES.searchNotes]: buildSearchNotesTool(this.spillStorage)(ctx),
+      [AGENT_TOOL_NAMES.searchNotes]: buildSearchNotesTool(this.spillStorage, this.notesService)(ctx),
       [AGENT_TOOL_NAMES.searchHistory]: buildSearchHistoryTool(this.spillStorage)(ctx),
       [AGENT_TOOL_NAMES.searchWeb]: buildSearchWebTool(this.tavilyClient, this.spillStorage)(ctx),
       [AGENT_TOOL_NAMES.generateDraft]: buildGenerateDraftTool(ctx),

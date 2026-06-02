@@ -1,0 +1,8 @@
+{
+  "id": "gold-compete-002",
+  "query": "对比我们家产品和竞品 X 的主要差异，输出三条卖点用于业务培训",
+  "expectedTools": ["search_kb", "search_history", "generate_draft"],
+  "referenceAnswer": "1. 成分门槛更高：我们采用医美级修护因子，竞品 X 仍以基础保湿配方为主；\n2. 临床验证：我们持有第三方实验室 28 天敏感肌耐受报告，竞品 X 仅自测；\n3. 价格带：定价较竞品 X 低 15%，且支持 90 天试用退款，渠道转化更稳。",
+  "thresholds": { "faithfulness": 4, "completeness": 4, "style": 3 },
+  "meta": { "source": "manual", "tags": ["compete", "structured"] }
+}

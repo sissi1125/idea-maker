@@ -18,6 +18,8 @@ import { NotesModule } from "./notes/notes.module";
 import { PlatformRulesModule } from "./platform-rules/platform-rules.module";
 import { LlmModule } from "./llm/llm.module";
 import { AgentModule } from "./agent/agent.module";
+import { MemoryModule } from "./memory/memory.module";
+import { EvalModule } from "./eval/eval.module";
 
 @Module({
   controllers: [HealthController],
@@ -51,6 +53,10 @@ import { AgentModule } from "./agent/agent.module";
     LlmModule,
     // feat-300.2 Phase 3.5：8 个 Agent tools（暴露 AgentToolsService）
     AgentModule,
+    // feat-300.4 Phase 3.5：Memory 子系统（CRUD + Distiller @OnEvent('feedback.upserted')）
+    MemoryModule,
+    // feat-300.5 Phase 3.5：Eval 体系（golden + LLM-as-judge + trajectory match + CI 集成）
+    EvalModule,
   ],
 })
 export class AppModule {}
