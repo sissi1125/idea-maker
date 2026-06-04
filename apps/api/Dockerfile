@@ -15,16 +15,6 @@
 # ── Stage 1: Builder ────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS builder
 
-# 设置 npm 镜像源（阿里云加速）
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp && \
-    npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips
-
-# 设置 Node.js 和 onnxruntime 镜像环境变量
-ENV NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
-ENV npm_config_onnxruntime_binary_host=https://npmmirror.com/mirrors/onnxruntime-node
-
-
 WORKDIR /app
 
 # pnpm 9（与本地 package.json 锁版一致）
