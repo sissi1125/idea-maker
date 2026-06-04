@@ -15,6 +15,15 @@
 # ── Stage 1: Builder ────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS builder
 
+# 添加 npm 镜像配置（解决阿里云 ECS 网络问题）
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set disturl https://npmmirror.com/mirrors/node && \
+    npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp && \
+    npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips
+
+# 设置 onnxruntime 镜像
+ENV npm_config_onnxruntime_binary_host=https://npmmirror.com/mirrors/onnxruntime-node
+
 WORKDIR /app
 
 # pnpm 9（与本地 package.json 锁版一致）
