@@ -37,9 +37,10 @@ COPY packages/rag-core/ packages/rag-core/
 COPY packages/shared-types/ packages/shared-types/
 COPY apps/api/ apps/api/
 
-# 编译 api（nest build → dist/）
-# RUN pnpm --filter @harness/api build 在编译 api 之前先编译 rag-core
-RUN pnpm --filter @harness/rag-core build && pnpm --filter @harness/api build
+# 先编译内部 workspace 包（产出 dist/），再编译 api
+RUN pnpm --filter @harness/shared-types build && \
+    pnpm --filter @harness/rag-core build && \
+    pnpm --filter @harness/api build
 
 # 生成只含 production deps 的 node_modules
 # pnpm deploy 把 workspace 包内联进来，生成可独立部署的目录
