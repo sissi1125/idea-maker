@@ -1,0 +1,42 @@
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"DB_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"LLM_BASE_URL\" variable is not set. Defaulting to a blank string."
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"LLM_MODEL\" variable is not set. Defaulting to a blank string."
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"DB_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"JWT_SECRET\" variable is not set. Defaulting to a blank string."
+time="2026-06-04T20:20:44+08:00" level=warning msg="The \"LLM_API_KEY\" variable is not set. Defaulting to a blank string."
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 3.53kB done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-bookworm-slim
+#2 DONE 0.0s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 739B done
+#3 DONE 0.0s
+
+#4 [api runner 2/7] WORKDIR /app
+#4 CACHED
+
+#5 [api runner 3/7] RUN groupadd -r app && useradd -r -g app app
+#5 CACHED
+
+#6 [api builder  1/15] FROM docker.io/library/node:22-bookworm-slim@sha256:7af03b14a13c8cdd38e45058fd957bf00a72bbe17feac43b1c15a689c029c732
+#6 CACHED
+
+#7 [api internal] load build context
+#7 transferring context: 18.49kB 0.0s done
+#7 DONE 0.0s
+
+#8 [api builder  2/15] RUN npm config set registry https://registry.npmmirror.com &&     npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp &&     npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips
+#8 0.703 npm error `sharp_binary_host` is not a valid npm option
+#8 0.704 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-06-04T12_20_45_141Z-debug-0.log
+#8 ERROR: process "/bin/sh -c npm config set registry https://registry.npmmirror.com &&     npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp &&     npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips" did not complete successfully: exit code: 1
+------
+ > [api builder  2/15] RUN npm config set registry https://registry.npmmirror.com &&     npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp &&     npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips:
+0.703 npm error `sharp_binary_host` is not a valid npm option
+0.704 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-06-04T12_20_45_141Z-debug-0.log
+------
+failed to solve: process "/bin/sh -c npm config set registry https://registry.npmmirror.com &&     npm config set sharp_binary_host https://npmmirror.com/mirrors/sharp &&     npm config set sharp_libvips_binary_host https://npmmirror.com/mirrors/sharp-libvips" did not complete successfully: exit code: 1
