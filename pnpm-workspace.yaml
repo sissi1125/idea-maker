@@ -1,3 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# 禁止任何 hoist，强制每个包显式声明依赖；
+# 防 phantom dependency：避免本地能 build、Docker 隔离环境却报 "Cannot find name"。
+publicHoistPattern: []
