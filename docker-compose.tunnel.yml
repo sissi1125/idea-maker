@@ -94,7 +94,8 @@ services:
   # --no-autoupdate：禁用自动更新（不希望容器自己重启换 URL）
   # --url：转发 trycloudflare.com 流量到内部 api 服务的 3001 端口
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # 锁死版本：避免国内镜像加速器把 :latest 缓存成远古版本（2020.7.0 的根证书已过期）
+    image: cloudflare/cloudflared:2025.5.0
     restart: unless-stopped
     command: tunnel --no-autoupdate --url http://api:3001
     depends_on:
