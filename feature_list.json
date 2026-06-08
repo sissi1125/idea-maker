@@ -761,15 +761,13 @@
     },
     {
       "id": "feat-013.5",
-      "name": "Fly.io 多服务生产部署",
+      "name": "生产部署：Vercel + 阿里云 ECS + Cloudflare Named Tunnel",
       "phase": "5",
       "track": "A-main",
-      "description": "Fly.io 多服务部署：apps/web (Next.js Dockerfile) + apps/api (NestJS Dockerfile) + services/pymupdf (Python) + Fly Postgres（内置 pgvector）。根 fly.toml 定义多 service。GitHub Actions CI：PR 时跑 monorepo 全量 typecheck + lint + 各 app 独立 build。备选混合部署：apps/web 上 Vercel + apps/api + pymupdf 上 Fly。",
-      "dependencies": [
-        "feat-013.4"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "description": "Phase 2 实际生产架构：前端 Vercel CDN（Next.js standalone），后端阿里云 ECS 1C/2GB 跑 docker compose（NestJS api + pgvector），中间用 Cloudflare Named Tunnel 串连（出站隧道、无入站端口、无需备案）。LLM + Embedding 全部用云端智谱 API（GLM-4-flash + embedding-3，1024 维），节省本地 ollama 内存。固定域名 https://api.retreevo.online，URL 重启不变。归档：Fly.io 多服务方案（已废弃）→ docs/DEPLOY-flyio-legacy.md；单 ECS Caddy 全栈方案（备选 / fallback）→ docker-compose.prod.yml + docs/DEPLOY-PLAN.md。",
+      "dependencies": [],
+      "status": "done",
+      "evidence": "docs/DEPLOY.md (Phase 2 部署指南) + docs/DEPLOYMENT_RETROSPECTIVE.md (11 个生产坑复盘) + docs/DEPLOYMENT_PLAIN_TALK.md (大白话方案介绍) + docker-compose.named-tunnel.yml + docker-compose.tunnel.yml；上线 URL: https://idea-maker-web.vercel.app (前端) + https://api.retreevo.online (后端)；上线时间 2026-06-08。注：原 dependencies=[feat-013.4 Drizzle] 是错误的依赖关系（部署不需要先迁 ORM），上线时移除。"
     }
   ]
 }

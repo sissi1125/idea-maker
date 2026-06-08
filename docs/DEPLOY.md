@@ -1,27 +1,155 @@
-# 部署指南：阿里云 ECS docker-compose
+# 部署指南：Vercel + 阿里云 ECS + Cloudflare Named Tunnel
 
-feat-013.5 — 单 VPS 全栈部署（前端 + 后端 + Postgres + Ollama + Caddy 反代）。
-所有服务跑在同一台 ECS，一键启栈，自动 HTTPS。
+feat-013.5 — **Phase 2 实际生产架构**（2026-06 上线）。
+- 前端：Vercel CDN（免费、自动 SSL、零运维）
+- 后端：阿里云 ECS（1C/2GB Alibaba Cloud Linux 3）docker compose
+- 反向代理：Cloudflare Named Tunnel（出站隧道，无入站端口、零备案）
+- LLM + Embedding：智谱 GLM（云端 API，1C/2GB ECS 跑不起本地 ollama）
 
-> 旧的 Fly.io 文档已废弃，归档到 `docs/DEPLOY-flyio-legacy.md`。
+> Phase 1 旧方案（单 ECS + Caddy + Ollama 全栈）保留在 `docker-compose.prod.yml` + `docs/DEPLOY-PLAN.md`，作为 fallback。
+> Fly.io 方案归档到 `docs/DEPLOY-flyio-legacy.md`。
 
 ---
 
-## 架构
+## Phase 2 架构
 
 ```
-                          公网
-                            │
-                  Caddy (80/443)
-                   ├─ {DOMAIN}        → web:3000     Next.js
-                   └─ api.{DOMAIN}    → api:3001     NestJS
-                                          │
-                                          ├─ postgres:5432    PostgreSQL 16 + pgvector
-                                          └─ ollama:11434     bge-m3 embedding
+                  浏览器
+                    │ HTTPS
+            Vercel CDN（Next.js standalone）
+                    │ HTTPS
+        https://api.retreevo.online
+                    │ DNS CNAME
+        Cloudflare 边缘节点（自动 SSL、TLS 终结）
+                    │ 加密隧道（出站长连接）
+                ECS：cloudflared 容器（无入站端口）
+                    │ docker bridge network
+                ┌───┴────┐
+            api:3001    postgres:5432
+            （NestJS）  （pgvector）
+                │
+                └→ 智谱云端 API
+                   embedding-3 + GLM-4-flash
 ```
 
-5 个 container 一个 docker-compose 拉起。
-HTTPS 由 Caddy 自动申请 Let's Encrypt 证书（仅需 DNS 指向 ECS 公网 IP）。
+**关键设计**：
+- ECS **不开任何入站端口**（cloudflared 出站建连，类似 SSR 客户端）
+- 域名挂在 Cloudflare，**无需备案**（流量入口是 CF 边缘节点，不是 ECS IP）
+- Quick Tunnel 调试 → Named Tunnel 生产（URL 固定，重启不变）
+- 本地 ollama → 云端智谱 embedding，节省 ~600MB 内存
+- 全链路 SSE（Agent Trace 实时流）通过 Cloudflare Tunnel 验证可行
+
+---
+
+## Phase 2 部署步骤
+
+### 0. 前置准备
+
+- ECS：1C/2GB 起，能上外网（cloudflared 走出站）
+- 域名：托管到 Cloudflare（任何 TLD，腾讯云/阿里云域名都行，**无需备案**）
+- 智谱 API key：[bigmodel.cn](https://open.bigmodel.cn) 注册按量充值即可
+- Vercel + Cloudflare 账号
+
+### 1. ECS 上 docker + compose
+
+```bash
+curl -fsSL https://get.docker.com | sh
+docker --version && docker compose version
+```
+
+### 2. 配置 .env
+
+```bash
+git clone <你的仓库> /var/www/html/idea-maker  # 或 scp
+cd /var/www/html/idea-maker
+cp .env.production.example .env
+chmod 600 .env
+vim .env
+```
+
+**关键字段**（带 ⚠️ 的必改）：
+
+```bash
+DB_PASSWORD=$(openssl rand -hex 24)              # ⚠️ 用 hex 避免 URL 特殊字符
+JWT_SECRET=$(openssl rand -base64 48)            # ⚠️
+CORS_ORIGIN=https://你的项目.vercel.app          # ⚠️ Vercel 部署完回填
+LLM_API_KEY=4e277xxx.ABzBixxx                    # ⚠️ 智谱真实 key
+LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
+LLM_MODEL=glm-4-flash
+EMBEDDING_API_KEY=4e277xxx.ABzBixxx              # ⚠️ 同上（不要写 ${LLM_API_KEY}，.env 不展开变量）
+EMBEDDING_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_DIMENSION=1024
+```
+
+### 3. Cloudflare Named Tunnel 配置
+
+```bash
+# 装 cloudflared（Alibaba Cloud Linux 用 rpm）
+curl -L --output cloudflared.rpm https://ghproxy.com/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-x86_64.rpm
+rpm -ivh cloudflared.rpm
+
+# 登录（输出 URL 在本地浏览器打开授权）
+cloudflared tunnel login
+
+# 创建 tunnel
+cloudflared tunnel create idea-maker-api
+# 记下 UUID
+
+# 绑定子域名（自动加 CF DNS CNAME）
+cloudflared tunnel route dns idea-maker-api api.你的域名.com
+
+# 写 config.yml + 复制到容器可读位置
+UUID=$(basename /root/.cloudflared/*.json .json)
+cat > /etc/cloudflared/config.yml <<EOF
+tunnel: $UUID
+credentials-file: /etc/cloudflared/$UUID.json
+
+ingress:
+  - hostname: api.你的域名.com
+    service: http://api:3001
+  - service: http_status:404
+EOF
+cp /root/.cloudflared/$UUID.json /etc/cloudflared/
+chmod 755 /etc/cloudflared && chmod 644 /etc/cloudflared/*
+```
+
+### 4. 启动栈
+
+```bash
+docker compose -f docker-compose.named-tunnel.yml up -d
+sleep 15
+docker compose -f docker-compose.named-tunnel.yml logs cloudflared --tail 20
+curl -i https://api.你的域名.com/health  # 期望 200
+```
+
+### 5. Vercel 部署前端
+
+[Vercel](https://vercel.com) → Import 仓库 → 配置：
+
+| 字段 | 值 |
+|---|---|
+| Root Directory | `apps/web` |
+| Install Command | `cd ../.. && pnpm install --frozen-lockfile --prod=false` |
+| Build Command | `cd ../.. && pnpm --filter @harness/shared-types build && pnpm --filter @harness/rag-core build && pnpm --filter @harness/web build` |
+| Environment Variables | `NEXT_PUBLIC_API_URL=https://api.你的域名.com` |
+
+Deploy → 拿到 `https://xxx.vercel.app` → 回填 ECS `.env` 的 `CORS_ORIGIN` → 重启 api。
+
+---
+
+## 验收
+
+```bash
+curl https://api.你的域名.com/health          # ECS api 通
+```
+浏览器：注册 → 创建项目 → 上传文档 → Agent 模式发消息 → Trace 实时流出 step。
+
+---
+
+## ⚠️ 旧方案（Phase 1）以下章节保留作为 fallback 参考
+
+如果你想用单 ECS Caddy 全栈方案（前提：4GB+ 内存、有域名）：
 
 ---
 

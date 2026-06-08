@@ -4,6 +4,11 @@
 
 当前阶段：**Phase 3.5 真 Agent（feat-300）**。架构详见 `docs/agent/ARCHITECTURE.md`。
 
+**生产部署**（feat-013.5 已上线 2026-06-08）：Vercel 前端 + 阿里云 ECS 后端 + Cloudflare Named Tunnel。
+- 前端：https://idea-maker-web.vercel.app
+- 后端：https://api.retreevo.online
+- 部署方案：`docs/DEPLOY.md`（步骤）/ `docs/DEPLOYMENT_RETROSPECTIVE.md`（11 坑复盘）/ `docs/DEPLOYMENT_PLAIN_TALK.md`（大白话）
+
 ## 启动流程
 
 1. 本文件（工作规则）

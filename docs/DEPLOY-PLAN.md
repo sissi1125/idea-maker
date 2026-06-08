@@ -5,6 +5,28 @@
 
 ---
 
+## ⚠️ Phase 2 架构变更（2026-06）
+
+实际生产采用 **Vercel 前端 + 阿里云 ECS 后端 + Cloudflare Named Tunnel** 混合架构，不是本文 §3 的单 ECS 全栈。
+变更原因：
+- 1C/2GB ECS 内存吃紧（本地 ollama bge-m3 OOM）→ 改云端智谱 embedding-3
+- 无固定公网域名 + 不想备案 → Cloudflare Tunnel（出站隧道，零入站端口）
+- 前端独立 CDN 加速 + 零运维 → Vercel
+
+**新架构详情、踩坑复盘、面试讲解**：
+- `docs/DEPLOY.md` — Phase 2 step-by-step 部署指南
+- `docs/DEPLOYMENT_RETROSPECTIVE.md` — 11 个坑的踩坑复盘
+- `docs/DEPLOYMENT_PLAIN_TALK.md` — 1000 字大白话讲架构
+
+**本文档（DEPLOY-PLAN.md）保留为**：
+- 单 ECS 全栈方案的完整决策记录（Phase 1 备选 / fallback）
+- §8 安全 / §10 备份 / §11 回滚 / §12 容量规划 等通用章节仍然适用
+- §13 成本预算需结合 Phase 2 重算（Vercel 免费 + Cloudflare 免费 → 实际仅 ECS 费用 + LLM/embedding 按量）
+
+---
+
+---
+
 ## 目录
 
 0. [文档导读](#0-文档导读)
