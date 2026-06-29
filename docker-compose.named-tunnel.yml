@@ -18,9 +18,11 @@ services:
       - prod
 
   api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
+    # 镜像由 GitHub Actions build & push 到阿里云 ACR；ECS 只 pull 不 build。
+    # ACR_REGISTRY / ACR_NAMESPACE 必须在 .env 配置；API_IMAGE_TAG 默认 latest，
+    # CI workflow 可注入具体 SHA tag 做 immutable deploy。
+    image: ${ACR_REGISTRY}/${ACR_NAMESPACE}/idea-maker-api:${API_IMAGE_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: production

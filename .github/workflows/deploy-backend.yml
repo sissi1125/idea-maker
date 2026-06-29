@@ -1,0 +1,128 @@
+# 后端自动部署 — GitHub Actions build & push 到阿里云 ACR，然后 SSH 让 ECS pull 重启
+#
+# 为什么这么设计：
+#   - ECS 是 1C/2GB，docker build 频繁 OOM 且磁盘紧张，构建必须移出 ECS
+#   - 阿里云 ACR 个人版免费；ECS 拉镜像走 ACR 同地域或公网，比 GitHub Container
+#     Registry 在国内稳定得多
+#   - SHA tag 让回滚和审计有据可查；latest tag 让 compose 默认配置无需改动
+#
+# 前置条件（在 GitHub repo Settings → Secrets and variables → Actions 配）：
+#   ACR_REGISTRY    crpi-xxxx.cn-shenzhen.personal.cr.aliyuncs.com
+#   ACR_NAMESPACE   idea_maker
+#   ACR_USERNAME    你的 ACR 用户名（邮箱形式或带 @xxx.onaliyun.com 后缀）
+#   ACR_PASSWORD    ACR 固定密码（非阿里云登录密码）
+#   ECS_HOST        ECS 公网 IP
+#   ECS_USER        SSH 用户（root 或专用 deploy 用户）
+#   ECS_SSH_KEY     私钥全文（PEM 格式，含 BEGIN/END 行）
+#   ECS_SSH_PORT    可选，默认 22
+#   ECS_APP_DIR     ECS 上仓库路径，如 /var/www/html/idea-maker
+
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "packages/**"
+      - "docker-compose*.yml"
+      - "apps/api/Dockerfile"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+# 并发控制：同时只跑一个部署，新 push 排队（不取消，避免半发布状态）
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/idea-maker-api
+
+jobs:
+  build-and-push:
+    name: Build & push image to ACR
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag (sha)
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to阿里云 ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+          # buildkit 缓存：layer 复用，加速后续 build
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: SSH deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger ECS to pull & restart api
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          port: ${{ secrets.ECS_SSH_PORT || 22 }}
+          script_stop: true
+          command_timeout: 8m
+          envs: IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.ECS_APP_DIR }}
+
+            echo "── 1. 登录 ACR（幂等，token 已存就跳过）──"
+            docker login ${{ secrets.ACR_REGISTRY }} \
+              -u '${{ secrets.ACR_USERNAME }}' \
+              -p '${{ secrets.ACR_PASSWORD }}'
+
+            echo "── 2. pull 新镜像 ──"
+            export API_IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            docker compose -f docker-compose.named-tunnel.yml pull api
+
+            echo "── 3. 重启 api（postgres / cloudflared 不动）──"
+            docker compose -f docker-compose.named-tunnel.yml up -d api
+
+            echo "── 4. 等 health check ──"
+            for i in {1..30}; do
+              status=$(docker compose -f docker-compose.named-tunnel.yml ps api --format json | \
+                       grep -o '"Health":"[^"]*"' | head -1 || echo '"Health":"unknown"')
+              echo "[$i/30] $status"
+              if echo "$status" | grep -q '"healthy"'; then
+                echo "✅ api healthy"
+                break
+              fi
+              sleep 4
+            done
+
+            echo "── 5. 清旧镜像（保留正在用的 + latest） ──"
+            docker image prune -af --filter "until=24h" || true
+
+            echo "── 6. 最后 30 行日志 ──"
+            docker compose -f docker-compose.named-tunnel.yml logs api --tail 30
