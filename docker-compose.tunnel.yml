@@ -39,9 +39,6 @@ services:
     networks:
       - prod
 
-  # ollama 已下线：2GB ECS 跑 bge-m3 OOM；改用云端 embedding（智谱 embedding-3）
-  # 节省 ~600MB 内存。如要回退本地 ollama，参见 git history 或 docker-compose.prod.yml
-
   api:
     build:
       context: .
