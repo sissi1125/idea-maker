@@ -38,6 +38,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 先 build workspace 依赖：下游包 typecheck 时通过 dist/index.d.ts 找类型，
+      # 不先 build 会让 pnpm -r typecheck 在 rag-core / api 阶段报 Cannot find module
+      - name: Build workspace deps
+        run: |
+          pnpm -F @harness/shared-types build
+          pnpm -F @harness/rag-core build
+
       - name: Typecheck
         run: pnpm -r typecheck
 
