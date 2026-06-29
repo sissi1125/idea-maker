@@ -83,3 +83,5 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// auto-deploy smoke test 20260629-2254
