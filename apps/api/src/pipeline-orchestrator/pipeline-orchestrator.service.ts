@@ -297,74 +297,93 @@ export class PipelineOrchestratorService {
         });
 
         // ── 6. rerank ──────────────────────────────────────────────────
-        rerankOutput = await this.runStage(stages, "rerank", async (cfg) => {
-          const methodId = RerankMethodId.parse(cfg.method);
-          const params = RerankParamsSchema.parse(cfg.params);
-          const result = await runRerank({
-            methodId,
-            params,
-            upstreamMatches: filterOutput!.filteredMatches ?? [],
-            upstreamQuery: filterOutput!.originalQuery,
-            hfTeiEndpoint: this.providers.resolveTeiEndpoint(),
-            llmClient: llmConfig?.client,
+        if (!filterOutput) {
+          this.skipStage(stages, "rerank", "upstream filter 未产出结果，跳过");
+        } else {
+          const filterUp = filterOutput;
+          rerankOutput = await this.runStage(stages, "rerank", async (cfg) => {
+            const methodId = RerankMethodId.parse(cfg.method);
+            const params = RerankParamsSchema.parse(cfg.params);
+            const result = await runRerank({
+              methodId,
+              params,
+              upstreamMatches: filterUp.filteredMatches ?? [],
+              upstreamQuery: filterUp.originalQuery,
+              hfTeiEndpoint: this.providers.resolveTeiEndpoint(),
+              llmClient: llmConfig?.client,
+            });
+            if (llmConfig) {
+              this.tracer.addCost({ rerankerCalls: 1 });
+            }
+            return result;
           });
-          if (llmConfig) {
-            this.tracer.addCost({ rerankerCalls: 1 });
-          }
-          return result;
-        });
+        }
 
         // ── 7. citation ────────────────────────────────────────────────
-        citationOutput = await this.runStage(stages, "citation", async (cfg) => {
-          const methodId = CitationMethodId.parse(cfg.method);
-          const params = CitationParamsSchema.parse(cfg.params);
-          const result = await runCitation({
-            methodId,
-            params,
-            upstreamMatches: rerankOutput!.rankedMatches ?? [],
-            originalQuery: rerankOutput!.originalQuery,
-            pgClient,
+        if (!rerankOutput) {
+          this.skipStage(stages, "citation", "upstream rerank 未产出结果，跳过");
+        } else {
+          const rerankUp = rerankOutput;
+          citationOutput = await this.runStage(stages, "citation", async (cfg) => {
+            const methodId = CitationMethodId.parse(cfg.method);
+            const params = CitationParamsSchema.parse(cfg.params);
+            const result = await runCitation({
+              methodId,
+              params,
+              upstreamMatches: rerankUp.rankedMatches ?? [],
+              originalQuery: rerankUp.originalQuery,
+              pgClient,
+            });
+            return result;
           });
-          return result;
-        });
+        }
 
         // ── 8. prompt-build ────────────────────────────────────────────
-        promptBuildOutput = await this.runStage(stages, "prompt-build", async (cfg) => {
-          const methodId = PromptBuildMethodId.parse(cfg.method);
-          const baseParams = PromptBuildParamsSchema.parse(cfg.params);
-          // feat-200.8：把平台规则系统提示拼到 systemPrompt 末尾。
-          // 注意：rag-template 用 baseParams.systemPrompt 作 override，空字符串 = 用默认；
-          // marketing-template 内部生成自己的 systemPrompt，不读 params.systemPrompt——
-          // 那对 marketing 路径如何注入？方案：把 ruleSystemPrompt 拼到 contextText 之前
-          // 是不可行的（污染检索资料区）。MVP 阶段先对两条 path 都通过把 ruleSystemPrompt
-          // 附加到 citationOutput.contextText 之前并加分隔头来实现——简单可行，
-          // 让 LLM 在"产品资料"之前先看到合规约束。
-          const upstream = ruleSystemPrompt
-            ? {
-                ...citationOutput!,
-                contextText:
-                  `${ruleSystemPrompt}\n\n---\n\n${citationOutput!.contextText ?? ""}`,
-              }
-            : citationOutput!;
-          const result = runPromptBuild({
-            methodId,
-            params: baseParams,
-            upstream,
+        if (!citationOutput) {
+          this.skipStage(stages, "prompt-build", "upstream citation 未产出结果，跳过");
+        } else {
+          const citationUp = citationOutput;
+          promptBuildOutput = await this.runStage(stages, "prompt-build", async (cfg) => {
+            const methodId = PromptBuildMethodId.parse(cfg.method);
+            const baseParams = PromptBuildParamsSchema.parse(cfg.params);
+            // feat-200.8：把平台规则系统提示拼到 systemPrompt 末尾。
+            // 注意：rag-template 用 baseParams.systemPrompt 作 override，空字符串 = 用默认；
+            // marketing-template 内部生成自己的 systemPrompt，不读 params.systemPrompt——
+            // 那对 marketing 路径如何注入？方案：把 ruleSystemPrompt 拼到 contextText 之前
+            // 是不可行的（污染检索资料区）。MVP 阶段先对两条 path 都通过把 ruleSystemPrompt
+            // 附加到 citationOutput.contextText 之前并加分隔头来实现——简单可行，
+            // 让 LLM 在"产品资料"之前先看到合规约束。
+            const upstream = ruleSystemPrompt
+              ? {
+                  ...citationUp,
+                  contextText:
+                    `${ruleSystemPrompt}\n\n---\n\n${citationUp.contextText ?? ""}`,
+                }
+              : citationUp;
+            const result = runPromptBuild({
+              methodId,
+              params: baseParams,
+              upstream,
+            });
+            return result;
           });
-          return result;
-        });
+        }
 
         // ── 9. generation ──────────────────────────────────────────────
-        if (llmConfig) {
+        if (!promptBuildOutput) {
+          this.skipStage(stages, "generation", "upstream prompt-build 未产出结果，跳过");
+        } else if (llmConfig) {
+          const promptUp = promptBuildOutput;
+          const llm = llmConfig;
           generationOutput = await this.runStage(stages, "generation", async (cfg) => {
             const methodId = GenerationMethodId.parse(cfg.method);
             const params = GenerationParamsSchema.parse(cfg.params);
             const result = await runGeneration({
               methodId,
               params,
-              upstream: promptBuildOutput!,
-              llmClient: llmConfig!.client,
-              defaultModel: llmConfig!.defaultModel,
+              upstream: promptUp,
+              llmClient: llm.client,
+              defaultModel: llm.defaultModel,
             });
             // 累计 LLM token（从 trace 取）
             const trace = result.trace as { promptTokens?: number; completionTokens?: number };
@@ -379,13 +398,7 @@ export class PipelineOrchestratorService {
           // 提取最终文本
           resultNotes = this.extractResultText(generationOutput);
         } else {
-          stages.push({
-            stageId: "generation",
-            methodId: "skipped",
-            status: "skipped",
-            durationMs: 0,
-            warnings: ["LLM ��配置，跳过 generation"],
-          });
+          this.skipStage(stages, "generation", "LLM 未配置，跳过 generation");
         }
 
         // ── 10. evaluation（允许失败） ─────────────────────────────────
@@ -423,6 +436,19 @@ export class PipelineOrchestratorService {
   }
 
   // ── 私有方法 ───────────────────────────────────────────────────────────────
+
+  /**
+   * 上游 stage 失败/缺失时，把当前 stage 标为 skipped，避免下游用 ! 强解 undefined 触发级联崩溃。
+   */
+  private skipStage(stages: StageResult[], stageId: string, reason: string): void {
+    stages.push({
+      stageId,
+      methodId: "skipped",
+      status: "skipped",
+      durationMs: 0,
+      warnings: [reason],
+    });
+  }
 
   /**
    * 通用 stage 执行器：找配置 → 计时 → 调用 → 记录 result → 返回 output。

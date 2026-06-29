@@ -30,12 +30,15 @@ export const CATEGORY_AUTO_CARDS: Record<string, AutoGenCardType[]> = {
 
 /**
  * card_type → 默认 query 模板。
- *   - 故意写死中文，Phase 4 学习系统接入后再做个性化
- *   - 文案与原型 PresetGrid 的"产品介绍/竞品对比"按钮一致
+ *
+ * ⚠️ 这是检索 query，不是给 LLM 的指令。embedding 命中的是与 query 语义相似的 chunk，
+ * 所以模板必须描述"想要召回的内容维度"，而不是"想让 LLM 做什么"。
+ * 指令式 query（如 "请生成产品介绍卡片"）会把召回方向带偏到元描述语料，
+ * 命中不到真正的产品资料。生成阶段的指令在 prompt-build 的 systemPrompt 里。
  */
 export const CARD_QUERY_TEMPLATES: Record<AutoGenCardType, string> = {
-  intro: "请根据已上传的产品资料，生成一段简洁的产品介绍卡片。",
-  compete: "请基于已上传的竞品资料，生成一段竞品对比卡片，突出我方差异化优势。",
+  intro: "产品定位 核心功能 目标用户 差异化优势 技术亮点 应用场景",
+  compete: "竞品对比 市场格局 功能差异 价格策略 目标用户差异 差异化优势",
 };
 
 /**

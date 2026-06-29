@@ -47,7 +47,7 @@ stages:
   - id: query-rewrite
     method: rule-keyword-expansion
     params:
-      maxExpansions: 3
+      maxQueries: 3
 
   - id: intent-recognition
     method: rule-based
