@@ -676,14 +676,20 @@ export class AgentRunnerService {
   private async loadProjectKnowledge(
     pgClient: PgClient,
     projectId: string,
-  ): Promise<Array<{ cardType: "intro" | "compete"; content: string }>> {
+  ): Promise<Array<{
+    cardType: "intro" | "compete";
+    content: string;
+    evidence: Array<{ text: string }>;
+  }>> {
     try {
+      // 同时取 result_notes 和 retrieved_chunks——后者按 evidence-NNN 顺序展开占位符
       const { rows } = await pgClient.query<{
         card_type: string;
         result_notes: string | null;
+        retrieved_chunks: unknown;
       }>(
         `SELECT DISTINCT ON (a.card_type)
-                a.card_type, g.result_notes
+                a.card_type, g.result_notes, g.retrieved_chunks
          FROM auto_generations a
          JOIN generations g ON g.id = a.generation_id
          WHERE a.project_id = $1
@@ -694,10 +700,12 @@ export class AgentRunnerService {
       );
       return rows
         .filter((r) => r.result_notes && r.result_notes.trim())
-        .filter((r): r is { card_type: "intro" | "compete"; result_notes: string } =>
-          r.card_type === "intro" || r.card_type === "compete"
-        )
-        .map((r) => ({ cardType: r.card_type, content: r.result_notes }));
+        .filter((r) => r.card_type === "intro" || r.card_type === "compete")
+        .map((r) => ({
+          cardType: r.card_type as "intro" | "compete",
+          content: r.result_notes as string,
+          evidence: extractEvidenceTexts(r.retrieved_chunks),
+        }));
     } catch (err) {
       this.logger.warn(
         `[agent] 加载项目知识快照失败 projectId=${projectId}: ${(err as Error).message}`,
@@ -705,4 +713,21 @@ export class AgentRunnerService {
       return [];
     }
   }
+}
+
+/**
+ * retrieved_chunks 是 RankedChunk[]，但落库时是 JSONB unknown。
+ * 这里做最小提取：只关心 .text 字段（其他字段对注入无用）。容错任何脏数据。
+ */
+function extractEvidenceTexts(raw: unknown): Array<{ text: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((c) => {
+      if (c && typeof c === "object" && "text" in c) {
+        const t = (c as { text: unknown }).text;
+        return typeof t === "string" ? { text: t } : null;
+      }
+      return null;
+    })
+    .filter((x): x is { text: string } => x !== null);
 }

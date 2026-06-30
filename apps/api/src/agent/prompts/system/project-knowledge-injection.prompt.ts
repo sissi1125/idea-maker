@@ -14,12 +14,21 @@
  */
 
 import { definePrompt } from "../types";
+import { sanitizeSummaryForPrompt, type EvidenceChunk } from "./sanitize-summary";
 
 export interface ProjectKnowledgeEntry {
   /** intro = 产品介绍；compete = 竞品分析 */
   cardType: "intro" | "compete";
-  /** LLM 生成的 markdown 摘要 */
+  /**
+   * LLM 生成的 markdown 摘要（result_notes）。本注入器会调 sanitizeSummaryForPrompt
+   * 剥掉 markdown 句法、把 [evidence-NNN] 替换成原文，不需要调用方预处理。
+   */
   content: string;
+  /**
+   * 与 content 同源 generation 的 retrieved_chunks，按 evidence-NNN 顺序排列。
+   * 用来把摘要里的 [evidence-001] 等占位符展开成实际语句。可空——空则占位符被删除。
+   */
+  evidence?: EvidenceChunk[];
 }
 
 export interface ProjectKnowledgeInjectionInput {
@@ -47,10 +56,14 @@ export const projectKnowledgeInjectionPrompt = definePrompt<ProjectKnowledgeInje
     for (const type of order) {
       const entry = entries.find((e) => e.cardType === type);
       if (!entry || !entry.content.trim()) continue;
+      // 关键：先剥 markdown + 展开 evidence-NNN，再走截断
+      // 这样 LLM 看到的是自然中文段，不是 "## 核心卖点\n- xxx [evidence-001]" 这种
+      // 既不易读又有空占位符的形态
+      const cleaned = sanitizeSummaryForPrompt(entry.content, entry.evidence ?? []);
       const truncated =
-        entry.content.length > MAX_CHARS_PER_ENTRY
-          ? entry.content.slice(0, MAX_CHARS_PER_ENTRY) + "\n…（已截断）"
-          : entry.content;
+        cleaned.length > MAX_CHARS_PER_ENTRY
+          ? cleaned.slice(0, MAX_CHARS_PER_ENTRY) + "\n…（已截断）"
+          : cleaned;
       sections.push(`【${HEADERS[type]}】\n${truncated.trim()}`);
     }
     if (sections.length === 0) return "";
