@@ -22,21 +22,20 @@ export interface EvidenceChunk {
 }
 
 /**
- * 主入口：把 markdown 摘要清洗成自然中文。
+ * 主入口：把 markdown 摘要清洗成自然中文 + 去重的"原文依据"附录。
  *
  * 算法：
- *   1. 展开 [evidence-NNN]：N 是 1-based 序号，对应 evidence[N-1].text
- *      —— 与 packages/rag-core/src/retrieval/citation.ts 里
- *      `String(idx + 1).padStart(3, "0")` 的编码规则一一对齐
- *   2. 剥 markdown：
- *      - 行首 `#+ ` → 去掉，留标题文本
- *      - `**xxx**` / `__xxx__` → xxx
- *      - `*xxx*` / `_xxx_` → xxx
- *      - 行首 `- ` / `* ` / `+ ` → `· `（保留可读列表感）
- *      - 行首 `1. ` / `2. ` → 去掉编号
- *      - `---` / `***` 横线 → 删除整行
- *      - 行内 `` `code` `` → code
- *   3. 收拢多余空行（3+ 个连续 \n → 2）
+ *   1. 收集 [evidence-NNN] 引用的所有 chunk，**按 chunk 文本内容去重**
+ *      —— 同一个 chunk 被多个卖点引用时（实际 LLM 经常这样），原文只列一遍
+ *   2. 剥掉正文里所有 [evidence-NNN] 标号 → 干净中文段
+ *   3. 剥 markdown 句法（标题/粗斜体/列表/横线/code）
+ *   4. 收拢空行
+ *   5. 底部追加"原文依据：" + 去重后的 chunk 列表（[1] [2] [3]...）
+ *
+ * 为什么不再内联展开：
+ *   之前 [evidence-001] → "（依据原文：「xxx…」）" 内联替换。问题是 4 个卖点
+ *   引用同一个 evidence-001 时，500 字的 chunk 被复制 4 遍嵌进正文，prompt
+ *   暴涨且 LLM 看到一大堆重复反而干扰。改成正文清爽 + 底部聚合方式。
  */
 export function sanitizeSummaryForPrompt(
   raw: string | null | undefined,
@@ -46,46 +45,53 @@ export function sanitizeSummaryForPrompt(
   if (!raw) return "";
   const evidenceMaxChars = options.evidenceMaxChars ?? 200;
 
-  // ── 1. 展开 [evidence-NNN] ──
-  // 三位数字 padded，但容错也认 [evidence-1] [evidence-12] 形态
-  let text = raw.replace(/\[evidence-(\d+)\]/gi, (match, numStr: string) => {
-    const idx = parseInt(numStr, 10) - 1;
-    if (idx < 0 || idx >= evidence.length) {
-      // 找不到对应 chunk → 删除占位符，避免污染输出
-      return "";
-    }
+  // ── 1. 扫描所有 [evidence-NNN] 引用，按 chunk text 去重收集 ──
+  // textToOrder：chunk 文本 → 在附录中的 1-based 序号；同文本只保留首次顺序
+  const textToOrder = new Map<string, number>();
+  const orderedChunks: string[] = [];
+  for (const m of raw.matchAll(/\[evidence-(\d+)\]/gi)) {
+    const idx = parseInt(m[1], 10) - 1;
+    if (idx < 0 || idx >= evidence.length) continue;
     const chunkText = evidence[idx].text.trim();
-    if (!chunkText) return "";
-    const truncated =
-      chunkText.length > evidenceMaxChars
-        ? chunkText.slice(0, evidenceMaxChars).trim() + "…"
-        : chunkText;
-    // 用「」包住原文，与摘要正文区分；不另起段防止破坏句子流
-    return `（依据原文：「${truncated}」）`;
-  });
+    if (!chunkText) continue;
+    if (!textToOrder.has(chunkText)) {
+      textToOrder.set(chunkText, orderedChunks.length + 1);
+      orderedChunks.push(chunkText);
+    }
+  }
 
-  // ── 2. 剥 markdown ──
+  // ── 2. 正文剥掉所有 [evidence-NNN] 标号（含前置空白防止留双空格） ──
+  let text = raw.replace(/[ \t]*\[evidence-\d+\]/gi, "");
+
+  // ── 3. 剥 markdown ──
   text = text
-    // 删整行的横线分隔符
     .replace(/^\s*(---+|\*\*\*+|___+)\s*$/gm, "")
-    // 行首标题：# / ## / ### → 留文本
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    // 加粗 / 斜体
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1$2")
     .replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1$2")
-    // 行内 code
     .replace(/`([^`]+)`/g, "$1")
-    // 行首列表标记：- * + → ·
     .replace(/^(\s*)[-*+]\s+/gm, "$1· ")
-    // 行首数字列表：1. → 删
     .replace(/^(\s*)\d+\.\s+/gm, "$1")
-    // 链接 [text](url) → text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 
-  // ── 3. 收拢空行 ──
+  // ── 4. 收拢空行 ──
   text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+  // ── 5. 追加去重后的原文依据 ──
+  if (orderedChunks.length > 0) {
+    const lines = orderedChunks.map((chunkText, i) => {
+      const truncated =
+        chunkText.length > evidenceMaxChars
+          ? chunkText.slice(0, evidenceMaxChars).trim() + "…"
+          : chunkText;
+      // chunk 内部可能本身就有换行；扁平成单行降低 prompt 长度
+      const flat = truncated.replace(/\s+/g, " ").trim();
+      return `[${i + 1}] ${flat}`;
+    });
+    text += `\n\n原文依据：\n${lines.join("\n")}`;
+  }
 
   return text;
 }
