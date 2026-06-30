@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Harness — 透明可观测的 AI Agent",
+  title: "IDEA-MAKER — 透明可观测的 AI Agent",
   description: "透明的 AI，懂你的 Agent。看到每一次思考、每一次检索、每一次工具调用。",
 };
 

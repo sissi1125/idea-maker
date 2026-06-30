@@ -94,11 +94,11 @@ export function Sidebar() {
             boxShadow: "0 0 0 1px rgba(255,255,255,.4) inset, 0 4px 10px rgba(79,168,154,.28)",
           }}
         >
-          H
+          I
         </div>
         <div>
           <div className="font-semibold text-[15px] tracking-tight" style={{ color: "var(--ink)" }}>
-            Harness
+            IDEA-MAKER
           </div>
           <div className="text-[10.5px]" style={{ color: "var(--ink-3)" }}>
             透明 · 可观测 · 懂你的 Agent

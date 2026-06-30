@@ -188,6 +188,66 @@ export class AutoGenerationsService {
     });
   }
 
+  /**
+   * 手动重新生成某一类卡片（intro / compete）。
+   *
+   * 触发方：前端"重新生成"按钮。文档来源 = 该 card_type 最近一次 auto_generations
+   * 的 document_id（succeeded 或 failed 都可——用户点重新生成时显然希望基于"上次
+   * 那份资料"再跑一次）。如果该 card_type 从来没有过 auto_gen 记录，说明用户还没
+   * 上传对应类别的文档，抛错让前端引导上传。
+   *
+   * 与 ingestion.completed 自动触发走同一份 runOne，所以前端轮询 in-flight 行的
+   * 逻辑可以原样复用，不需要新的 UI 分支。
+   */
+  async regenerate(projectId: string, cardType: AutoGenCardType): Promise<{ autoGenId: string }> {
+    const documentId = await this.db.withClient(async (client) => {
+      const { rows } = await client.query<{ document_id: string }>(
+        `SELECT document_id FROM auto_generations
+         WHERE project_id = $1 AND card_type = $2
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [projectId, cardType],
+      );
+      return rows.length > 0 ? rows[0].document_id : null;
+    });
+    if (!documentId) {
+      throw new Error("尚未上传对应类别的资料，无法重新生成");
+    }
+    const autoGenId = randomUUID();
+    await this.insertAutoGen(autoGenId, projectId, documentId, cardType, "running");
+    setImmediate(() => {
+      void this.runOneExisting(autoGenId, projectId, cardType);
+    });
+    return { autoGenId };
+  }
+
+  /** runOne 的复用版本：autoGenId 已经 insert 过，这里只跑 generate + update */
+  private async runOneExisting(
+    autoGenId: string,
+    projectId: string,
+    cardType: AutoGenCardType,
+  ): Promise<void> {
+    const query = CARD_QUERY_TEMPLATES[cardType];
+    const traceId = `auto-gen:${autoGenId}`;
+    try {
+      const result = await this.tracer.run(traceId, () =>
+        this.generations.generate(null, projectId, query, {
+          source: "auto",
+          skipOwnerCheck: true,
+        }),
+      );
+      if (result.status === "succeeded") {
+        await this.updateAutoGen(autoGenId, "succeeded", result.generationId, null);
+      } else {
+        await this.updateAutoGen(autoGenId, "failed", result.generationId, result.error ?? "generate 失败");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`auto-gen 手动重生成失败 autoGenId=${autoGenId} cardType=${cardType}: ${msg}`);
+      await this.updateAutoGen(autoGenId, "failed", null, msg);
+    }
+  }
+
   /** 列出某文档的自动生成历史（按需供前端展示） */
   async listByDocument(documentId: string): Promise<AutoGenerationRow[]> {
     return this.db.withClient(async (client) => {

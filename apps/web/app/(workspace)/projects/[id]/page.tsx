@@ -21,13 +21,14 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import {
   Send, FileText, Layers, Sparkles,
-  ChevronUp, ChevronDown, DollarSign,
+  ChevronUp, ChevronDown, DollarSign, RefreshCw, Eye,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { generationsApi, autoGenerationsApi, agentApi } from "@/lib/api";
 import { AgentTracePanel } from "@/components/agent/AgentTracePanel";
+import { AgentContextPanel } from "@/components/agent/AgentContextPanel";
 import type {
   GenerateResponse, ProjectAutoGenLatest, ProjectAutoGenInFlight, AutoGenCardType,
 } from "@/lib/api";
@@ -87,10 +88,12 @@ function ProjectInfoCards({
   summaries,
   inFlight,
   loading,
+  onRegenerate,
 }: {
   summaries: Partial<Record<AutoGenCardType, ProjectAutoGenLatest>>;
   inFlight: Partial<Record<AutoGenCardType, ProjectAutoGenInFlight>>;
   loading: boolean;
+  onRegenerate: (cardType: AutoGenCardType) => void;
 }) {
   const cards: Array<{
     kind: AutoGenCardType;
@@ -187,6 +190,21 @@ function ProjectInfoCards({
                 )}
                 {badge.text}
               </span>
+              <span className="flex-1" />
+              {/* 重新生成：仅当不在进行中、且已有内容（说明源文档存在）时显示 */}
+              {hasContent && !isGenerating && (
+                <button
+                  type="button"
+                  onClick={() => onRegenerate(c.kind)}
+                  title="基于上次源文档重新生成"
+                  className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded
+                             hover:bg-[var(--brand-soft)] cursor-pointer"
+                  style={{ color: "var(--ink-3)" }}
+                >
+                  <RefreshCw size={10} strokeWidth={2} />
+                  重新生成
+                </button>
+              )}
             </div>
 
             {/* 进行中提示行——独立于正文，让用户即便有旧摘要也清楚知道正在重生成 */}
@@ -213,16 +231,22 @@ function ProjectInfoCards({
             )}
 
             {/* 正文：超长内容内部滚动，不撑高卡片；引导文案不需要滚动 */}
-            <div className="text-[13px] leading-[1.65] whitespace-pre-line pr-1"
+            <div className="text-[13px] leading-[1.65] pr-1"
                  style={{
                    color: hasContent ? "var(--ink)" : "var(--ink-2)",
                    maxHeight: hasContent ? "14em" : undefined,
                    overflowY: hasContent ? "auto" : "visible",
-                   // 细滚动条 + 留点右边距防止贴到卡片边缘
                    scrollbarWidth: "thin",
                    scrollbarColor: "rgba(11,17,32,.18) transparent",
                  }}>
-              {loading ? "加载中…" : body}
+              {loading ? (
+                "加载中…"
+              ) : hasContent ? (
+                // Markdown 渲染——不再展示 ## ** - 等原始符号
+                <Markdown content={body} />
+              ) : (
+                <div className="whitespace-pre-line">{body}</div>
+              )}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {chips.map(ch => (
@@ -450,6 +474,8 @@ export default function ProjectChatPage() {
   // feat-300.6：当前 agent run（仅 agent 模式有值）
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
   const [agentFinalText, setAgentFinalText] = useState<string | null>(null);
+  // v1.0 优化：上下文查看面板开关
+  const [contextOpen, setContextOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) setCurrentProject(projectId);
@@ -592,7 +618,22 @@ export default function ProjectChatPage() {
         </div>
 
         {/* Auto-generated info cards（项目级最新成功摘要 + 进行中状态） */}
-        <ProjectInfoCards summaries={summaries} inFlight={inFlight} loading={summariesLoading} />
+        <ProjectInfoCards
+          summaries={summaries}
+          inFlight={inFlight}
+          loading={summariesLoading}
+          onRegenerate={async (cardType) => {
+            if (!projectId) return;
+            try {
+              await autoGenerationsApi.regenerateCard(projectId, cardType);
+              toast.info(`已开始重新生成${cardType === "intro" ? "产品介绍" : "竞品分析"}`);
+              setSummariesReloadTick((t) => t + 1);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : "重新生成失败";
+              toast.error(msg);
+            }
+          }}
+        />
 
         {/* Conversation thread */}
         {lastPrompt && (
@@ -627,8 +668,22 @@ export default function ProjectChatPage() {
               H
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-3.5">
-              <div className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-                Harness Agent · {phase === "running" ? "思考中…" : "回复"}
+              <div className="text-[11.5px] flex items-center gap-2" style={{ color: "var(--ink-3)" }}>
+                <span>IDEA-MAKER Agent · {phase === "running" ? "思考中…" : "回复"}</span>
+                {/* v1.0 优化：透明上下文入口——每次 agent 对话都能查看实际传入的 memory / rules / tools */}
+                {agentModeEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setContextOpen(true)}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px]
+                               hover:bg-[var(--brand-soft)] cursor-pointer"
+                    style={{ color: "var(--brand)", border: "1px solid rgba(79,168,154,.3)" }}
+                    title="查看本次 Agent 看到的上下文"
+                  >
+                    <Eye size={10} strokeWidth={2} />
+                    查看上下文
+                  </button>
+                )}
               </div>
 
               {/* feat-300.6：Agent 模式走 trace 时间轴；经典模式走 11-stage pipeline 视图 */}
@@ -738,6 +793,16 @@ export default function ProjectChatPage() {
           <ChatInput value={input} setValue={setInput} onSend={onSend} disabled={phase === "running"} />
         </div>
       </div>
+
+      {/* v1.0 优化：透明上下文查看面板 */}
+      {projectId && (
+        <AgentContextPanel
+          open={contextOpen}
+          onClose={() => setContextOpen(false)}
+          projectId={projectId}
+          userMessage={lastPrompt}
+        />
+      )}
     </main>
   );
 }

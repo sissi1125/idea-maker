@@ -176,7 +176,14 @@ export class AgentRunnerService {
     const settings = await this.projects.getSettings(input.userId, input.projectId);
 
     // ── 2. 构造 LLM + embedding 客户端 ───────────────────────────────────
-    const modelName = input.modelOverride ?? settings.model ?? "gpt-4o-mini";
+    // fallback 链：modelOverride → 项目 settings.model → env LLM_MODEL → 最终兜底
+    // 之前直接落到 "gpt-4o-mini" 是个坑——env 里写了 glm-4-flash 也没用，
+    // 智谱接口拿 gpt-4o-mini 就抛"模型不存在"
+    const modelName =
+      input.modelOverride ??
+      settings.model ??
+      process.env.LLM_MODEL ??
+      "gpt-4o-mini";
     const llmModel = this.llm.create({
       provider: settings.provider,
       apiKey: settings.encryptedApiKey,
@@ -186,12 +193,17 @@ export class AgentRunnerService {
       settings.encryptedApiKey ?? undefined,
     );
 
-    // ── 3. 加载 memory + platform_rules ───────────────────────────────────
+    // ── 3. 加载 memory + platform_rules + 项目知识快照 ─────────────────────
     const memoryEntries = await this.memory.load(pgClient, input.projectId);
     // PlatformRulesService.list 走 DbService.withClient（短查询），不复用本 run 的
     // pgClient——projectId 隔离 + enabled 过滤都在 adapter 里完成
     const ruleRows = await this.platformRulesService.list(input.userId, input.projectId);
     const platformRules = adaptPlatformRules(ruleRows);
+
+    // v1.0 优化项 3：把项目最新 intro/compete 摘要拼进 system prompt，让 agent 第一轮
+    // 就有"项目整体认知"。读 auto_generations + generations JOIN，只取 succeeded 的最新一条/类型。
+    // 直接走 pgClient 自查，避免 AgentModule 与 AutoGenerationsModule 互相依赖。
+    const projectKnowledge = await this.loadProjectKnowledge(pgClient, input.projectId);
 
     // ── 4. 创建 generations + agent_runs 记录 ────────────────────────────
     const generationId = await this.createPendingGeneration(
@@ -246,6 +258,7 @@ export class AgentRunnerService {
       projectName: project.name?.trim() || input.projectId,
       memory: memoryEntries,
       platformRules,
+      projectKnowledge,
       contextSummary,
     });
 
@@ -639,5 +652,46 @@ export class AgentRunnerService {
   private stripTraceField(obj: Record<string, unknown>): Record<string, unknown> {
     const { [TRACE_FIELD]: _omit, ...rest } = obj;
     return rest;
+  }
+
+  /**
+   * v1.0 优化项 3：读取项目最新成功的 intro / compete 摘要拼进 system prompt。
+   *
+   * 与 AutoGenerationsService.getLatestByProject 同语义但内联实现——避免 AgentModule
+   * 反向依赖 AutoGenerationsModule（后者依赖 GenerationsModule，绕路太多）。
+   *
+   * 失败静默：拿不到摘要时 agent 退化到"无项目知识"的旧行为，不应让用户感知错误。
+   */
+  private async loadProjectKnowledge(
+    pgClient: PgClient,
+    projectId: string,
+  ): Promise<Array<{ cardType: "intro" | "compete"; content: string }>> {
+    try {
+      const { rows } = await pgClient.query<{
+        card_type: string;
+        result_notes: string | null;
+      }>(
+        `SELECT DISTINCT ON (a.card_type)
+                a.card_type, g.result_notes
+         FROM auto_generations a
+         JOIN generations g ON g.id = a.generation_id
+         WHERE a.project_id = $1
+           AND a.status = 'succeeded'
+           AND g.status = 'succeeded'
+         ORDER BY a.card_type ASC, a.created_at DESC`,
+        [projectId],
+      );
+      return rows
+        .filter((r) => r.result_notes && r.result_notes.trim())
+        .filter((r): r is { card_type: "intro" | "compete"; result_notes: string } =>
+          r.card_type === "intro" || r.card_type === "compete"
+        )
+        .map((r) => ({ cardType: r.card_type, content: r.result_notes }));
+    } catch (err) {
+      this.logger.warn(
+        `[agent] 加载项目知识快照失败 projectId=${projectId}: ${(err as Error).message}`,
+      );
+      return [];
+    }
   }
 }

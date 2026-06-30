@@ -50,3 +50,17 @@ export async function getLatestProjectAutoGen(
     inFlight: ProjectAutoGenInFlight[];
   }>(`/projects/${projectId}/auto-generations/latest`);
 }
+
+/**
+ * 手动重新生成某一类卡片——拿最近一次该 card_type 用过的文档再跑一次。
+ * 返回新的 autoGenId；前端继续靠 latest 轮询拿状态。
+ */
+export async function regenerateCard(
+  projectId: string,
+  cardType: AutoGenCardType,
+): Promise<{ autoGenId: string }> {
+  return apiFetch<{ autoGenId: string }>(
+    `/projects/${projectId}/auto-generations/${cardType}/regenerate`,
+    { method: "POST" },
+  );
+}

@@ -92,9 +92,9 @@ export default function LoginPage() {
               boxShadow: "0 0 0 1px rgba(255,255,255,.32) inset, 0 8px 18px rgba(0,0,0,.18)",
             }}
           >
-            H
+            I
           </div>
-          <span className="font-semibold text-[19px] tracking-tight">Harness</span>
+          <span className="font-semibold text-[19px] tracking-tight">IDEA-MAKER</span>
         </div>
 
         {/* Tagline */}
@@ -114,7 +114,7 @@ export default function LoginPage() {
             。
           </h1>
           <p className="text-[15px] leading-relaxed opacity-80 max-w-[480px] mb-8">
-            不再是黑盒。Harness 让你看到 Agent 的每一次思考、每一次检索、每一次工具调用，
+            不再是黑盒。IDEA-MAKER 让你看到 Agent 的每一次思考、每一次检索、每一次工具调用，
             并通过你的反馈逐步学习偏好。
           </p>
 
@@ -141,7 +141,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative text-[11.5px] opacity-50">
-          © 2025 Harness · 透明可观测 AI Agent 平台
+          © 2025 IDEA-MAKER · 透明可观测 AI Agent 平台
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export default function LoginPage() {
             {mode === "signin" ? "欢迎回来" : "创建账户"}
           </h2>
           <p className="text-[13px] mb-6" style={{ color: "var(--ink-3)" }}>
-            {mode === "signin" ? "登录以继续使用 Harness" : "30 秒注册，免费试用"}
+            {mode === "signin" ? "登录以继续使用 IDEA-MAKER" : "30 秒注册，免费试用"}
           </p>
 
           <div className="flex flex-col gap-3">

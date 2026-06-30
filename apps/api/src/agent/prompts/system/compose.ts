@@ -27,10 +27,19 @@ import {
   platformRulesInjectionPrompt,
   type PlatformRule,
 } from "./platform-rules-injection.prompt";
+import {
+  projectKnowledgeInjectionPrompt,
+  type ProjectKnowledgeEntry,
+} from "./project-knowledge-injection.prompt";
 
 export interface AgentSystemPromptInput extends AgentBaseSystemInput {
   memory: MemoryEntry[];
   platformRules: PlatformRule[];
+  /**
+   * 项目级 auto-gen 摘要（产品介绍 / 竞品分析）——v1.0 优化项 3
+   * 让 agent 第一轮就有"项目整体认知"，不必再靠 search_kb 一段段拼凑。
+   */
+  projectKnowledge?: ProjectKnowledgeEntry[];
   /** ContextManager 压缩历史轮次后产出的摘要；无早期对话则为空 */
   contextSummary?: string;
 }
@@ -43,6 +52,9 @@ export const agentSystemPrompt = definePrompt<AgentSystemPromptInput>({
   render: (input) => {
     const segments = [
       agentBaseSystemPrompt.render({ projectName: input.projectName }),
+      // 项目知识快照紧跟 base：让 LLM 一开始就锚定到"这个项目卖什么、和谁竞争"，
+      // 后续 memory / rules / 早期摘要都在这个事实基础上叠加
+      projectKnowledgeInjectionPrompt.render({ entries: input.projectKnowledge ?? [] }),
       memoryInjectionPrompt.render({ memory: input.memory }),
       platformRulesInjectionPrompt.render({ rules: input.platformRules }),
       input.contextSummary?.trim()

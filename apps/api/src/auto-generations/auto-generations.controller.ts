@@ -9,7 +9,7 @@
  * 业务侧不暴露手动触发端点：触发完全由 ingestion.completed 决定，避免脏触发。
  */
 
-import { Controller, Get, Param, UseGuards, NotFoundException } from "@nestjs/common";
+import { Controller, Get, Post, Param, UseGuards, NotFoundException, BadRequestException } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { RequestUser } from "../auth/auth.types";
@@ -84,5 +84,36 @@ export class ProjectAutoGenerationsController {
       this.autoGen.getInFlightByProject(projectId),
     ]);
     return { items, inFlight };
+  }
+
+  /**
+   * 手动重新生成一张卡片（intro / compete）。
+   *
+   * 与 ingestion 自动触发走同一份 runner——前端"重新生成"按钮直接命中此端点，
+   * 之后继续靠 latest 接口的 inFlight 字段轮询状态。
+   */
+  @Post(":cardType/regenerate")
+  async regenerate(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("cardType") cardType: string,
+  ) {
+    if (cardType !== "intro" && cardType !== "compete") {
+      throw new BadRequestException("cardType 必须是 intro 或 compete");
+    }
+    await this.db.withClient(async (client) => {
+      const { rows } = await client.query(
+        `SELECT 1 FROM projects WHERE id = $1 AND owner_id = $2`,
+        [projectId, user.id],
+      );
+      if (rows.length === 0) throw new NotFoundException("项目不存在");
+    });
+    try {
+      const { autoGenId } = await this.autoGen.regenerate(projectId, cardType);
+      return { autoGenId };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(msg);
+    }
   }
 }
