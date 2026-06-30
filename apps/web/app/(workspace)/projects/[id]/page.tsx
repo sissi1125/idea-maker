@@ -801,6 +801,7 @@ export default function ProjectChatPage() {
           onClose={() => setContextOpen(false)}
           projectId={projectId}
           userMessage={lastPrompt}
+          runId={agentRunId}
         />
       )}
     </main>

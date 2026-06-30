@@ -262,6 +262,17 @@ export class AgentRunnerService {
       contextSummary,
     });
 
+    // v1.0 优化项 1：把"即将发给 LLM"的真实 system prompt + messages 落到 agent_runs，
+    // 给前端「查看上下文」面板回放——不再让用户猜"上下文里到底有啥"。
+    // 失败静默：snapshot 是诊断工具，写不进库不应该挡 ReAct 主循环。
+    await this.repo
+      .saveContextSnapshot(pgClient, runId, systemPrompt, messages)
+      .catch((err) =>
+        this.logger.warn(
+          `[agent] saveContextSnapshot 失败 runId=${runId}: ${(err as Error).message}`,
+        ),
+      );
+
     // ── 8. 构造 tools ────────────────────────────────────────────────────
     // 关键：把 ProvidersService 解析出的 embedding model + dimension 透传给 tools，
     // 否则 search_kb 会 fallback 到硬编码 "text-embedding-v4"（Qwen 命名），

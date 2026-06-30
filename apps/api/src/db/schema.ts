@@ -558,6 +558,22 @@ CREATE INDEX IF NOT EXISTS idx_eval_items_run ON eval_items (eval_run_id);
 CREATE INDEX IF NOT EXISTS idx_eval_items_golden ON eval_items (golden_id, created_at DESC);
 `;
 
+/**
+ * v1.0 优化项 1：把 agent run 启动时实际发给 LLM 的 system prompt + messages
+ * 落库，方便用户在「查看上下文」面板看到一字不漏的真实输入。
+ *
+ * 为什么不复用 agent_steps：那张表是 ReAct 主循环每步快照，语义是"过程"；
+ * 这里要存的是"入参"，一次性、就一份，挂在 run 上语义最清晰。
+ *
+ * 幂等 ALTER：IF NOT EXISTS 兼容老库；新库 DDL_AGENT_RUNS 暂未带这两列，
+ * 由本块统一加。
+ */
+export const DDL_AGENT_RUNS_CONTEXT_SNAPSHOT = `
+ALTER TABLE agent_runs
+  ADD COLUMN IF NOT EXISTS system_prompt TEXT,
+  ADD COLUMN IF NOT EXISTS input_messages JSONB;
+`;
+
 export const FEAT_200_DDL_BLOCKS = [
   DDL_USERS,
   DDL_PROJECTS,
@@ -586,4 +602,7 @@ export const FEAT_200_DDL_BLOCKS = [
   // feat-300.5：eval_runs / eval_items
   DDL_EVAL_RUNS,
   DDL_EVAL_ITEMS,
+  // v1.0 优化项 1：agent_runs.system_prompt / input_messages 落库——
+  // 给前端「查看上下文」面板暴露真实发给 LLM 的最终拼接文本
+  DDL_AGENT_RUNS_CONTEXT_SNAPSHOT,
 ];

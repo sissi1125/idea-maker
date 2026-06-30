@@ -19,10 +19,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, BookOpen, ShieldCheck, MessageSquare, Wrench, FileText } from "lucide-react";
-import { memoryApi, platformRulesApi, autoGenerationsApi } from "@/lib/api";
+import { X, BookOpen, ShieldCheck, MessageSquare, Wrench, FileText, Code } from "lucide-react";
+import { memoryApi, platformRulesApi, autoGenerationsApi, agentApi } from "@/lib/api";
 import type {
-  MemoryRow, PlatformRule, ProjectAutoGenLatest, AutoGenCardType,
+  MemoryRow, PlatformRule, ProjectAutoGenLatest, AutoGenCardType, ChatMessage,
 } from "@/lib/api";
 import { Markdown } from "@/components/markdown/Markdown";
 
@@ -32,6 +32,8 @@ interface Props {
   projectId: string;
   /** 当次对话的用户消息（来自 Chat 页 lastPrompt） */
   userMessage: string;
+  /** 当前 agent run id（有则拉真实 system prompt 落库快照；无则仅展示结构化分区） */
+  runId?: string | null;
 }
 
 /**
@@ -48,10 +50,12 @@ const AGENT_TOOLS: Array<{ name: string; desc: string }> = [
   { name: "log_decision", desc: "记录关键决策，写入 trace" },
 ];
 
-export function AgentContextPanel({ open, onClose, projectId, userMessage }: Props) {
+export function AgentContextPanel({ open, onClose, projectId, userMessage, runId }: Props) {
   const [memory, setMemory] = useState<MemoryRow[]>([]);
   const [rules, setRules] = useState<PlatformRule[]>([]);
   const [knowledge, setKnowledge] = useState<Partial<Record<AutoGenCardType, ProjectAutoGenLatest>>>({});
+  const [rawPrompt, setRawPrompt] = useState<string | null>(null);
+  const [rawMessages, setRawMessages] = useState<ChatMessage[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,18 +65,27 @@ export function AgentContextPanel({ open, onClose, projectId, userMessage }: Pro
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // runId 存在时并发去拉落库的真实 prompt；不存在就 null 占位
+    const ctxPromise = runId
+      ? agentApi
+          .getRunContext(projectId, runId)
+          .catch(() => ({ systemPrompt: null, inputMessages: null }))
+      : Promise.resolve({ systemPrompt: null, inputMessages: null });
     Promise.all([
       memoryApi.listMemory(projectId),
       platformRulesApi.listRules(projectId),
       autoGenerationsApi.getLatestProjectAutoGen(projectId),
+      ctxPromise,
     ])
-      .then(([m, r, k]) => {
+      .then(([m, r, k, ctx]) => {
         if (cancelled) return;
         setMemory(m);
         setRules(r.rules);
         const idx: Partial<Record<AutoGenCardType, ProjectAutoGenLatest>> = {};
         for (const it of k.items) idx[it.cardType] = it;
         setKnowledge(idx);
+        setRawPrompt(ctx.systemPrompt ?? null);
+        setRawMessages((ctx.inputMessages as ChatMessage[] | null) ?? null);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -84,7 +97,7 @@ export function AgentContextPanel({ open, onClose, projectId, userMessage }: Pro
     return () => {
       cancelled = true;
     };
-  }, [open, projectId]);
+  }, [open, projectId, runId]);
 
   if (!open) return null;
 
@@ -117,6 +130,48 @@ export function AgentContextPanel({ open, onClose, projectId, userMessage }: Pro
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 text-[13px]">
+          {/* 真实 system prompt（落库快照）——v1.0 优化项 1 终极版 */}
+          <Section icon={<Code size={13} />} title="实际发给 LLM 的 system prompt">
+            {!runId ? (
+              <Empty text="发送一条消息后此处显示本次 run 实际拼接的 prompt 原文" />
+            ) : loading ? (
+              <Empty text="加载中…" />
+            ) : !rawPrompt ? (
+              <Empty text="未捕获到 prompt 快照（可能 run 尚未启动到组装阶段，或后端旧版本）" />
+            ) : (
+              <pre
+                className="rounded-md p-3 text-[11.5px] leading-[1.55] overflow-auto max-h-[260px]"
+                style={{
+                  background: "#0b1120",
+                  color: "#e6e9f0",
+                  fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {rawPrompt}
+              </pre>
+            )}
+          </Section>
+
+          {/* 真实输入 messages */}
+          {runId && rawMessages && rawMessages.length > 0 && (
+            <Section icon={<Code size={13} />} title={`输入 messages（${rawMessages.length} 条）`}>
+              <pre
+                className="rounded-md p-3 text-[11.5px] leading-[1.55] overflow-auto max-h-[180px]"
+                style={{
+                  background: "#0b1120",
+                  color: "#e6e9f0",
+                  fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {JSON.stringify(rawMessages, null, 2)}
+              </pre>
+            </Section>
+          )}
+
           {/* 用户消息 */}
           <Section icon={<MessageSquare size={13} />} title="用户消息">
             {userMessage ? (

@@ -152,6 +152,17 @@ export async function getSteps(
   );
 }
 
+/**
+ * v1.0 优化项 1：拿 run 启动时落库的真实 system prompt + messages。
+ * 「查看上下文」面板用——避免前端 / 后端各自重新渲染导致不一致。
+ */
+export async function getRunContext(
+  projectId: string,
+  runId: string,
+): Promise<{ runId: string; systemPrompt: string | null; inputMessages: ChatMessage[] | null }> {
+  return apiFetch(`/projects/${projectId}/agent/runs/${runId}/context`);
+}
+
 /** 中断 run：后端把 AbortController.abort()，agent 主循环走 'aborted' 收尾 */
 export async function abortRun(projectId: string, runId: string): Promise<void> {
   await apiFetch(`/projects/${projectId}/agent/runs/${runId}`, { method: "DELETE" });

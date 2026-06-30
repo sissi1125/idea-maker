@@ -150,6 +150,44 @@ export class AgentRunsRepository {
   }
 
   /**
+   * v1.0 优化项 1：把 run 启动时拼接好的真实 system prompt + 输入 messages 落库。
+   * 给前端「查看上下文」面板显示一字不漏的实际入参——不是再去重新渲染，
+   * 而是直接看那一刻真的发给 LLM 的字符串。
+   */
+  async saveContextSnapshot(
+    pgClient: PgClient,
+    runId: string,
+    systemPrompt: string,
+    inputMessages: unknown,
+  ): Promise<void> {
+    await pgClient.query(
+      `UPDATE agent_runs
+       SET system_prompt = $2, input_messages = $3::jsonb
+       WHERE id = $1`,
+      [runId, systemPrompt, JSON.stringify(inputMessages)],
+    );
+  }
+
+  /** 读 run 的真实上下文快照——给 controller 暴露端点用 */
+  async getContextSnapshot(
+    pgClient: PgClient,
+    runId: string,
+  ): Promise<{ systemPrompt: string | null; inputMessages: unknown } | null> {
+    const { rows } = await pgClient.query<{
+      system_prompt: string | null;
+      input_messages: unknown;
+    }>(
+      `SELECT system_prompt, input_messages FROM agent_runs WHERE id = $1`,
+      [runId],
+    );
+    if (rows.length === 0) return null;
+    return {
+      systemPrompt: rows[0].system_prompt,
+      inputMessages: rows[0].input_messages,
+    };
+  }
+
+  /**
    * 更新 run 进度（步数 + 累计成本）。每次 onStepFinish 调一次。
    *
    * 用单独方法而非塞进 finalize：finalize 是终态写入，updateProgress 是中间态。

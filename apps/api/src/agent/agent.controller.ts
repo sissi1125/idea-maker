@@ -140,6 +140,31 @@ export class AgentController {
     });
   }
 
+  /**
+   * v1.0 优化项 1：读取本次 run 启动时实际拼好的 system prompt + 输入 messages。
+   * 前端「查看上下文」面板回放真实入参——比再重新渲染一次更可信。
+   */
+  @Get("runs/:runId/context")
+  @UseGuards(JwtAuthGuard)
+  async getRunContext(
+    @CurrentUser() _user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("runId") runId: string,
+  ) {
+    return this.db.withClient(async (pgClient) => {
+      const run = await this.repo.getRun(pgClient, runId);
+      if (!run || run.projectId !== projectId) {
+        throw new NotFoundException("agent run 不存在");
+      }
+      const snap = await this.repo.getContextSnapshot(pgClient, runId);
+      return {
+        runId,
+        systemPrompt: snap?.systemPrompt ?? null,
+        inputMessages: snap?.inputMessages ?? null,
+      };
+    });
+  }
+
   /** 获取完整 step 列表（前端 trace 回放）。 */
   @Get("runs/:runId/steps")
   @UseGuards(JwtAuthGuard)
