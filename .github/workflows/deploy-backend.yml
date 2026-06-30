@@ -115,13 +115,9 @@ jobs:
             # .github/workflows / scripts/ 等"宿主机层面"的文件。
             # --ff-only：拒绝任何合并，宿主机不该出现 diverge；如果意外有本地改动应人工
             # 介入而不是自动合并。
-            git fetch origin main
-            if ! git diff --quiet HEAD origin/main; then
-              echo "  发现远端有新提交，执行 fast-forward"
-              git pull --ff-only origin main
-            else
-              echo "  本地已是最新，跳过"
-            fi
+            # 无条件 pull：已是最新时是 no-op，避免 git diff --quiet 返回 1 被 drone-ssh
+            # script_stop 当成失败直接退出
+            git pull --ff-only origin main
 
             echo "── 1. 登录 ACR（幂等，token 已存就跳过）──"
             docker login ${{ secrets.ACR_REGISTRY }} \
