@@ -116,11 +116,18 @@ jobs:
               -p '${{ secrets.ACR_PASSWORD }}'
 
             echo "── 2. 确认 image 路径展开正确 ──"
-            resolved_image=$($COMPOSE config | awk '/^[[:space:]]+api:/{f=1} f && /image:/{print $2; exit}')
+            # state machine：进入 api: 块才开始扫 image:，遇到下一个 services 块成员就停
+            # （compose config 会把所有服务平铺在 services: 下，每个服务名前 2 空格，字段前 4 空格）
+            resolved_image=$($COMPOSE config | awk '
+              /^  api:[[:space:]]*$/      { in_api=1; next }
+              /^  [a-zA-Z0-9_-]+:[[:space:]]*$/ { in_api=0 }
+              in_api && $1 == "image:"    { print $2; exit }
+            ')
             echo "resolved image: $resolved_image"
-            case "$resolved_image" in
-              /*|//*) echo "❌ image 路径不完整（变量未解析），检查 .env 里的 ACR_REGISTRY/ACR_NAMESPACE"; exit 1;;
-            esac
+            if [[ "$resolved_image" == /* ]]; then
+              echo "❌ image 路径不完整（变量未解析），检查 .env 里的 ACR_REGISTRY/ACR_NAMESPACE"
+              exit 1
+            fi
 
             echo "── 3. pull 新镜像（API_IMAGE_TAG=$API_IMAGE_TAG）──"
             $COMPOSE pull api
