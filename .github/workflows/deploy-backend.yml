@@ -110,6 +110,19 @@ jobs:
             grep -qE "^ACR_REGISTRY=.+" .env || { echo "❌ .env 缺 ACR_REGISTRY"; exit 1; }
             grep -qE "^ACR_NAMESPACE=.+" .env || { echo "❌ .env 缺 ACR_NAMESPACE"; exit 1; }
 
+            echo "── 0.5 同步代码到最新 main（compose 文件 / DDL / 脚本等基础设施层） ──"
+            # 应用代码已经打进 docker 镜像了，这里 pull 主要是同步 docker-compose.yml /
+            # .github/workflows / scripts/ 等"宿主机层面"的文件。
+            # --ff-only：拒绝任何合并，宿主机不该出现 diverge；如果意外有本地改动应人工
+            # 介入而不是自动合并。
+            git fetch origin main
+            if ! git diff --quiet HEAD origin/main; then
+              echo "  发现远端有新提交，执行 fast-forward"
+              git pull --ff-only origin main
+            else
+              echo "  本地已是最新，跳过"
+            fi
+
             echo "── 1. 登录 ACR（幂等，token 已存就跳过）──"
             docker login ${{ secrets.ACR_REGISTRY }} \
               -u '${{ secrets.ACR_USERNAME }}' \
