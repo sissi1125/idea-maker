@@ -16,16 +16,44 @@
 
 "use client";
 
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+export interface EvidenceItem {
+  text: string;
+  sourceRef?: string;
+}
 
 interface Props {
   content: string;
   /** 可选 className，作用在外层包装 div 上 */
   className?: string;
+  /**
+   * 按 1-based 顺序的 evidence 池。若提供，内容里的 [evidence-NNN] 占位符会被
+   * 渲染成可点小按钮，hover/click 弹层显示对应原文；未提供则保留占位符原样。
+   */
+  evidence?: EvidenceItem[];
 }
 
-export function Markdown({ content, className }: Props) {
+/**
+ * 预处理：把 [evidence-NNN] 替换成 markdown 链接 [N](evidence://N)，
+ * 走 react-markdown 标准链接节点，自定义 a 渲染器认 evidence:// scheme 即可
+ * 渲染成按钮——避免自己写完整的 remark 插件。
+ */
+function preprocessEvidence(content: string, evidenceCount: number): string {
+  if (evidenceCount === 0) return content;
+  return content.replace(/\[evidence-(\d+)\]/gi, (_, numStr: string) => {
+    const idx = parseInt(numStr, 10);
+    if (idx < 1 || idx > evidenceCount) return ""; // 越界标号直接抹掉
+    return `[${idx}](evidence://${idx})`;
+  });
+}
+
+export function Markdown({ content, className, evidence }: Props) {
+  const evidenceList = evidence ?? [];
+  const processed = preprocessEvidence(content, evidenceList.length);
+
   return (
     <div className={`md ${className ?? ""}`}
          style={{ color: "var(--ink)", lineHeight: 1.7, fontSize: "13.5px" }}>
@@ -84,13 +112,22 @@ export function Markdown({ content, className }: Props) {
               fontStyle: "italic",
             }}>{children}</blockquote>
           ),
-          // 链接：新标签打开，避免离开应用
-          a: ({ children, href }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer"
-               style={{ color: "var(--brand)", textDecoration: "underline" }}>
-              {children}
-            </a>
-          ),
+          // 链接：识别 evidence:// scheme，渲染成可点小按钮（hover 弹原文）；
+          // 普通链接照常新标签打开
+          a: ({ children, href }) => {
+            if (href && href.startsWith("evidence://")) {
+              const idx = parseInt(href.slice("evidence://".length), 10);
+              const item = evidenceList[idx - 1];
+              if (!item) return null;
+              return <EvidenceButton index={idx} item={item} />;
+            }
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer"
+                 style={{ color: "var(--brand)", textDecoration: "underline" }}>
+                {children}
+              </a>
+            );
+          },
           // 表格基础样式（GFM）
           table: ({ children }) => (
             <table style={{
@@ -113,8 +150,102 @@ export function Markdown({ content, className }: Props) {
           ),
         }}
       >
-        {content}
+        {processed}
       </ReactMarkdown>
     </div>
+  );
+}
+
+/**
+ * Evidence 小按钮 — hover 或 click 弹出原文 popover。
+ *
+ * 设计选择：
+ *   - hover 触发 = 桌面端友好，移动端 click 触发也支持（onClick 切换 sticky 状态）
+ *   - popover 用绝对定位 + transform 居中，不引入 floating-ui 等依赖
+ *   - 文本最多展示 600 字（超长截断 + …），太长的 chunk 自然要去原文档看
+ *   - z-index 30 高于卡片内滚动条但低于全局 modal（AgentContextPanel 等用 50）
+ */
+function EvidenceButton({ index, item }: { index: number; item: EvidenceItem }) {
+  const [open, setOpen] = useState(false);
+  const MAX_CHARS = 600;
+  const display =
+    item.text.length > MAX_CHARS ? item.text.slice(0, MAX_CHARS) + "…" : item.text;
+
+  return (
+    <span
+      style={{ position: "relative", display: "inline-block" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minWidth: "18px",
+          height: "16px",
+          padding: "0 5px",
+          margin: "0 2px",
+          fontSize: "10.5px",
+          fontWeight: 600,
+          lineHeight: 1,
+          color: "var(--brand)",
+          background: "var(--brand-soft)",
+          border: "1px solid rgba(79,168,154,.3)",
+          borderRadius: "9px",
+          cursor: "pointer",
+          verticalAlign: "middle",
+        }}
+        title="点击查看原文依据"
+      >
+        {index}
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 6px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 30,
+            width: "320px",
+            maxWidth: "92vw",
+            padding: "10px 12px",
+            fontSize: "12px",
+            lineHeight: 1.55,
+            color: "var(--ink)",
+            background: "#fff",
+            border: "1px solid var(--line-strong)",
+            borderRadius: "8px",
+            boxShadow: "0 8px 24px rgba(11,17,32,.18)",
+            whiteSpace: "normal",
+            textAlign: "left",
+          }}
+        >
+          <span
+            style={{
+              display: "block",
+              fontSize: "10.5px",
+              fontWeight: 600,
+              color: "var(--ink-3)",
+              textTransform: "uppercase",
+              letterSpacing: ".06em",
+              marginBottom: "4px",
+            }}
+          >
+            evidence-{String(index).padStart(3, "0")}
+            {item.sourceRef && (
+              <span style={{ marginLeft: "6px", color: "var(--ink-3)", textTransform: "none", letterSpacing: 0 }}>
+                · {item.sourceRef}
+              </span>
+            )}
+          </span>
+          <span style={{ whiteSpace: "pre-wrap" }}>{display}</span>
+        </span>
+      )}
+    </span>
   );
 }

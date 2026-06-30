@@ -75,19 +75,13 @@ const PRESET_QUESTIONS = [
 function normalizeSummaryText(raw: string | null): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
-  let text = trimmed;
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      if (typeof parsed.generatedContent === "string") text = parsed.generatedContent;
-      else if (typeof parsed.summary === "string") text = parsed.summary;
-    } catch { /* 不是合法 JSON 就原样返回 */ }
-  }
-  // v1.0 follow-up：UI 上展示自动卡片时，[evidence-001] 这种引用占位符对用户是
-  // 噪音——不是给 agent 看的就不该出现。这里统一抹掉，agent 端有自己的展开逻辑
-  // （sanitize-summary.ts），互不影响。
-  text = text.replace(/\s*\[evidence-\d+\]/gi, "");
-  return text;
+  if (!trimmed.startsWith("{")) return raw;
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    if (typeof parsed.generatedContent === "string") return parsed.generatedContent;
+    if (typeof parsed.summary === "string") return parsed.summary;
+  } catch { /* 不是合法 JSON 就原样返回 */ }
+  return raw;
 }
 
 function ProjectInfoCards({
@@ -249,7 +243,9 @@ function ProjectInfoCards({
                 "加载中…"
               ) : hasContent ? (
                 // Markdown 渲染——不再展示 ## ** - 等原始符号
-                <Markdown content={body} />
+                // evidence 传给 Markdown 后，[evidence-NNN] 会变成可 hover/click
+                // 的小按钮，弹层显示对应 chunk 原文
+                <Markdown content={body} evidence={summary?.evidence ?? []} />
               ) : (
                 <div className="whitespace-pre-line">{body}</div>
               )}

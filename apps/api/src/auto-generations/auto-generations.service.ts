@@ -106,17 +106,21 @@ export class AutoGenerationsService {
         document_id: string;
         generation_id: string;
         result_notes: string | null;
+        retrieved_chunks: unknown;
         duration_ms: number | null;
         cost_breakdown: unknown;
         gen_created_at: Date;
         auto_created_at: Date;
       }>(
+        // 一起捞 retrieved_chunks——前端要按 [evidence-NNN] 顺序拿到对应原文做
+        // hover 弹层，否则只能干瞪着空标号
         `SELECT DISTINCT ON (a.card_type)
                 a.card_type,
                 a.id            AS auto_gen_id,
                 a.document_id,
                 a.generation_id,
                 g.result_notes,
+                g.retrieved_chunks,
                 g.duration_ms,
                 g.cost_breakdown,
                 g.created_at    AS gen_created_at,
@@ -135,6 +139,7 @@ export class AutoGenerationsService {
         documentId: r.document_id,
         generationId: r.generation_id,
         resultNotes: r.result_notes,
+        evidence: extractEvidenceList(r.retrieved_chunks),
         durationMs: r.duration_ms,
         costBreakdown: r.cost_breakdown,
         generatedAt: r.gen_created_at.toISOString(),
@@ -337,6 +342,27 @@ export class AutoGenerationsService {
       );
     });
   }
+}
+
+/**
+ * retrieved_chunks JSONB → 给前端用的 evidence 文本数组。
+ * 顺序与 [evidence-001] [evidence-002] 一一对应（1-based）。
+ * 只暴露 text + sourceRef，避免把全量 chunk 元数据（embedding/score 等）也透到 UI。
+ */
+function extractEvidenceList(
+  raw: unknown,
+): Array<{ text: string; sourceRef?: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((c) => {
+      if (!c || typeof c !== "object") return null;
+      const obj = c as Record<string, unknown>;
+      const text = typeof obj.text === "string" ? obj.text : null;
+      if (!text) return null;
+      const sourceRef = typeof obj.sourceRef === "string" ? obj.sourceRef : undefined;
+      return { text, sourceRef };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
 }
 
 function mapRow(row: DbAutoGenRow): AutoGenerationRow {

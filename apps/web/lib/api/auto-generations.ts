@@ -23,6 +23,11 @@ export interface ProjectAutoGenLatest {
   documentId: string;
   generationId: string;
   resultNotes: string | null;
+  /**
+   * 按 [evidence-NNN] 1-based 顺序的 chunk 原文数组。
+   * Markdown 渲染时 [evidence-001] 占位符会变成可点小 button，弹层显示对应原文。
+   */
+  evidence: Array<{ text: string; sourceRef?: string }>;
   durationMs: number | null;
   costBreakdown: unknown;
   generatedAt: string;

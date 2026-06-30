@@ -54,6 +54,11 @@ export interface ProjectAutoGenLatest {
   generationId: string;
   /** LLM 生成的卡片正文（Markdown） */
   resultNotes: string | null;
+  /**
+   * 按 [evidence-NNN] 1-based 顺序的 chunk 原文数组。
+   * 前端把卡片里的 [evidence-001] 渲染成可点小按钮，点开/悬停弹层显示这里的 text。
+   */
+  evidence: Array<{ text: string; sourceRef?: string }>;
   durationMs: number | null;
   /** generations.cost_breakdown 原样透传，前端按需取 */
   costBreakdown: unknown;
