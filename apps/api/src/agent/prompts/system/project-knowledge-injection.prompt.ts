@@ -55,6 +55,15 @@ export const projectKnowledgeInjectionPrompt = definePrompt<ProjectKnowledgeInje
     }
     if (sections.length === 0) return "";
 
-    return `\n\n[产品知识快照]\n以下是本项目已沉淀的产品定位与竞争格局，**生成营销内容时必须严格基于这些事实**，不要凭空发挥与产品定位无关的卖点：\n\n${sections.join("\n\n")}`;
+    return `\n\n[产品知识快照]
+⚠️ 这是本项目的产品事实清单，**优先级高于一切常规检索流程**。
+你产出的所有内容（卖点、文案、标题、场景、话题）必须满足：
+  1. 每个具体描述（功能 / 受众 / 使用场景 / 数据点）都能从下方清单中找到对应
+  2. 不允许编造下方未提及的功能、价格、平台、用户群
+  3. 不允许写"假设这款产品有 X"或"如果它能 Y"之类的虚构
+  4. 用户没指定方向时，从下方列出的产品卖点里挑最契合的来发挥
+违反以上任一条会导致 critic_review 直接判 0 分。
+
+${sections.join("\n\n")}`;
   },
 });
