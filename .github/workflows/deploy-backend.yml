@@ -97,21 +97,34 @@ jobs:
             set -euo pipefail
             cd ${{ secrets.ECS_APP_DIR }}
 
+            # ── 关键修复（v1.0）──
+            # compose 文件里 image 路径是 ${ACR_REGISTRY}/${ACR_NAMESPACE}/idea-maker-api:${API_IMAGE_TAG:-latest}
+            # 之前 deploy 脚本没 --env-file，这些变量在 SSH shell 里全是空，导致 image 展开成
+            # /idea-maker-api:latest 这种废路径，pull 静默失败，up -d 用本地缓存继续跑旧容器。
+            # 这就是上线后 prod 20 小时不刷新的根因。
+            #
+            # 解决：所有 compose 命令统一传 --env-file 让变量从 .env.tunnel 读到。
+            # 同时显式 export API_IMAGE_TAG 覆盖默认 latest（用 build job 输出的 sha tag）。
+            COMPOSE="docker compose -f docker-compose.named-tunnel.yml --env-file .env.tunnel"
+            export API_IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+
+            echo "── 0. 确认 .env.tunnel 存在 ──"
+            test -f .env.tunnel || { echo "❌ .env.tunnel 不存在，先在 ECS 上 cp .env.tunnel.example .env.tunnel 并填值"; exit 1; }
+
             echo "── 1. 登录 ACR（幂等，token 已存就跳过）──"
             docker login ${{ secrets.ACR_REGISTRY }} \
               -u '${{ secrets.ACR_USERNAME }}' \
               -p '${{ secrets.ACR_PASSWORD }}'
 
-            echo "── 2. pull 新镜像 ──"
-            export API_IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            docker compose -f docker-compose.named-tunnel.yml pull api
+            echo "── 2. pull 新镜像（API_IMAGE_TAG=$API_IMAGE_TAG）──"
+            $COMPOSE pull api
 
             echo "── 3. 重启 api（postgres / cloudflared 不动）──"
-            docker compose -f docker-compose.named-tunnel.yml up -d api
+            $COMPOSE up -d api
 
             echo "── 4. 等 health check ──"
             for i in {1..30}; do
-              status=$(docker compose -f docker-compose.named-tunnel.yml ps api --format json | \
+              status=$($COMPOSE ps api --format json | \
                        grep -o '"Health":"[^"]*"' | head -1 || echo '"Health":"unknown"')
               echo "[$i/30] $status"
               if echo "$status" | grep -q '"healthy"'; then
@@ -125,4 +138,4 @@ jobs:
             docker image prune -af --filter "until=24h" || true
 
             echo "── 6. 最后 30 行日志 ──"
-            docker compose -f docker-compose.named-tunnel.yml logs api --tail 30
+            $COMPOSE logs api --tail 30
