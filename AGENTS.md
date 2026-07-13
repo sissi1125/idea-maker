@@ -2,7 +2,7 @@
 
 **Idea-Maker**：面向独立开发者和小团队的**营销 idea 生成系统**。核心价值：**透明可观测 RAG + 成本追踪 + 反馈学习**。
 
-当前阶段：**Phase 3.5 真 Agent（feat-300）**。架构详见 `docs/agent/ARCHITECTURE.md`。
+当前阶段：**Phase 4 Product Brief 产品闭环规划（feat-400，待实施）**。执行规格详见 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`；既有真 Agent 架构详见 `docs/agent/ARCHITECTURE.md`。
 
 **生产部署**（feat-013.5 已上线 2026-06-08）：Vercel 前端 + 阿里云 ECS 后端 + Cloudflare Named Tunnel。
 - 前端：https://idea-maker-web.vercel.app
@@ -13,10 +13,18 @@
 
 1. 本文件（工作规则）
 2. `docs/PRODUCT.md` — 产品定位与阶段规划
-3. `docs/agent/ARCHITECTURE.md` — Phase 3.5 Agent 架构（当前阶段）
-4. `feature_list.json` — 确认当前 feature 的 dependencies 和 scope
-5. `session-handoff.md` — 上次会话状态
-6. `./init.sh` — 验证环境
+3. `docs/PRODUCT_BRIEF_ITERATION_PLAN.md` — 当前 Product Brief 产品闭环、评测和迭代顺序
+4. `docs/agent/ARCHITECTURE.md` — 既有 Phase 3.5 Agent 架构与约束
+5. `feature_list.json` — 确认当前 feature 的 dependencies 和 scope
+6. `session-handoff.md` — 上次会话状态
+7. `./init.sh` — 验证环境
+
+## Codex 协作配置
+
+- `AGENTS.md` 是唯一受版本控制的项目级指令入口，Codex 直接读取它；不要再新增 `CLAUDE.md` 或依赖用户目录下的 Claude Code memory / plan。
+- `.claude/` 是已忽略的历史本地工作目录，只作迁移留档；不得让代码、脚本或当前交接依赖其中的内容。
+- 新建分支统一使用 `codex/` 前缀；历史 `claude/` 分支名仅用于追溯旧记录。
+- Codex 本地状态若出现于 `.codex/`，保持忽略，不能承载可复现的项目规则或任务状态。
 
 ## 中文优先
 
@@ -37,6 +45,13 @@
 - 一次只做一个 feature，改动限制在当前 feature 范围内
 - 每个生成结果必须能追溯到 evidence chunk IDs
 - 不要把内部过程藏成黑盒，核心价值是可调试
+
+## Product Brief 规则（feat-400）
+
+- Product Brief 的事实字段必须有 evidence chunk IDs 或用户确认；模型推断、历史内容与反馈不能自动成为产品事实。
+- 官网导入仅处理用户主动提交的官方域名，并遵守 robots、同域白名单、页数/深度/限速；禁止社交平台爬取。
+- 评测与人工筛选优先于内容扩展；任何事实门禁失败的内容不得以评测高分绕过阻止。
+- 视觉资产后置补充；HTML 海报只能使用批准资产、已批准 Claim 和受限模板，不能让模型任意生成 HTML/CSS。
 
 ## Feature 状态
 

@@ -28,7 +28,7 @@ echo "=== JSON 校验 ==="
 node -e "JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); console.log('feature_list.json OK')"
 
 echo "=== Feature 状态校验 ==="
-node -e "const data = JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); const allowed = new Set(['done', 'todo', 'in-progress', 'blocked', 'epic']); const bad = data.features.filter((feature) => !allowed.has(feature.status)); if (bad.length) { console.error('非法 feature status:', bad.map((feature) => feature.id + ':' + feature.status).join(', ')); process.exit(1); } console.log('feature statuses OK')"
+node -e "const data = JSON.parse(require('fs').readFileSync('feature_list.json', 'utf8')); const allowed = new Set(['done', 'todo', 'in-progress', 'blocked', 'epic', 'superseded']); const bad = data.features.filter((feature) => !allowed.has(feature.status)); if (bad.length) { console.error('非法 feature status:', bad.map((feature) => feature.id + ':' + feature.status).join(', ')); process.exit(1); } console.log('feature statuses OK')"
 
 echo "=== Harness 一致性校验（track / phase / 依赖闭包）==="
 node scripts/check-harness.mjs
@@ -43,6 +43,11 @@ if [ -f "pnpm-workspace.yaml" ]; then
     echo "安装依赖（pnpm install）..."
     pnpm install --silent
   fi
+  # shared-types 与 rag-core 的 exports 都指向 dist；先生成声明文件，避免干净工作区
+  # 在 typecheck/test 时把 workspace 包误判为不存在。
+  echo "--- build workspace libraries ---"
+  pnpm --filter @harness/shared-types build
+  pnpm --filter @harness/rag-core build
   echo "--- workspace typecheck ---"
   pnpm -r typecheck
   echo "--- workspace lint ---"

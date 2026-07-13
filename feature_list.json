@@ -1,19 +1,19 @@
 {
   "project": "Idea-Maker (Marketing RAG Playground)",
-  "phase": "阶段 3 MVP（feat-200.1~8，8 周快速交付）+ RAG 实验流（feat-006/008）并行推进",
+  "phase": "Phase 3.5 真 Agent 已完成；当前规划 Phase 4 Product Brief 闭环（feat-400.x），RAG 实验流（feat-006/008）并行保留",
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "🎉 Phase 3.5 真 Agent 系列收官（feat-300.1 → 300.7 全 done）。完整链路：Schema/LLM 层 + 8 个 Tools + ReAct Runner + Memory 蒸馏（自动 + 手动 + edit_diff 主信号）+ Eval 体系（LLM-as-judge 三维 + trajectory 集合相似度 + baseline 漂移检测 + pnpm eval CLI 退出码 0/1/2）+ 前端 AgentTracePanel + MemoryPanel + EvalReport（独立 /eval 路由 + 自建 SVG 趋势）+ Settings Tab 化 + LangGraph 对比文档 + 17 步 e2e smoke。调试链路 5 个真实 bug 全修 + 入面试题（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）。199 单测全过，typecheck 干净，e2e 跑通（GLM + ollama bge-m3）。next：录屏/截图 → README 改造 → 进 feat-012 Studio 或 feat-013 工程化。",
+      "current": "产品方向调整：Phase 3.5 真 Agent（feat-300.1 → 300.7）已完成；旧 feat-012 Studio 方案由 feat-400 Product Brief 闭环取代。下一步在公开资料试点中实施 feat-400.1：Product Brief v1、用户确认和受限官网导入；评测、人工筛选和反馈学习优先于 HTML 海报。完整规格：docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
         "feat-011.x（Phase 3.5 真 Agent 配套）",
-        "feat-012.x（Phase 4 Studio）",
+        "feat-400.x（Phase 4 Product Brief 闭环）",
         "feat-013.x（Phase 5 工程化）"
       ],
-      "branch_hint": "claude/mvp-week-N 或类似",
-      "weekly_milestones": "Week 1-8 每周一个 milestone；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-3-mvp"
+      "branch_hint": "codex/mvp-week-N 或类似",
+      "weekly_milestones": "当前产品迭代顺序详见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md#8-feature-执行顺序"
     },
     "B-experiment": {
       "description": "RAG 实验流：阶段 2 收尾 + 持续算法实验，默认只产报告，不阻塞 MVP",
@@ -25,7 +25,7 @@
         "feat-008.x",
         "feat-009.x（如有第二批）"
       ],
-      "branch_hint": "claude/experiments/<topic>",
+      "branch_hint": "codex/experiments/<topic>",
       "report_path": "scripts/eval-matrix/results/run-XXX/",
       "sync_rule": "实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main；MVP Week 3（pipeline-orchestrator）期间冻结算法核心改动只调参"
     }
@@ -39,7 +39,7 @@
     "2": "RAG 质量评估与调参能力（收尾）",
     "3": "产品 MVP：Idea-Maker（8 周快速交付）",
     "3.5": "Agent 自动化层（真 ReAct + 学习系统）",
-    "4": "Marketing Studio UX",
+    "4": "Product Brief 闭环：事实确认 / 评测 / 人工筛选 / 反馈学习 / 内容包（原 Studio 规划已 superseded）",
     "5": "工程化：Auth / 多租户 / BYOK / Drizzle / 部署",
     "2.5": "架构重构：pnpm monorepo + NestJS 前后端分离（已完成）"
   },
@@ -441,7 +441,7 @@
         "feat-100.4"
       ],
       "status": "epic",
-      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。详见 `.claude/memory/mvp-plan-2026-05-27.md` 和 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`。"
+      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。历史 Claude Code 计划已移出当前协作入口，执行依据为 docs/ROADMAP_PHASE2_PLUS.md、docs/PRODUCT.md 与 docs/agent/ARCHITECTURE.md。"
     },
     {
       "id": "feat-200.1",
@@ -640,16 +640,76 @@
       "evidence": "2026-06-02 完成。docs/agent/langgraph-equivalent.md 8 行概念对照表 + 50 行 LangGraph 等价 Python 代码 + 4 个『为什么自建』理由 + 5 个『LangGraph 这些地方比我们好』场景（human-in-the-loop / multi-agent / time-travel / Streaming abstractions / 生态）。scripts/smoke.mjs 扩展从 10 步 → 17 步，新增 7 步覆盖 agent 端到端（settings 配置 / POST /agent/run < 5s 非阻塞断言（防 feat-300.6 #10 bug 复发）/ 后台轮询完成 / agent_steps 入库 / 高分 feedback + edit_diff / POST /memory/distill / GET /memory 表可读）。实测 17/17 全过，agent run 7.6s，distill 蒸馏出 3 条偏好。.interview/feat-300.{1..6}_*.md 6 个面试题文件已就位（300.6 含 13 题含 5 个真实 bug 调试链）。Phase 3.5 真 Agent 系列收官。"
     },
     {
+      "id": "feat-400",
+      "name": "Product Brief 产品闭环",
+      "phase": "4",
+      "track": "A-main",
+      "description": "面向独立开发者与小团队的产品发布/功能更新闭环：受限官方来源和文档导入 → 可确认、可追溯的 Product Brief → 已批准 Claim Map → 内容候选 → 规则门禁、评测与人工筛选 → 反馈学习 → 内容包；HTML 海报作为最后的可选增强。完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
+      "dependencies": ["feat-300.7"],
+      "status": "epic",
+      "evidence": "2026-07-13 依据产品策略讨论建立。父级聚合 feat-400.1~400.5；尚未开始业务实现。"
+    },
+    {
+      "id": "feat-400.1",
+      "name": "Product Brief v1 与受限官网导入",
+      "phase": "4",
+      "track": "A-main",
+      "description": "用产品文档和用户主动提交的官方域名提取候选 Product Brief；实现字段 evidence、置信度、状态、版本、缺失/矛盾提示及用户确认工作台。官网导入只处理同域白名单、robots/sitemap/HTML/metadata，不做社交抓取或通用网络爬虫。",
+      "dependencies": ["feat-400"],
+      "status": "todo",
+      "evidence": "执行规格 §3、§8。试点仅接受用户主动提交的公开资料。"
+    },
+    {
+      "id": "feat-400.2",
+      "name": "Claim Map、评测门禁与人工筛选",
+      "phase": "4",
+      "track": "A-main",
+      "description": "将已确认 Product Brief 转为带 evidence 的 Claim Map；内容生成只能使用批准 Claim。实现事实规则门禁、受限上下文评测 Agent、可回放评分/决策和 human_review 队列，并建立开发集与保留集回归。",
+      "dependencies": ["feat-400.1"],
+      "status": "todo",
+      "evidence": "执行规格 §4、§5；评测和人工筛选优先于视觉渲染。"
+    },
+    {
+      "id": "feat-400.3",
+      "name": "反馈学习与 Product Brief 更新建议",
+      "phase": "4",
+      "track": "A-main",
+      "description": "记录采用、编辑、拒绝、补充事实和发布结果；分类 edit diff，产生可撤销的表达/模板/角度更新建议。任何反馈不得自动改写产品事实，更新必须由用户接受。",
+      "dependencies": ["feat-400.2"],
+      "status": "todo",
+      "evidence": "执行规格 §6；以人工修改率和评测-人工一致率验证效果。"
+    },
+    {
+      "id": "feat-400.4",
+      "name": "Campaign 内容包与平台工作流",
+      "phase": "4",
+      "track": "A-main",
+      "description": "基于 Campaign Brief 生成三个可比较的传播角度与结构化文本内容包；支持局部重生成、历史比较和平台约束。首期只覆盖 1-2 个真实使用的平台，不做自动发布。",
+      "dependencies": ["feat-400.3"],
+      "status": "todo",
+      "evidence": "执行规格 §4、§8。"
+    },
+    {
+      "id": "feat-400.5",
+      "name": "后置视觉资产与 HTML 海报渲染",
+      "phase": "4",
+      "track": "A-main",
+      "description": "用户按需上传批准的 Logo、截图、参考海报和字体；使用受限模板 DSL 生成 React/HTML/CSS，再用 Playwright Chromium 导出 PNG。只可使用批准资产与 Claim，并检查尺寸、溢出、字号、对比度和资源缺失。",
+      "dependencies": ["feat-400.4"],
+      "status": "todo",
+      "evidence": "执行规格 §3.5、§7、§8；这是锦上添花功能，不能阻塞文本与评测闭环。"
+    },
+    {
       "id": "feat-012",
       "name": "Marketing Studio UX",
       "phase": "4",
       "track": "A-main",
-      "description": "独立 /studio/[runId] 路由，从「展示 JSON 列表」升级为符合营销师工作习惯的内容创作工作流。四列看板：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。包含踩赞反馈、Content Directions 中间层、PostTemplate 帖子扩展。",
+      "description": "⚠️ 旧 Phase 4 Studio 方案。它直接从卖点进入内容创作，缺少 Product Brief 事实确认、评测门禁和反馈学习优先级，已由 feat-400 取代。不要执行。",
       "dependencies": [
         "feat-011"
       ],
-      "status": "epic",
-      "evidence": "父级聚合 feat-012.1~012.4；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-012"
+      "status": "superseded",
+      "evidence": "2026-07-13 由 feat-400 Product Brief 产品闭环取代；完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。"
     },
     {
       "id": "feat-012.1",
@@ -660,8 +720,8 @@
       "dependencies": [
         "feat-012"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；后续工作由 feat-400.4 覆盖。"
     },
     {
       "id": "feat-012.2",
@@ -672,8 +732,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；反馈优先由 feat-400.2/400.3 在评测闭环内实现。"
     },
     {
       "id": "feat-012.3",
@@ -684,8 +744,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；内容角度由 feat-400.4 的 Campaign 内容包实现。"
     },
     {
       "id": "feat-012.4",
@@ -696,8 +756,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；受限 HTML 海报后续由 feat-400.5 实现。"
     },
     {
       "id": "feat-013",
@@ -706,7 +766,7 @@
       "track": "A-main",
       "description": "把 Playground 推进到可上线、多用户、可演示给雇主的产品形态。包含 Auth、多租户隔离、用户自带 API Key、ORM 迁移、Docker 部署。各子项相对独立可分批落地。",
       "dependencies": [
-        "feat-012"
+        "feat-400"
       ],
       "status": "epic",
       "evidence": "父级聚合 feat-013.1~013.5；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-013"

@@ -1,5 +1,21 @@
 # 进度记录
 
+## 2026-07-13 Product Brief 产品迭代方案
+
+- 新增 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`，定义 Phase 4 的完整产品闭环：受限官网与文档来源 → 可确认 Product Brief → Claim Map → 规则门禁与评测 Agent → 人工筛选 → 反馈学习 → 内容包 → 后置 HTML 海报。
+- 明确 Product Brief 只作为统一命名，字段覆盖产品事实、用户与场景、定位、表达约束、视觉资产、内容记忆和平台规则；事实字段必须有 evidence 或用户确认。
+- 官网导入限定为用户主动提供的官方域名；社交平台不引入爬虫。视觉资产在 Brief 后按需补充，不阻塞文本闭环。
+- 规划 feature：新增 `feat-400.1` 至 `feat-400.5`；旧 `feat-012` Studio 规划及其子项已标记 `superseded`，不再实施。
+- 本次为文档与 harness 规划，未改业务代码；文档结构与 JSON consistency 待 `node scripts/check-harness.mjs` 验证。
+
+## 2026-07-13 Codex 迁移审计
+
+- 将 `AGENTS.md` 设为唯一受版本控制的协作入口；新分支前缀改为 `codex/`，`.claude/` 作为忽略的历史本地目录保留，新增 `.codex/` 忽略规则。
+- 修复 `init.sh` 漏掉 `superseded` status 导致的前置校验失败；移除当前规划对 Claude Code 用户目录文件的依赖。
+- 修复验证编排：`shared-types` / `rag-core` 的 package exports 指向 `dist`，因此初始化与 CI 先构建两个内部库；CI 现在同时运行 API 的 199 个单测。
+- 验证：干净锁定安装后 `pnpm -r typecheck` 通过；`pnpm -r test` 通过（438 tests）；`pnpm -r lint` 仍失败，API 有 10 个未使用变量错误；Web 生产 build 在受限网络下无法下载 Google Geist fonts。
+- 审计发现：Agent run 的 SSE、读取、spill 和 abort 端点未验证项目 owner，且 `encrypted_api_key` 当前为明文。应在下一项安全 feature 优先处理。
+
 ## 2026-05-28（feat-200.8.2 + 200.8.3：全局 toast + Loading/Empty/Error 三态 + 部署联调）✅
 
 ### 范围

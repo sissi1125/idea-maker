@@ -38,6 +38,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 两个内部库的 package exports 指向 dist；先构建它们，保证后续 typecheck
+      # 和 API unit test 在干净 runner 上能解析 workspace 包。
+      - name: Build workspace libraries
+        run: |
+          pnpm -F @harness/shared-types build
+          pnpm -F @harness/rag-core build
+
       - name: Typecheck
         run: pnpm -r typecheck
 
@@ -47,7 +54,9 @@ jobs:
           pnpm -F @harness/web lint --max-warnings 0
 
       - name: Unit tests
-        run: pnpm -F @harness/rag-core test
+        run: |
+          pnpm -F @harness/rag-core test
+          pnpm -F @harness/api test
 
   # smoke job — 手动触发，需要 secrets 配置才能跑（DATABASE_URL / LLM_API_KEY 等）
   smoke:

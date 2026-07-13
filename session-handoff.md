@@ -2,7 +2,18 @@
 
 ## 最后更新
 
-2026-05-30（Phase 3.5 真 Agent 计划制定完成，feat-300 启动就绪）
+2026-07-13（Product Brief 产品迭代方案已沉淀，待实施 feat-400.1）
+
+## 当前状态
+
+- 当前分支：`main`；工作区审计开始时干净。
+- 产品主线：旧 feat-012 四列 Studio 方案已由 `feat-400` Product Brief 闭环取代。完整规格在 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`；优先顺序为 Brief 与事实确认 → 评测/人工筛选 → 反馈学习 → 内容包 → HTML 海报。
+- 下一 feature：`feat-400.1`，仅对用户主动提交的产品文档和官方公开网站做 Product Brief v1 与用户确认。社交平台不做爬虫；视觉资产后置，不能阻塞文本闭环。
+- 已完成：Phase 3.5 代码目录、README 和 `feature_list.json` 均将 feat-300.1 至 300.7 记为完成；但本交接文档此前仍停在 2026-05-30 的“待启动”状态。
+- Codex 迁移：`AGENTS.md` 现为唯一项目指令入口；新分支统一使用 `codex/`；保留并忽略 `.claude/` 历史本地目录；`init.sh` 已接受 `superseded` 状态。
+- 验证现状：锁定依赖安装后，先构建 `shared-types` / `rag-core` 的 `dist`，`pnpm -r typecheck` 与 438 个单测均通过。`pnpm -r lint` 仍有 10 个 API 未使用变量错误；本次已让 `init.sh` 与 CI 先构建内部库，并使 CI 覆盖 API 单测。
+- 最高优先级风险：Agent 的读取 / SSE / abort 端点未以 JWT 用户校验项目所有权，存在跨用户访问风险；BYOK 字段名为 `encrypted_api_key`，但当前仍明文存储。
+- 技术前提：跨用户 Agent 授权、BYOK 加密、数据隔离和当前 API lint 错误仍待单独 feature 修复；在此之前不得宣传企业级私有资料托管，试点仅使用用户主动提交的公开资料。
 
 ## 本次变更摘要
 

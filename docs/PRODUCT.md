@@ -152,7 +152,7 @@
 - ✅ 多维反馈采集（相关性 / 风格 / 可靠性 / 代表性）
 - ❌ 不做真 Agent（LLM 自主决策、工具选择、自评估迭代循环）— 这些留到 Phase 3.5
 
-**相关规划**：详见 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md` 和 `./.claude/memory/mvp-plan-2026-05-27.md`
+**相关规划**：详见 `docs/ROADMAP_PHASE2_PLUS.md`。当前 Agent 的实现边界和验收规则以 `docs/agent/ARCHITECTURE.md` 为准。
 
 ### 阶段 3.5：真 Agent 自动化层（学习系统 + 智能迭代）
 
@@ -185,23 +185,26 @@
 - 用户能在"我学到的风格"页面看到系统学到的所有偏好及其改进效果
 - Agent 的每次决策和重试过程对用户可见，可中止，可人工干预
 
-### 阶段 4：Marketing Studio UX（营销工作流）
+### 阶段 4：Product Brief 产品闭环
 
-目标：从"展示 JSON 列表"升级为"符合营销师使用习惯的内容创作工作流"。
+目标：让独立开发者或 2-5 人产品团队把产品文档和官方公开网站资料转化为可确认的 Product Brief、可证明主张和经评测的发布内容候选，而不是直接生成未经验证的卖点或文案。
 
-范围：
+范围与优先级：
 
-- 独立 `/studio/[runId]` 路由，四列看板布局：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。
-- Content Directions 中间层：在卖点和具体 idea 之间增加战略角度层。
-- 踩赞反馈机制：用户对 idea 踩 / 赞，触发"换角度重生"而非重跑整条 pipeline（复用 snapshot 的 evidence pack）。
-- 帖子扩展：把单个 idea 扩展为完整 PostTemplate（hook / body / CTA / hashtags / imagePrompt），含手机框 mockup 预览。
-- 多平台适配：小红书 / Twitter / LinkedIn / 微信公众号。
+1. Product Brief：字段化提取产品事实、用户与场景、定位、表达约束、视觉系统、内容记忆和平台约束；事实字段必须有 evidence 或用户确认。
+2. Claim Map、事实规则门禁、评测 Agent 与人工筛选：所有内容只能使用已批准主张；事实门禁不能被模型评分绕过。
+3. 反馈学习：记录采用、编辑、拒绝和发布结果；只产生待用户确认的表达/模板/角度更新建议，绝不自动改写产品事实。
+4. Campaign 内容包：生成可比较的传播角度与结构化文本内容；不做自动发布。
+5. 后置 HTML 海报：用户按需上传批准的视觉资产，以受限模板渲染 PNG；这是增强能力，不能阻塞文本与评测闭环。
+
+官方来源只处理用户主动提交的同域公开网站，遵守 robots、页数/深度和限速；不做社交平台爬取。完整数据模型、评测方案、模块边界和验收条件见 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`。
 
 交付标准：
 
-- 用户能在 Studio 内完成"从 idea 选择到帖子草稿"的完整工作流。
-- 反馈迭代不重跑 pipeline，只重调 generation 端点（耗时 < 5s）。
-- 所有 PostTemplate 仍保留 evidence chunk IDs 溯源。
+- 用户能确认一份有版本、证据和状态的 Product Brief。
+- 所有进入内容生成的产品主张均已批准且可回溯 evidence chunk IDs。
+- 每条内容都有可回放的规则门禁、评测结论和人工决策；反馈改进必须可量化验证。
+- HTML 海报仅使用批准资产、已批准主张和受限模板，且通过布局与可读性检查。
 
 ### 阶段 5：工程化与生产部署
 
