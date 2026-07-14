@@ -2,34 +2,45 @@
 
 ## 最后更新
 
-2026-07-13（Product Brief 产品迭代方案已沉淀，待实施 feat-400.1）
+2026-07-14（**Phase 4 / feat-400 全闭环收官** + 真链路验证 + 部署交接）
 
 ## 当前状态
 
-- 当前分支：`main`；工作区审计开始时干净。
-- 产品主线：旧 feat-012 四列 Studio 方案已由 `feat-400` Product Brief 闭环取代。完整规格在 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`；优先顺序为 Brief 与事实确认 → 评测/人工筛选 → 反馈学习 → 内容包 → HTML 海报。
-- 下一 feature：`feat-400.1`，仅对用户主动提交的产品文档和官方公开网站做 Product Brief v1 与用户确认。社交平台不做爬虫；视觉资产后置，不能阻塞文本闭环。
-- 已完成：Phase 3.5 代码目录、README 和 `feature_list.json` 均将 feat-300.1 至 300.7 记为完成；但本交接文档此前仍停在 2026-05-30 的“待启动”状态。
-- Codex 迁移：`AGENTS.md` 现为唯一项目指令入口；新分支统一使用 `codex/`；保留并忽略 `.claude/` 历史本地目录；`init.sh` 已接受 `superseded` 状态。
-- 验证现状：锁定依赖安装后，先构建 `shared-types` / `rag-core` 的 `dist`，`pnpm -r typecheck` 与 438 个单测均通过。`pnpm -r lint` 仍有 10 个 API 未使用变量错误；本次已让 `init.sh` 与 CI 先构建内部库，并使 CI 覆盖 API 单测。
-- 最高优先级风险：Agent 的读取 / SSE / abort 端点未以 JWT 用户校验项目所有权，存在跨用户访问风险；BYOK 字段名为 `encrypted_api_key`，但当前仍明文存储。
-- 技术前提：跨用户 Agent 授权、BYOK 加密、数据隔离和当前 API lint 错误仍待单独 feature 修复；在此之前不得宣传企业级私有资料托管，试点仅使用用户主动提交的公开资料。
+- 当前分支：`claude/loving-ptolemy-b50e5c`，当前 HEAD：`653eecc`（feat-400 全闭环已提交并推送到 origin）。待开 PR → `main` 合并触发 Vercel 生产。
+- **feat-400（Product Brief 产品闭环）全部 5 个子功能 + 前端界面完成**：
+  - 400.1 产品事实档案（字段级 evidence/状态机/版本）+ 受限官网导入（robots/同域/白名单/限速/SSRF）+ LLM 候选提取
+  - 400.2 Claim Map + 确定性硬规则检查 + 评测 Agent + 决策器四态 + 人工队列 + 开发集/保留集离线回归
+  - 400.3 反馈学习（编辑归类 → 更新建议，不自动改事实）
+  - 400.4 Campaign 内容包（Brief → 3 可比较角度 + grounding + 并排硬规则检查）
+  - 400.5 视觉资产 + 受限 SVG 模板海报（sharp 光栅化 PNG，替代 Playwright）
+  - 前端页：产品档案 / 内容与卖点 / 内容包 / 海报（全大白话，不用"门禁"字眼）
+- 验证现状：后端 **350 单测**通过；api + web **typecheck + lint 全绿**（apps/web 旧 react-hooks lint 债已清）；生产构建链 nest build + next build 通过。
+- **真链路验证**（用户提供真 GLM key + 真域名）：真抓 bear.app/zh/（6 页）、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报。过程抓修 3 个 mock 掩盖的真实 bug：GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀。
+- 工程：apps/api 新增 `sharp@0.34.5`（lockfile 已含 linux 二进制）；`docker-compose.named-tunnel.yml` 加 `api_uploads` 持久卷（文档/资产/海报落盘持久化）。
+- 最高优先级风险（仍未修，遗留）：Agent 读取 / SSE / abort 端点跨用户授权、BYOK 明文存储、数据隔离——在修复前不得宣传企业级私有资料托管，试点仅用公开资料。
 
-## 本次变更摘要
+## 待办 / next
+
+- **部署（进行中）**：分支已推 origin；下一步 ① 开 PR 合并到 `main` → Vercel 自动部署前端 ② SSH ECS `git pull && docker compose -f docker-compose.named-tunnel.yml up -d --build`。DB 无需手动迁移（CREATE TABLE IF NOT EXISTS），无新增必填 env。
+- Phase 4 后可选：跨用户授权 + BYOK 加密 + 数据隔离（企业化前置）；海报模板扩充 / 字体深度内嵌。
+
+## 本次变更摘要（feat-400 Phase 4 收官）
+
+【新增后端模块】product-brief / sources / claims / content-evaluation / feedback-learning / campaigns / assets / posters（含各自 service/controller/module + 纯函数核心 + 单测）
+【schema】新增 product_briefs/fields/revisions、source_records/pages/content_chunks/sync_jobs、claims、content_variants(+campaign_id)、campaigns、visual_assets、posters、content_feedback、update_suggestions
+【前端】lib/api 各 client + 4 个页面（brief/content/campaign/poster）+ Sidebar 入口；Tabs children→panels 修 lint
+【工程】sharp 依赖 + compose 持久卷 + apps/web lint 清零
+
+**进度**：feat-400 done，代码已 commit+push，待合并部署。
+
+---
+
+## 上一次更新（Phase 3.5 真 Agent 计划）
 
 【Phase 3.5 计划（头脑风暴 + 计划制定）】
 - 架构方向确认：全面 ReAct（非 Plan-and-Execute），rag-core stages 降级为 tools
 - 技术栈确认：Vercel ai-sdk（LLM/tool 抽象）+ 自建 agent loop / memory / eval
 - 旧方案 feat-010.x / feat-011.x 标为 superseded，由 feat-300.1~300.7 取代
-- 架构文档：docs/agent/ARCHITECTURE.md
-
-【Harness 文档更新】
-- feature_list.json：feat-300 epic + 7 个子 feature 定义；feat-010/011 标 superseded；tracks.A-main.current 更新
-- AGENTS.md：新增「阶段 3.5 真 Agent 开发规范」章节（agent vs pipeline 边界 / 记忆规范 / eval 规范 / 技术栈约束）
-- session-handoff.md：本条目
-
-**进度**：Phase 3.5 计划批准，harness 就绪。
-**next：feat-300.1**（Schema 3 张新表 + LLM 层 ai-sdk 接入 + Tavily client）
 
 ---
 
