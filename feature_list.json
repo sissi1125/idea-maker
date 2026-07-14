@@ -647,7 +647,7 @@
       "description": "面向独立开发者与小团队的产品发布/功能更新闭环：受限官方来源和文档导入 → 可确认、可追溯的 Product Brief → 已批准 Claim Map → 内容候选 → 规则门禁、评测与人工筛选 → 反馈学习 → 内容包；HTML 海报作为最后的可选增强。完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
       "dependencies": ["feat-300.7"],
       "status": "done",
-      "evidence": "2026-07-14 全闭环完成：feat-400.1（产品档案+受限官网导入）/400.2（Claim Map+硬规则检查+评测+人工队列）/400.3（反馈学习）/400.4（Campaign 内容包）/400.5（视觉资产+受限模板海报）全部 done。后端 350/350、typecheck+lint clean。真链路验证：真抓 bear.app/zh/、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报；真链路过程抓出并修复 3 个 mock 掩盖的真实 bug（GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀）。"
+      "evidence": "2026-07-14 全闭环完成：feat-400.1（产品档案+受限官网导入）/400.2（Claim Map+硬规则检查+评测+人工队列）/400.3（反馈学习）/400.4（Campaign 内容包）/400.5（视觉资产+受限模板海报）全部 done。后端 350/350、typecheck+lint clean。真链路验证：真抓 bear.app/zh/、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报；真链路过程抓出并修复 3 个 mock 掩盖的真实 bug（GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀）。【2026-07-14 晚 验收反馈修复 + Q3，未提交】修 6 个真实 bug：① AgentRunner 默认模型回退 LLM_MODEL（原写死 gpt-4o-mini→GLM「模型不存在 06bb0562」）② name/category/website/url 不再派生为 Claim ③ 官网导入 0 资产→加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时防生产网关超时 ⑤ rag-core is-html ESM 冷启动 require 崩溃→内联正则替换（否则生产 Docker 也崩）⑥ embedding 256≠1024→改裸 fetch 强制 dimensions:1024 + NULL 兜底。【Q3 官网进统一 RAG】官网正文→1024 维 embedding→rag_chunks（project_id 隔离）→对话/search_kb 可检索；本地 fixture 验证 2 段入库、维度正确、project_id 隔离（用户明确：原始 HTML 快照不做）。新增：内容包「采纳」出口 + 「一键出海报」（campaign/claim→autoRender，有官网主图用 hero-image 模板）；视觉资产缩略图/上传/批准；产品逻辑归位（官网导入挪「知识库」，视觉资产留「产品档案」）。UI 换肤（.field 主题化输入 + 品牌色工具类，未换 antd）。验证：rag-core 239 + api 354 单测 + web，tc+lint 全绿。待用户浏览器复验 Q3 检索命中 + 全链路，确认后 commit。"
     },
     {
       "id": "feat-400.1",

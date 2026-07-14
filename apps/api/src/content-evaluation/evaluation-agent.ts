@@ -124,6 +124,7 @@ export class EvaluationAgent {
         prompt: this.buildPrompt(ctx),
         temperature: 0.2,
         maxTokens: 1200,
+        abortSignal: AbortSignal.timeout(60_000),
       });
       return { scores: this.parseScores(text), model: (model as { modelId?: string })?.modelId ?? null };
     } catch (err) {

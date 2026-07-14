@@ -2,11 +2,18 @@
 
 ## 最后更新
 
-2026-07-14（**Phase 4 / feat-400 全闭环收官** + 真链路验证 + 部署交接）
+2026-07-14 晚（**验收反馈修复 + Q3 官网进 RAG**，改动未提交）
 
 ## 当前状态
 
-- 当前分支：`claude/loving-ptolemy-b50e5c`，当前 HEAD：`653eecc`（feat-400 全闭环已提交并推送到 origin）。待开 PR → `main` 合并触发 Vercel 生产。
+- 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8d39fad`（feat-400 全闭环 + 部署交接文档，已推 origin，PR 开着）。
+- **本轮验收反馈修复 + Q3，全部改动尚未提交**（用户说"确认后 commit"）。服务在跑：postgres（docker）、API :3001、web :3000。demo 账号 `demo@demo.com / demo12345`。apps/api/.env 已配 GLM + `ALLOW_PRIVATE_IMPORT_HOSTS=1`。
+- **本轮做完的事**：
+  - 修 bug：① AgentRunner 默认模型回退 `LLM_MODEL`（原写死 gpt-4o-mini → GLM「模型不存在 06bb0562」）② name 不再成为卖点（deriveFromBrief 跳过 identity 里 name/category/website/url）③ 官网导入 0 资产 → 加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时 ⑤ **rag-core is-html ESM 冷启动崩溃** → 内联正则替换 is-html（否则生产 Docker 也会崩）⑥ embedding 256≠1024 → 改裸 fetch 强制 `dimensions:1024` + NULL 兜底。
+  - **Q3 官网进统一 RAG**：官网正文 → 1024 维 embedding → `rag_chunks`（project_id 隔离）→ 对话/search_kb 可检索。已本地 fixture 验证 2 段入库、维度正确、project_id 隔离。（用户明确：原始 HTML 快照不做。）
+  - 功能：内容包「采纳」出口 + 「一键出海报」（campaign/claim → autoRender，有官网主图用 hero-image 模板）；视觉资产缩略图/上传/批准；产品逻辑归位（官网导入挪到「知识库」，视觉资产留「产品档案」）。
+  - UI 换肤：`.field` 主题化输入 + 品牌色工具类 + `.card:hover`（用户仍嫌丑，未换 antd —— 见待办）。
+- 验证现状：rag-core tc + 239 单测；api tc + lint + 354 单测；web tc + lint —— 全绿。
 - **feat-400（Product Brief 产品闭环）全部 5 个子功能 + 前端界面完成**：
   - 400.1 产品事实档案（字段级 evidence/状态机/版本）+ 受限官网导入（robots/同域/白名单/限速/SSRF）+ LLM 候选提取
   - 400.2 Claim Map + 确定性硬规则检查 + 评测 Agent + 决策器四态 + 人工队列 + 开发集/保留集离线回归
@@ -21,7 +28,10 @@
 
 ## 待办 / next
 
-- **部署（进行中）**：分支已推 origin；下一步 ① 开 PR 合并到 `main` → Vercel 自动部署前端 ② SSH ECS `git pull && docker compose -f docker-compose.named-tunnel.yml up -d --build`。DB 无需手动迁移（CREATE TABLE IF NOT EXISTS），无新增必填 env。
+- **用户浏览器复验（本轮的最终验收）**：重点验 Q3 —— 对话/检索能否命中官网导入的正文（Q3 终验）；再走一遍 官网导入→资产批准→内容包采纳→一键出海报 全链路。
+- **确认后 commit 本轮改动**（用户说"确认后 commit"，尚未 commit）。
+- **UI：换 antd**（用户两次反馈「太丑」，本轮只做了 CSS 换肤没换组件库；antd + React 19 需确认 `@ant-design/v5-patch-for-react-19` 兼容）。
+- **部署**：本轮改动 commit 后再走 —— ① PR 合 `main` → Vercel 部署前端 ② SSH ECS `git pull && docker compose -f docker-compose.named-tunnel.yml up -d --build`。注意 rag-core is-html 修复对生产冷启动是必需项。DB 无需手动迁移（CREATE TABLE IF NOT EXISTS），无新增必填 env。
 - Phase 4 后可选：跨用户授权 + BYOK 加密 + 数据隔离（企业化前置）；海报模板扩充 / 字体深度内嵌。
 
 ## 本次变更摘要（feat-400 Phase 4 收官）

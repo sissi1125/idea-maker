@@ -173,7 +173,9 @@ export class AgentRunnerService {
     const settings = await this.projects.getSettings(input.userId, input.projectId);
 
     // ── 2. 构造 LLM + embedding 客户端 ───────────────────────────────────
-    const modelName = input.modelOverride ?? settings.model ?? "gpt-4o-mini";
+    // 项目没配 model 时回退到环境变量 LLM_MODEL（BYOK 部署常见），最后才兜底 gpt-4o-mini。
+    // 曾经硬默认 gpt-4o-mini：GLM 等 provider 会报"模型不存在"，对话直接挂。
+    const modelName = input.modelOverride ?? settings.model ?? process.env.LLM_MODEL ?? "gpt-4o-mini";
     const llmModel = this.llm.create({
       provider: settings.provider,
       apiKey: settings.encryptedApiKey,

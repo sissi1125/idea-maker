@@ -86,3 +86,5 @@ export type { VisualAsset, AssetKind } from "./assets";
 export { ASSET_KINDS } from "./assets";
 export * as postersApi from "./posters";
 export type { PosterTemplate, RenderResult, RenderInput, PosterFailure } from "./posters";
+export * as sourcesApi from "./sources";
+export type { SourceRecord, SourcePage } from "./sources";

@@ -12,6 +12,7 @@
  */
 
 import { apiFetch } from "./client";
+import { startAndWait } from "./jobs";
 
 export const BRIEF_FIELD_GROUPS = [
   "identity",
@@ -95,12 +96,14 @@ export async function getBrief(projectId: string): Promise<BriefSnapshot> {
   return apiFetch<BriefSnapshot>(`/projects/${projectId}/product-brief`);
 }
 
+/**
+ * 从文档/官网 LLM 提取候选字段。异步：POST 建 job → 轮询直到完成（避免同步长请求被网关掐断）。
+ */
 export async function extractBrief(projectId: string): Promise<ExtractResult> {
-  const res = await apiFetch<{ result: ExtractResult }>(
+  return startAndWait<ExtractResult>(
     `/projects/${projectId}/product-brief/extract`,
-    { method: "POST" },
+    (jobId) => `/projects/${projectId}/product-brief/extract/jobs/${jobId}`,
   );
-  return res.result;
 }
 
 export async function upsertField(projectId: string, body: UpsertFieldInput): Promise<BriefField> {

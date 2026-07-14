@@ -208,6 +208,47 @@ export function extractPageContent(html: string, pageUrl: string): ExtractedPage
   return { title, description, ogTitle, jsonLd, text, links };
 }
 
+export interface ExtractedImages {
+  /** logo 类：apple-touch-icon / rel=icon */
+  logos: string[];
+  /** 主图类：og:image / twitter:image */
+  images: string[];
+}
+
+/**
+ * 从 HTML 抽取品牌图片 URL（logo + 主图），解析成绝对地址、去重。
+ * 只取可靠的品牌资产标记（og:image / icon），不抓正文里一堆 <img>（噪音大）。
+ * 图片常在 CDN 上（跨域），所以不限同域——但下载时会查 content-type/大小/私网。
+ */
+export function extractImageUrls(html: string, pageUrl: string): ExtractedImages {
+  const abs = (u: string): string | null => {
+    try { return new URL(u.trim(), pageUrl).toString(); } catch { return null; }
+  };
+  const all = (re: RegExp): string[] => {
+    const out: string[] = [];
+    let m: RegExpExecArray | null;
+    const r = new RegExp(re.source, "gi");
+    while ((m = r.exec(html)) !== null) {
+      const u = abs(decodeEntities(m[1]));
+      if (u) out.push(u);
+    }
+    return out;
+  };
+  const uniq = (a: string[]) => [...new Set(a)];
+
+  const images = uniq([
+    ...all(/<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["']/),
+    ...all(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/),
+    ...all(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/),
+  ]);
+  const logos = uniq([
+    ...all(/<link[^>]+rel=["'][^"']*apple-touch-icon[^"']*["'][^>]+href=["']([^"']+)["']/),
+    ...all(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]+href=["']([^"']+)["']/),
+    ...all(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*icon[^"']*["']/),
+  ]);
+  return { logos, images };
+}
+
 /** 把正文切成不超过 maxLen 的片段（按句号/换行边界近似切） */
 export function chunkText(text: string, maxLen = 1000): string[] {
   const clean = text.trim();

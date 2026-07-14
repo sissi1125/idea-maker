@@ -16,6 +16,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
 import { randomUUID, createHash } from "crypto";
 import { DbService } from "../db/db.service";
+import { AssetsService } from "../assets/assets.service";
 import {
   normalizeRootUrl,
   isSocialHost,
@@ -25,6 +26,7 @@ import {
   parseRobotsTxt,
   isAllowedByRobots,
   extractPageContent,
+  extractImageUrls,
   chunkText,
   classifyPageType,
   IMPORT_USER_AGENT,
@@ -51,6 +53,10 @@ export interface ImportResult {
   pagesFetched: number;
   pagesSkipped: number;
   pages: Array<{ url: string; title: string | null; pageType: string; chunks: number }>;
+  /** 自动抓到并入库的品牌图片数（logo/主图） */
+  assetsImported: number;
+  /** 官网正文进 RAG 的分片数（可被 search_kb 检索） */
+  ragChunksEmbedded: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -62,7 +68,10 @@ export class SourcesService {
   private readonly logger = new Logger(SourcesService.name);
   private fetchImpl: FetchImpl = (url, init) => fetch(url, init);
 
-  constructor(private readonly db: DbService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly assets: AssetsService,
+  ) {}
 
   /** 测试注入点：替换 fetch 实现 */
   setFetchImpl(fn: FetchImpl): void {
@@ -130,6 +139,10 @@ export class SourcesService {
     let fetched = 0;
     let skipped = 0;
     const pages: ImportResult["pages"] = [];
+    const logoUrls = new Set<string>();
+    const imageUrls = new Set<string>();
+    // 官网正文 → RAG：收集 (pageId, url, chunks)，抓完统一 embedding 写入 rag_chunks
+    const ragCandidates: Array<{ pageId: string; url: string; chunks: string[] }> = [];
 
     try {
       // 1. robots.txt
@@ -176,6 +189,10 @@ export class SourcesService {
         }
 
         const parsed = extractPageContent(html, u.toString());
+        // 收集品牌图片 URL（logo/主图），抓完统一下载
+        const imgs = extractImageUrls(html, u.toString());
+        imgs.logos.forEach((x) => logoUrls.add(x));
+        imgs.images.forEach((x) => imageUrls.add(x));
         const chunks = chunkText(parsed.text.slice(0, MAX_TEXT_CHARS));
         const pageId = randomUUID();
         const hash = createHash("sha256").update(parsed.text).digest("hex");
@@ -201,6 +218,7 @@ export class SourcesService {
 
         fetched++;
         pages.push({ url: u.toString(), title: parsed.title, pageType, chunks: chunks.length });
+        if (chunks.length) ragCandidates.push({ pageId, url: u.toString(), chunks });
 
         // 3. 入队同域链接（未超深度）
         if (depth < maxDepth) {
@@ -217,13 +235,105 @@ export class SourcesService {
         }
       }
 
+      // 兜底：SPA 页面 raw HTML 常没 icon 标签（如 bear.app 全 JS 渲染），
+      // 直接探测约定路径。importFromUrl 会对 404/非图/无法解析静默跳过。
+      if (logoUrls.size === 0) {
+        logoUrls.add(`${root.origin}/apple-touch-icon.png`);
+        logoUrls.add(`${root.origin}/apple-touch-icon-precomposed.png`);
+        logoUrls.add(`${root.origin}/favicon.png`);
+        logoUrls.add(`${root.origin}/favicon.ico`);
+      }
+
+      // 4. 下载品牌图片入库（status=uploaded，待用户批准）
+      let assetsImported = 0;
+      // logo：候选逐个试，取到一个就停（favicon 兜底常有多个候选）
+      for (const url of [...logoUrls].slice(0, 6)) {
+        const a = await this.assets.importFromUrl(projectId, "logo", url, "官网 logo");
+        if (a) { assetsImported++; break; }
+      }
+      // 主图：最多 3 张
+      for (const url of [...imageUrls].slice(0, 3)) {
+        const a = await this.assets.importFromUrl(projectId, "product_screenshot", url, "官网主图");
+        if (a) assetsImported++;
+      }
+
+      // 5. 官网正文进 RAG（embedding → rag_chunks，让 search_kb 能检索官网内容）
+      const ragChunksEmbedded = await this.embedIntoRag(projectId, ragCandidates);
+
       await this.finishJob(jobId, "succeeded", fetched, skipped, null);
-      return { jobId, sourceRecordId, host, pagesFetched: fetched, pagesSkipped: skipped, pages };
+      return { jobId, sourceRecordId, host, pagesFetched: fetched, pagesSkipped: skipped, pages, assetsImported, ragChunksEmbedded };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await this.finishJob(jobId, "failed", fetched, skipped, msg);
       throw err;
     }
+  }
+
+  /**
+   * 官网正文进 RAG：每个 chunk 算 embedding，写入 rag_chunks（project_id 隔离，
+   * document_id 用 pageId 当伪文档）。这样 search_kb 检索时官网内容和上传文档一起被召回。
+   * embedding 失败（无 key / 服务挂）时落 NULL embedding —— 仍可被 BM25(ILIKE) 稀疏检索命中。
+   */
+  private async embedIntoRag(
+    projectId: string,
+    candidates: Array<{ pageId: string; url: string; chunks: string[] }>,
+  ): Promise<number> {
+    if (candidates.length === 0) return 0;
+    // 用原始 fetch 直连 OpenAI 兼容 embeddings 接口（OpenAI SDK 对非官方模型不透传 dimensions，
+    // 会拿到默认维度导致和库里 1024 对不上；raw fetch 能保证 dimensions 生效）。
+    const apiKey = process.env.EMBEDDING_API_KEY || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
+    const baseURL = (process.env.EMBEDDING_BASE_URL || process.env.LLM_BASE_URL || "https://api.openai.com/v1/").replace(/\/?$/, "/");
+    const model = process.env.EMBEDDING_MODEL || "text-embedding-v4";
+    const dim = parseInt(process.env.EMBEDDING_DIMENSION || "1024", 10);
+    if (!apiKey) this.logger.warn("[sources] 无 embedding key，官网 chunk 落 NULL 向量（走 BM25）");
+
+    const embed = async (text: string): Promise<number[] | null> => {
+      if (!apiKey) return null;
+      try {
+        const res = await fetch(`${baseURL}embeddings`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model, input: text.slice(0, 6000), dimensions: dim }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) return null;
+        const j = (await res.json()) as { data?: Array<{ embedding: number[] }> };
+        const got = j.data?.[0]?.embedding ?? null;
+        if (got && got.length === dim) return got;
+        if (got) this.logger.warn(`[sources] embedding 维度 ${got.length} ≠ 期望 ${dim}，该 chunk 落 NULL 走 BM25`);
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    let n = 0;
+    for (const c of candidates) {
+      for (let i = 0; i < c.chunks.length; i++) {
+        const vec = await embed(c.chunks[i]);
+        const id = randomUUID();
+        const insertRag = (embedLiteral: string | null, embedDim: number | null) =>
+          this.db.withClient((client) =>
+            client.query(
+              `INSERT INTO rag_chunks
+                 (id, document_id, project_id, version, chunk_index, text, enhanced_text, source_ref, embedding, embedding_dimension)
+               VALUES ($1,$2,$3,1,$4,$5,$5,$6,$7::vector,$8)
+               ON CONFLICT (document_id, version, chunk_index) DO NOTHING`,
+              [id, c.pageId, projectId, i, c.chunks[i], c.url, embedLiteral, embedDim],
+            ),
+          );
+        try {
+          await insertRag(vec ? `[${vec.join(",")}]` : null, vec ? dim : null);
+        } catch (err) {
+          // 兜底：任何 embedding/维度相关的写入错误 → 退化成 NULL 向量（正文仍进库，可 BM25 检索）
+          this.logger.warn(`[sources] rag_chunks 写入带向量失败，退化 NULL：${err instanceof Error ? err.message : err}`);
+          await insertRag(null, null);
+        }
+        n++;
+      }
+    }
+    this.logger.log(`[sources] 官网正文进 RAG: ${n} chunks`);
+    return n;
   }
 
   /** 抓 robots.txt（失败即视为无限制，但仍受同域+白名单约束） */

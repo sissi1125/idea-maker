@@ -24,8 +24,13 @@ class RenderPosterDto {
   @IsOptional() @IsString() @MaxLength(200) subtitle?: string;
   @IsOptional() @IsString() claimId?: string;
   @IsOptional() @IsString() logoAssetId?: string;
+  @IsOptional() @IsString() bgImageAssetId?: string;
   @IsOptional() @IsHexColor() bgColor?: string;
   @IsOptional() @IsHexColor() fgColor?: string;
+}
+
+class AutoPosterDto {
+  @IsString() claimId!: string;
 }
 
 @ApiTags("posters")
@@ -53,6 +58,18 @@ export class PostersController {
   ) {
     if (!body?.templateId) throw new BadRequestException("缺少 templateId");
     const result = await this.posters.render(user.id, projectId, body);
+    return { result };
+  }
+
+  /** 自动出图（3.7）：给卖点 id，自动用 产品名+卖点+官网图 出海报 */
+  @Post("auto")
+  async auto(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Body() body: AutoPosterDto,
+  ) {
+    if (!body?.claimId) throw new BadRequestException("缺少 claimId");
+    const result = await this.posters.autoRender(user.id, projectId, body.claimId);
     return { result };
   }
 

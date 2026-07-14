@@ -848,6 +848,8 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_project ON campaigns (project_id, creat
 export const DDL_CONTENT_VARIANTS_CAMPAIGN = `
 ALTER TABLE content_variants ADD COLUMN IF NOT EXISTS campaign_id TEXT;
 ALTER TABLE content_variants ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'generated';
+-- 3.6：采纳出口——采纳的角度即"消费掉的最终产出"
+ALTER TABLE content_variants ADD COLUMN IF NOT EXISTS adopted BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_content_variants_campaign ON content_variants (campaign_id, created_at DESC);
 `;
 
@@ -891,6 +893,26 @@ CREATE TABLE IF NOT EXISTS posters (
   CHECK (status IN ('rendered', 'failed'))
 );
 CREATE INDEX IF NOT EXISTS idx_posters_project ON posters (project_id, created_at DESC);
+`;
+
+/**
+ * 通用异步任务表（验收反馈：extract / 内容生成 是同步长请求，生产走网关会 30~60s 超时被掐断）。
+ * 改成：POST 立即建 job 返回 jobId，后台跑 LLM，前端轮询 status。参考 ingestion_jobs 模式。
+ */
+export const DDL_ASYNC_JOBS = `
+CREATE TABLE IF NOT EXISTS async_jobs (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL,
+  ref_id       TEXT,
+  status       TEXT NOT NULL DEFAULT 'queued',
+  result       JSONB,
+  error        TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  finished_at  TIMESTAMPTZ,
+  CHECK (status IN ('queued', 'running', 'succeeded', 'failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_async_jobs_project ON async_jobs (project_id, created_at DESC);
 `;
 
 export const FEAT_200_DDL_BLOCKS = [
@@ -943,4 +965,6 @@ export const FEAT_200_DDL_BLOCKS = [
   // feat-400.5：视觉资产 + 海报
   DDL_VISUAL_ASSETS,
   DDL_POSTERS,
+  // 验收反馈：通用异步任务（extract / 内容生成 异步化）
+  DDL_ASYNC_JOBS,
 ];

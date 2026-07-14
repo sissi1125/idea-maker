@@ -10,13 +10,14 @@
  */
 
 import {
-  Body, Controller, Get, Param, Post, UseGuards, BadRequestException,
+  Body, Controller, Get, HttpCode, Param, Post, UseGuards, BadRequestException,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { RequestUser } from "../auth/auth.types";
 import { CampaignsService } from "./campaigns.service";
+import { JobsService } from "../jobs/jobs.service";
 
 class CreateCampaignDto {
   @IsString() @IsIn(["launch", "feature_update", "acquisition", "messaging"])
@@ -43,7 +44,10 @@ class ManualVariantDto {
 @Controller("projects/:projectId/campaigns")
 @UseGuards(JwtAuthGuard)
 export class CampaignsController {
-  constructor(private readonly svc: CampaignsService) {}
+  constructor(
+    private readonly svc: CampaignsService,
+    private readonly jobs: JobsService,
+  ) {}
 
   @Post()
   async create(
@@ -70,12 +74,23 @@ export class CampaignsController {
   }
 
   @Post(":id/generate")
+  @HttpCode(202)
   async generate(
     @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,
     @Param("id") id: string,
   ) {
-    return this.svc.generateVariants(user.id, projectId, id);
+    // 异步：立即返回 jobId，后台跑 LLM（防生产网关 30~60s 超时掐断）
+    return this.svc.startGenerate(user.id, projectId, id);
+  }
+
+  @Get(":id/generate/jobs/:jobId")
+  async generateJob(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("jobId") jobId: string,
+  ) {
+    return { job: await this.jobs.get(user.id, projectId, jobId) };
   }
 
   @Post(":id/variants")
@@ -97,5 +112,16 @@ export class CampaignsController {
     @Param("vid") vid: string,
   ) {
     return this.svc.regenerateVariant(user.id, projectId, id, vid);
+  }
+
+  /** 采纳一个角度（3.6 消费出口） */
+  @Post(":id/variants/:vid/adopt")
+  async adopt(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("id") id: string,
+    @Param("vid") vid: string,
+  ) {
+    return this.svc.setAdopted(user.id, projectId, id, vid, true);
   }
 }

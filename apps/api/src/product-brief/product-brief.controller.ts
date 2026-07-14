@@ -41,6 +41,7 @@ import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { RequestUser } from "../auth/auth.types";
 import { ProductBriefService } from "./product-brief.service";
 import { ProductBriefExtractor } from "./product-brief-extractor";
+import { JobsService } from "../jobs/jobs.service";
 import {
   BRIEF_FIELD_GROUPS,
   BRIEF_FIELD_SOURCES,
@@ -76,19 +77,29 @@ export class ProductBriefController {
   constructor(
     private readonly briefs: ProductBriefService,
     private readonly extractor: ProductBriefExtractor,
+    private readonly jobs: JobsService,
   ) {}
 
   /**
-   * 从项目文档 LLM 提取候选字段（feat-400.1 slice 2）。
-   * POST 因为它是"消耗 LLM token + 写库"的命令；返回提取概要供前端 toast + 刷新工作台。
+   * 异步从文档/官网 LLM 提取候选字段（验收反馈：原同步请求文档多时要 100s+，
+   * 生产网关会超时掐断）。立即返回 { jobId }，前端轮询下面的 job 端点。
    */
   @Post("extract")
+  @HttpCode(202)
   async extract(
     @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,
   ) {
-    const result = await this.extractor.extract(user.id, projectId);
-    return { result };
+    return this.extractor.startExtract(user.id, projectId);
+  }
+
+  @Get("extract/jobs/:jobId")
+  async extractJob(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("jobId") jobId: string,
+  ) {
+    return { job: await this.jobs.get(user.id, projectId, jobId) };
   }
 
   @Get()

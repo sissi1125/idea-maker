@@ -15,6 +15,7 @@ import {
   parseRobotsTxt,
   isAllowedByRobots,
   extractPageContent,
+  extractImageUrls,
   chunkText,
   classifyPageType,
 } from "../website-import";
@@ -165,6 +166,35 @@ describe("extractPageContent", () => {
     const r = extractPageContent(html, "https://acme.com/pricing");
     expect(r.links).toContain("https://acme.com/faq");
     expect(r.links).toContain("https://acme.com/about");
+  });
+});
+
+describe("extractImageUrls", () => {
+  const html = `<html><head>
+    <meta property="og:image" content="https://cdn.acme.com/hero.png">
+    <meta name="twitter:image" content="/tw.jpg">
+    <link rel="apple-touch-icon" href="/icon-180.png">
+    <link rel="icon" href="https://acme.com/favicon.ico">
+  </head><body><img src="/inline.png"></body></html>`;
+
+  it("抽 og:image / twitter:image 作主图（解析成绝对 URL）", () => {
+    const r = extractImageUrls(html, "https://acme.com/zh/");
+    expect(r.images).toContain("https://cdn.acme.com/hero.png");
+    expect(r.images).toContain("https://acme.com/tw.jpg");
+  });
+  it("抽 apple-touch-icon / rel=icon 作 logo", () => {
+    const r = extractImageUrls(html, "https://acme.com/zh/");
+    expect(r.logos).toContain("https://acme.com/icon-180.png");
+    expect(r.logos).toContain("https://acme.com/favicon.ico");
+  });
+  it("不抓正文里的 <img>（噪音）", () => {
+    const r = extractImageUrls(html, "https://acme.com/");
+    expect([...r.images, ...r.logos]).not.toContain("https://acme.com/inline.png");
+  });
+  it("无图页返回空", () => {
+    const r = extractImageUrls("<html><body>hi</body></html>", "https://acme.com/");
+    expect(r.images).toEqual([]);
+    expect(r.logos).toEqual([]);
   });
 });
 

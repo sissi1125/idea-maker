@@ -5,6 +5,7 @@
  */
 
 import { apiFetch } from "./client";
+import { startAndWait } from "./jobs";
 import type { Decision, GateFailure } from "./content-evaluation";
 
 export const CAMPAIGN_GOALS = ["launch", "feature_update", "acquisition", "messaging"] as const;
@@ -27,6 +28,7 @@ export interface CampaignVariant {
   body: string;
   cta: string;
   claimIds: string[];
+  adopted: boolean;
   gatePassed: boolean;
   gateFailures: GateFailure[];
   decision: Decision;
@@ -65,12 +67,21 @@ export async function getCampaign(projectId: string, id: string): Promise<Campai
   return apiFetch(`/projects/${projectId}/campaigns/${id}`);
 }
 
+/** 生成 3 个角度。异步：POST 建 job → 轮询直到完成（防生产网关超时）。 */
 export async function generateVariants(projectId: string, id: string): Promise<{ generated: number; droppedRefs: number }> {
-  return apiFetch(`/projects/${projectId}/campaigns/${id}/generate`, { method: "POST" });
+  return startAndWait<{ generated: number; droppedRefs: number }>(
+    `/projects/${projectId}/campaigns/${id}/generate`,
+    (jobId) => `/projects/${projectId}/campaigns/${id}/generate/jobs/${jobId}`,
+  );
 }
 
 export async function regenerateVariant(projectId: string, id: string, vid: string): Promise<void> {
   await apiFetch(`/projects/${projectId}/campaigns/${id}/variants/${vid}/regenerate`, { method: "POST" });
+}
+
+/** 采纳一个角度（3.6 消费出口） */
+export async function adoptVariant(projectId: string, id: string, vid: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/campaigns/${id}/variants/${vid}/adopt`, { method: "POST" });
 }
 
 export async function addManualVariant(

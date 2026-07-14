@@ -87,8 +87,13 @@ export class ClaimsService {
       [briefId],
     );
 
+    // 这些身份/元数据字段不是"卖点/营销方向"，不派生成 Claim（产品名、类别、官网等）
+    const NON_CLAIM_KEYS = new Set(["name", "category", "website", "url"]);
+
     let derived = 0;
     for (const f of fields) {
+      if (f.field_group === "identity" && NON_CLAIM_KEYS.has(f.field_key)) continue;
+
       // 已派生过则跳过
       const { rows: exist } = await client.query(
         `SELECT 1 FROM claims WHERE project_id = $1 AND source_field_id = $2`,

@@ -44,6 +44,15 @@ export async function renderPoster(projectId: string, input: RenderInput): Promi
   return res.result;
 }
 
+/** 自动出图（3.7）：给卖点 id，自动用 产品名+卖点+官网图 出海报 */
+export async function autoPoster(projectId: string, claimId: string): Promise<RenderResult> {
+  const res = await apiFetch<{ result: RenderResult }>(
+    `/projects/${projectId}/posters/auto`,
+    { method: "POST", body: { claimId } },
+  );
+  return res.result;
+}
+
 /** 拉 PNG blob → object URL（用完记得 revokeObjectURL） */
 export async function posterPngUrl(projectId: string, posterId: string): Promise<string> {
   const token = authToken();

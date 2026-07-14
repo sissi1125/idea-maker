@@ -11,7 +11,10 @@
  * 设计：纯函数，文档 buffer + URL 由路由层注入；不读 env，不访问文件系统。
  */
 
-import isHtmlCheck from "is-html";
+/** 是否像 HTML：匹配常见标签（内联替代 is-html 包，后者 v3 纯 ESM 无法从 CJS require）。 */
+function looksLikeHtml(s: string): boolean {
+  return /<!doctype\s+html|<(?:html|head|body|div|span|p|a|img|table|thead|tbody|tr|td|ul|ol|li|h[1-6]|script|style|meta|link|br|hr|section|article|nav|footer|header|main|button|form|input|figure|picture|source|iframe|svg)\b[\s>/]/i.test(s);
+}
 import pdfParse from "pdf-parse";
 import TurndownService from "turndown";
 import mammoth from "mammoth";
@@ -179,8 +182,9 @@ async function parseMarkitdown(
   const isDocx =
     mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     mimeType === "application/msword";
-  // is-html 包：避免 /<[a-z]/i 误判 TS 泛型 Array<string> 等
-  const isHtml = mimeType === "text/html" || (!isPdf && !isDocx && isHtmlCheck(rawContent.slice(0, 2000)));
+  // 只匹配常见 HTML 标签，避免 /<[a-z]/i 误判 TS 泛型 Array<string> 等。
+  // （原用 is-html 包；它 v3 起是纯 ESM，从 CJS dist require 会崩，故内联为等价正则。）
+  const isHtml = mimeType === "text/html" || (!isPdf && !isDocx && looksLikeHtml(rawContent.slice(0, 2000)));
   const isMarkdown = mimeType === "text/markdown" || /^#{1,6}\s+.+/m.test(rawContent);
 
   if (isPdf) {

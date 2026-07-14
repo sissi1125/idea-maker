@@ -297,6 +297,25 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 ---
 
+## 验收后新增/变更（2026-07-14，未提交）
+
+**官网导入增强**
+- `POST /projects/:projectId/sources/import-website` 返回 result 增加 `ragChunksEmbedded`（官网正文进 rag_chunks 的分片数）；导入时**自动抓 logo/主图**入 `visual_assets`（status=uploaded 待批准）。官网正文经 1024 维 embedding 写入 `rag_chunks`（project_id 隔离，document_id=pageId）→ search_kb 可检索。
+
+**视觉资产**
+- `GET /projects/:projectId/assets/:id/file`：返回资产图片字节（`image/*`，前端缩略图）。
+
+**海报**
+- `POST /projects/:projectId/posters/render` body 增加 `bgImageAssetId?`（hero-image 模板背景图）。
+- `POST /projects/:projectId/posters/auto`：body `{ claimId }`。自动用 产品名(标题)+卖点(文案)+已批准官网图 出海报（有主图用 hero-image 模板，否则 simple-quote+logo）。返回 `{ result: RenderResult }`。
+- 新模板 `hero-image`（1080×1080，官网图打底+暗色遮罩+白字）。
+
+**内容包**
+- `POST /projects/:projectId/campaigns/:id/variants/:vid/adopt`：采纳一个角度（`adopted=true`，消费出口）。
+- `GET /projects/:projectId/campaigns/:id` 的 variants 增加 `adopted` 字段。
+
+---
+
 ## 待实现 Endpoints
 
 以下 endpoints 已在 `feature_list.json` 中规划，尚未实现：

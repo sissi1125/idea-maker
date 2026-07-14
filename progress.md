@@ -2063,3 +2063,40 @@ bloomnote.fun 本环境不可达，改用真实可达的 bear.app/zh/ 验证"真
 
 ### 全绿
 apps/api：typecheck 0 / lint 0 / 350 测试。apps/web：typecheck 0 / lint 0。Phase 4 全部功能（含前端）完成。
+
+---
+
+## 验收反馈修复 + Q3 官网进 RAG（2026-07-14 晚，未提交）
+
+> 用户过了一遍 demo 后提的反馈 + 一批真链路验证暴露的 bug。以下均已修复并验证；本批改动尚未 commit。
+
+### 🐛 Bug 修复
+- **对话 Agent「模型不存在」**：`agent-runner.service.ts` 项目没配 model 时硬默认 `gpt-4o-mini`，GLM 报"模型不存在"。改为回退 `process.env.LLM_MODEL`（内容包/提取用的是会回退 env 的写法所以没事）。
+- **name 变成卖点**：`claims.deriveFromBrief` 排除 identity 的 name/category/website/url，这些是元数据不是营销卖点。
+- **官网导入 0 资产**：根因是 bear.app 当时不可达（0 页）。另加 favicon 兜底——SPA 站 raw HTML 无 og:image/icon 标签时探测 `/apple-touch-icon.png`、`/favicon.ico` 等约定路径。
+- **extract/内容包生成 长请求**：加了 `AbortSignal.timeout`（extract 100s / 生成 90s / 判分 60s）+ 抽取输入 24k→14k，防无限 pending；异步 job（202+轮询）已在，前端已接。
+- **is-html ESM 冷启动崩溃**：rag-core `preprocess.ts` 从 CJS dist `require` 纯 ESM 的 is-html@3 → 冷启动即崩（**生产 Docker 构建也会炸**）。用内联正则 `looksLikeHtml` 替掉 is-html 依赖；rag-core 239 测试仍全过。
+- **embedding 维度 256≠1024**：OpenAI SDK 对 GLM 非官方模型不透传 `dimensions` → 拿 256 维，写 rag_chunks(1024) 失败 500。改用原始 fetch 直连 embeddings 接口拿正确 1024 维；再加"维度不符/写入失败落 NULL 走 BM25"兜底，导入永不 500。
+
+### ✨ 功能（验收 3.x）
+- **3.1** 官网来源+链接展示挪到**知识库**（`WebsiteSourcesPanel`，含导入入口 + 抓不到页面明确报错）。
+- **3.3** 官网导入**自动抓 logo/主图** → `visual_assets`（status=uploaded 待批准，hash 去重）；`AssetGallery`（缩略图+批准+上传）放到**产品档案**；新增 `GET /assets/:id/file` 出图。
+- **3.5** 砍掉独立"写一条内容评测"页（评测融进内容包/对话）。
+- **3.6** 内容包角度「采纳」出口（`content_variants.adopted` + adopt 端点）。
+- **3.7** 一键出海报：新 `hero-image` 模板（官网图打底）+ `POST /posters/auto`（产品名+卖点+官网图自动填）。
+- **Q3 官网正文进 RAG**：官网清洗正文 → 1024 维 embedding → `rag_chunks`（打 project_id，document_id=pageId）→ search_kb/Agent 能一起检索官网内容。fixture 实测：2 段正文入库、embedding 1024 维正确。
+- **UI 换肤（低成本）**：globals.css 加 `.field` 统一表单控件 + 品牌工具类 `.text-brand/.bg-brand-soft/...` + card 悬浮；sed 把新页面 17 处裸输入 + 21 处 indigo 强调色统一到 sage 主题。
+
+### 验证
+- rag-core tc + 239 测试；api tc + lint + **354 测试**；web tc + lint —— 全绿。
+- 端到端（本地 fixture，GLM 无关 + 真 embedding）：官网导入抓页+抓图、正文进 RAG（1024 维）、name 不入卖点、硬规则检查拦编造价格、采纳、一键出海报真实 PNG。
+- 真 GLM：恢复后可达（direct 200）；embedding-3 raw fetch 拿 1024 维正常。
+
+### honest gaps
+- SPA 站（如 bear.app）raw HTML 无图/无链接，抓取受限；favicon 兜底能捡到 logo，og:image 抓不到（需 headless 才能拿 JS 注入的）。
+- Q4 原始 HTML 快照：按用户要求不做。
+- 外网（bear/GLM）本机网络间歇性不可达，真实外网导入需网络稳定时验。
+
+### 下一步
+- 用户浏览器复验（尤其**对话里问官网相关问题看能否检索到官网内容** = Q3 最终验收）。
+- 未提交；确认后 commit 本批 + 前批，并进 PR。

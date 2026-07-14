@@ -7,11 +7,12 @@
 
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { AssetsModule } from "../assets/assets.module";
 import { SourcesController } from "./sources.controller";
 import { SourcesService } from "./sources.service";
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AssetsModule],
   controllers: [SourcesController],
   providers: [SourcesService],
   exports: [SourcesService],

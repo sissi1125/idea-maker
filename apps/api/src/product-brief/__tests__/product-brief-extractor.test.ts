@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { ProductBriefExtractor } from "../product-brief-extractor";
 
-const ext = () => new ProductBriefExtractor({} as any, {} as any, {} as any);
+const ext = () => new ProductBriefExtractor({} as any, {} as any, {} as any, {} as any);
 
 describe("parseFields", () => {
   it("剥掉 ```json fence 并解析", () => {

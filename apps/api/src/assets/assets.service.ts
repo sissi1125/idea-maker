@@ -10,6 +10,7 @@ import { randomUUID, createHash } from "crypto";
 import sharp from "sharp";
 import { DbService } from "../db/db.service";
 import { FileStorageService } from "../mvp-documents/file-storage.service";
+import { isPrivateHost } from "../sources/website-import";
 
 export const ASSET_KINDS = ["logo", "product_screenshot", "reference_poster", "font"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
@@ -82,6 +83,73 @@ export class AssetsService {
     });
   }
 
+  /**
+   * 从 URL 导入一张图片（官网导入自动抓 logo/主图用）。
+   * 安全：拒私网(SSRF)、只收 image/*、限大小；按 hash 去重（重复抓不重复入库）。
+   * 存 status='uploaded'——仍需用户在工作台批准才能用于海报。返回 null 表示跳过（非图/超限/重复）。
+   */
+  async importFromUrl(
+    projectId: string,
+    kind: AssetKind,
+    url: string,
+    label?: string,
+  ): Promise<AssetRow | null> {
+    let u: URL;
+    try { u = new URL(url); } catch { return null; }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (isPrivateHost(u.hostname) && process.env.ALLOW_PRIVATE_IMPORT_HOSTS !== "1") return null;
+
+    let buf: Buffer;
+    let mime: string;
+    try {
+      const res = await fetch(u.toString(), {
+        headers: { "User-Agent": "IdeaMakerBot", Accept: "image/*" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return null;
+      mime = res.headers.get("content-type") ?? "";
+      if (!mime.startsWith("image/")) return null;
+      const ab = await res.arrayBuffer();
+      if (ab.byteLength > 5_000_000 || ab.byteLength < 64) return null; // 5MB 上限 / 太小忽略
+      buf = Buffer.from(ab);
+    } catch {
+      return null;
+    }
+
+    const hash = createHash("sha256").update(buf).digest("hex");
+    return this.db.withClient(async (client) => {
+      // 去重：同项目同 hash 已存在则跳过
+      const { rows: dup } = await client.query<AssetRow>(
+        `SELECT id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at
+           FROM visual_assets WHERE project_id = $1 AND hash = $2 LIMIT 1`,
+        [projectId, hash],
+      );
+      if (dup.length) return dup[0];
+
+      let width: number | null = null;
+      let height: number | null = null;
+      try {
+        const meta = await sharp(buf).metadata();
+        width = meta.width ?? null;
+        height = meta.height ?? null;
+      } catch {
+        return null; // 解析不了的当作非图跳过
+      }
+
+      const id = randomUUID();
+      const ext = mime.includes("png") ? ".png" : mime.includes("svg") ? ".svg" : mime.includes("webp") ? ".webp" : ".jpg";
+      const fileRef = this.storage.save(projectId, id, `asset${ext}`, buf);
+      const { rows } = await client.query<AssetRow>(
+        `INSERT INTO visual_assets (id, project_id, kind, file_ref, hash, mime, width, height, label)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at`,
+        [id, projectId, kind, fileRef, hash, mime, width, height, label ?? "官网导入"],
+      );
+      return rows[0];
+    });
+  }
+
   async approve(userId: string, projectId: string, assetId: string): Promise<AssetRow> {
     await this.assertOwner(userId, projectId);
     return this.db.withClient(async (client) => {
@@ -105,6 +173,19 @@ export class AssetsService {
         [projectId],
       );
       return rows;
+    });
+  }
+
+  /** 读某个资产的字节 + mime（带 owner 校验，供前端缩略图展示） */
+  async getFile(userId: string, projectId: string, assetId: string): Promise<{ buffer: Buffer; mime: string }> {
+    await this.assertOwner(userId, projectId);
+    return this.db.withClient(async (client) => {
+      const { rows } = await client.query<{ file_ref: string; mime: string | null }>(
+        `SELECT file_ref, mime FROM visual_assets WHERE id = $1 AND project_id = $2`,
+        [assetId, projectId],
+      );
+      if (rows.length === 0) throw new NotFoundException("资产不存在");
+      return { buffer: this.storage.read(rows[0].file_ref), mime: rows[0].mime ?? "image/png" };
     });
   }
 

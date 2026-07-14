@@ -13,12 +13,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Tag, Wand2, CheckCircle2, XCircle, ShieldAlert, Loader2, Send,
+  Tag, Wand2, CheckCircle2, XCircle, ShieldAlert, Loader2,
   ClipboardList, RotateCcw, ThumbsUp, ThumbsDown, Sparkles, Lightbulb,
 } from "lucide-react";
 import {
   claimsApi, contentEvalApi, feedbackLearningApi, EVIDENCE_REQUIRED_CLAIM_TYPES,
-  type Claim, type EvaluateResult, type QueueItem, type Decision, type UpdateSuggestion,
+  type Claim, type QueueItem, type Decision, type UpdateSuggestion,
 } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 
@@ -37,15 +37,6 @@ const DECISION_LABEL: Record<Decision, { label: string; cls: string }> = {
   blocked: { label: "已拦下", cls: "bg-red-50 text-red-600 border-red-200" },
 };
 // 硬规则检查失败原因 → 大白话
-const RULE_LABEL: Record<string, string> = {
-  unknown_claim: "引用了不存在的卖点",
-  unapproved_claim: "引用了没批准的卖点",
-  missing_evidence: "卖点缺证据",
-  unsupported_number: "出现了没依据的数字/价格",
-  banned_word: "命中敏感词",
-  too_long: "超字数",
-  duplicate_claim: "重复引用同一卖点",
-};
 
 interface Toast { tone: "ok" | "err"; text: string; }
 
@@ -56,14 +47,6 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
-
-  // 评测表单
-  const [body, setBody] = useState("");
-  const [angle, setAngle] = useState("");
-  const [cta, setCta] = useState("");
-  const [pickedClaims, setPickedClaims] = useState<Set<string>>(new Set());
-  const [evalBusy, setEvalBusy] = useState(false);
-  const [lastResult, setLastResult] = useState<EvaluateResult | null>(null);
 
   const flash = useCallback((t: Toast) => {
     setToast(t);
@@ -105,23 +88,6 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
     }
   }
 
-  async function runEvaluate() {
-    if (!body.trim()) { flash({ tone: "err", text: "请先写内容正文" }); return; }
-    setEvalBusy(true);
-    setLastResult(null);
-    try {
-      const result = await contentEvalApi.evaluateContent(projectId, {
-        body, angle: angle || undefined, cta: cta || undefined,
-        claimIds: [...pickedClaims],
-      });
-      setLastResult(result);
-      await load();
-    } catch (err) {
-      flash({ tone: "err", text: err instanceof ApiError ? err.message : "评测失败" });
-    } finally {
-      setEvalBusy(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -131,7 +97,6 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
     );
   }
 
-  const approvedClaims = claims.filter((c) => c.status === "approved");
 
   return (
     <div className="space-y-6">
@@ -145,7 +110,7 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-            <Tag size={16} className="text-indigo-600" /> 卖点库
+            <Tag size={16} className="text-brand" /> 卖点库
             <span className="text-xs font-normal text-gray-400">先审卖点，文案只能用批准过的</span>
           </h2>
           <div className="flex items-center gap-2">
@@ -208,78 +173,10 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
         )}
       </section>
 
-      {/* ── 2. 写内容做评测 ── */}
+      {/* ── 2. 待人工处理队列 ── */}
       <section className="space-y-3 border-t pt-5">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-          <Send size={16} className="text-indigo-600" /> 写一条内容评测
-          <span className="text-xs font-normal text-gray-400">先过硬规则检查，再看去向</span>
-        </h2>
-        <div className="card p-3 space-y-2">
-          <input className="w-full text-sm border rounded px-2 py-1.5" placeholder="角度（可选）"
-            value={angle} onChange={(e) => setAngle(e.target.value)} />
-          <textarea className="w-full text-sm border rounded px-2 py-1.5" rows={3} placeholder="内容正文"
-            value={body} onChange={(e) => setBody(e.target.value)} />
-          <input className="w-full text-sm border rounded px-2 py-1.5" placeholder="CTA（可选）"
-            value={cta} onChange={(e) => setCta(e.target.value)} />
-          <div>
-            <div className="text-xs text-gray-500 mb-1">引用卖点（只有批准过的才不会被拦）：</div>
-            {approvedClaims.length === 0 ? (
-              <div className="text-[11px] text-gray-400">还没有已批准卖点</div>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {approvedClaims.map((c) => {
-                  const picked = pickedClaims.has(c.id);
-                  return (
-                    <button key={c.id}
-                      className={`text-[11px] px-2 py-1 rounded border ${picked ? "bg-indigo-50 text-indigo-700 border-indigo-300" : "bg-white text-gray-600 border-gray-200"}`}
-                      onClick={() => {
-                        const next = new Set(pickedClaims);
-                        if (picked) next.delete(c.id);
-                        else next.add(c.id);
-                        setPickedClaims(next);
-                      }}>
-                      {c.text.slice(0, 20)}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <button className="btn btn-sm btn-primary inline-flex items-center gap-1.5" disabled={evalBusy} onClick={runEvaluate}>
-            {evalBusy ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} 评测这条内容
-          </button>
-        </div>
-
-        {lastResult && (
-          <div className="card p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">硬规则检查：</span>
-              {lastResult.gatePassed
-                ? <span className="text-[11px] px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">通过</span>
-                : <span className="text-[11px] px-1.5 py-0.5 rounded border bg-red-50 text-red-600 border-red-200">没通过</span>}
-              <span className="text-sm text-gray-600 ml-2">去向：</span>
-              <span className={`text-[11px] px-1.5 py-0.5 rounded border ${DECISION_LABEL[lastResult.decision].cls}`}>
-                {DECISION_LABEL[lastResult.decision].label}
-              </span>
-            </div>
-            {lastResult.gateFailures.length > 0 && (
-              <ul className="text-xs text-red-600 list-disc pl-5 space-y-0.5">
-                {lastResult.gateFailures.map((f, i) => (
-                  <li key={i}>{RULE_LABEL[f.rule] ?? f.rule}：{f.detail}</li>
-                ))}
-              </ul>
-            )}
-            {!lastResult.scores && lastResult.gatePassed && (
-              <p className="text-[11px] text-gray-400">没有配大模型考官，所以转人工看（缺评测时不自动放行）。</p>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ── 3. 待人工处理队列 ── */}
-      <section className="space-y-3 border-t pt-5">
-        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-          <ClipboardList size={16} className="text-indigo-600" /> 待人工处理
+          <ClipboardList size={16} className="text-brand" /> 待人工处理
           <span className="text-xs font-normal text-gray-400">{queue.length} 条</span>
         </h2>
         {queue.length === 0 ? (
@@ -317,7 +214,7 @@ export function ContentWorkbench({ projectId }: { projectId: string }) {
       <section className="space-y-3 border-t pt-5">
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-            <Lightbulb size={16} className="text-indigo-600" /> 偏好更新建议
+            <Lightbulb size={16} className="text-brand" /> 偏好更新建议
             <span className="text-xs font-normal text-gray-400">从你的改稿里学，接受后写进产品档案的表达约束</span>
           </h2>
           <button className="btn btn-sm inline-flex items-center gap-1.5" disabled={busy === "suggest"}

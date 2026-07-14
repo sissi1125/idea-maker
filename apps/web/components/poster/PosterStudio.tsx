@@ -125,7 +125,7 @@ export function PosterStudio({ projectId }: { projectId: string }) {
         <div className={`text-xs px-3 py-2 rounded border ${toast.tone === "ok" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>{toast.text}</div>
       )}
       <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-        <ImageIcon size={16} className="text-indigo-600" /> 海报工作台
+        <ImageIcon size={16} className="text-brand" /> 海报工作台
         <span className="text-xs font-normal text-gray-400">只能用已批准的资产和卖点，出图前自动查排版</span>
       </h2>
 
@@ -133,7 +133,7 @@ export function PosterStudio({ projectId }: { projectId: string }) {
       <section className="card p-3 space-y-2">
         <div className="text-sm font-medium text-gray-800">视觉资产</div>
         <div className="flex flex-wrap items-center gap-2">
-          <select className="text-sm border rounded px-2 py-1.5" value={uploadKind} onChange={(e) => setUploadKind(e.target.value as assetsApi.AssetKind)}>
+          <select className="text-sm field" value={uploadKind} onChange={(e) => setUploadKind(e.target.value as assetsApi.AssetKind)}>
             {Object.entries(KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
           <input ref={fileRef} type="file" accept="image/*" className="text-xs" />
@@ -144,13 +144,13 @@ export function PosterStudio({ projectId }: { projectId: string }) {
         {assets.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
             {assets.map((a) => (
-              <div key={a.id} className="text-[11px] border rounded px-2 py-1 flex items-center gap-1.5">
+              <div key={a.id} className="text-[11px] field flex items-center gap-1.5">
                 <span className="text-gray-400">{KIND_LABEL[a.kind]}</span>
                 <span className="text-gray-700">{a.label ?? a.id.slice(0, 6)}</span>
                 {a.width && <span className="text-gray-300">{a.width}×{a.height}</span>}
                 {a.status === "approved"
                   ? <span className="text-emerald-600 inline-flex items-center gap-0.5"><CheckCircle2 size={11} /> 已批准</span>
-                  : <button className="text-indigo-600" disabled={busy === a.id} onClick={() => approve(a.id)}>批准</button>}
+                  : <button className="text-brand" disabled={busy === a.id} onClick={() => approve(a.id)}>批准</button>}
               </div>
             ))}
           </div>
@@ -161,20 +161,20 @@ export function PosterStudio({ projectId }: { projectId: string }) {
       <section className="card p-3 space-y-2">
         <div className="text-sm font-medium text-gray-800">出图</div>
         <div className="flex flex-wrap gap-2">
-          <select className="text-sm border rounded px-2 py-1.5" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+          <select className="text-sm field" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
             {templates.map((t) => <option key={t.id} value={t.id}>{t.id}（{t.width}×{t.height}）</option>)}
           </select>
           <label className="text-xs text-gray-500 inline-flex items-center gap-1">底色 <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} /></label>
           <label className="text-xs text-gray-500 inline-flex items-center gap-1">字色 <input type="color" value={fgColor} onChange={(e) => setFgColor(e.target.value)} /></label>
         </div>
-        <input className="w-full text-sm border rounded px-2 py-1.5" placeholder={`标题（≤${currentTemplate?.limits.title ?? 24} 字）`} value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="w-full text-sm border rounded px-2 py-1.5" placeholder="副标题（可选）" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+        <input className="w-full text-sm field" placeholder={`标题（≤${currentTemplate?.limits.title ?? 24} 字）`} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input className="w-full text-sm field" placeholder="副标题（可选）" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
         <div className="flex flex-wrap gap-2">
-          <select className="text-sm border rounded px-2 py-1.5 flex-1 min-w-[140px]" value={claimId} onChange={(e) => setClaimId(e.target.value)}>
+          <select className="text-sm field flex-1 min-w-[140px]" value={claimId} onChange={(e) => setClaimId(e.target.value)}>
             <option value="">不引用卖点</option>
             {approvedClaims.map((c) => <option key={c.id} value={c.id}>{c.text.slice(0, 24)}</option>)}
           </select>
-          <select className="text-sm border rounded px-2 py-1.5 flex-1 min-w-[140px]" value={logoAssetId} onChange={(e) => setLogoAssetId(e.target.value)}>
+          <select className="text-sm field flex-1 min-w-[140px]" value={logoAssetId} onChange={(e) => setLogoAssetId(e.target.value)}>
             <option value="">不放 Logo</option>
             {approvedLogos.map((a) => <option key={a.id} value={a.id}>{a.label ?? a.id.slice(0, 6)}</option>)}
           </select>

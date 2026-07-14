@@ -7,9 +7,10 @@
  */
 
 import {
-  BadRequestException, Body, Controller, Get, Param, Post, UploadedFile,
+  BadRequestException, Body, Controller, Get, Param, Post, Res, StreamableFile, UploadedFile,
   UseGuards, UseInterceptors,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
@@ -61,5 +62,18 @@ export class AssetsController {
     @Param("id") id: string,
   ) {
     return { asset: await this.assets.approve(user.id, projectId, id) };
+  }
+
+  /** 资产图片字节（前端缩略图） */
+  @Get(":id/file")
+  async file(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, mime } = await this.assets.getFile(user.id, projectId, id);
+    res.set({ "Content-Type": mime });
+    return new StreamableFile(buffer);
   }
 }

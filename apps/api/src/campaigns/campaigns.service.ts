@@ -12,6 +12,7 @@ import { randomUUID } from "crypto";
 import { generateText } from "ai";
 import { DbService } from "../db/db.service";
 import { LlmService } from "../llm/llm.service";
+import { JobsService } from "../jobs/jobs.service";
 import { runDeterministicGate, type GateClaim } from "../content-evaluation/deterministic-gate";
 import { decide } from "../content-evaluation/decision";
 import {
@@ -54,7 +55,16 @@ export class CampaignsService {
   constructor(
     private readonly db: DbService,
     private readonly llm: LlmService,
+    private readonly jobs: JobsService,
   ) {}
+
+  /** 异步启动生成：立即返回 jobId，后台跑 LLM（防生产网关超时）。前端轮询 job 端点。 */
+  async startGenerate(userId: string, projectId: string, campaignId: string): Promise<{ jobId: string }> {
+    await this.assertOwner(userId, projectId);
+    const jobId = await this.jobs.create(projectId, "campaign_generate", campaignId);
+    this.jobs.runInBackground(jobId, () => this.generateVariants(userId, projectId, campaignId));
+    return { jobId };
+  }
 
   private async assertOwner(userId: string, projectId: string): Promise<void> {
     await this.db.withClient(async (client) => {
@@ -139,7 +149,7 @@ export class CampaignsService {
       const model = this.llm.create({});
       const prompt = buildGenerationPrompt(brief, allowedClaims.map((c) => ({ id: c.id, text: c.text })), count);
       const t0 = Date.now();
-      const { text } = await generateText({ model, prompt, temperature: 0.7, maxTokens: 2000 });
+      const { text } = await generateText({ model, prompt, temperature: 0.7, maxTokens: 2000, abortSignal: AbortSignal.timeout(90_000) });
       this.logger.log(`[campaign] gen done campaign=${campaignId} took=${Date.now() - t0}ms`);
 
       const grounded = groundVariants(parseVariants(text), allowedIds);
@@ -203,7 +213,7 @@ export class CampaignsService {
 
       const model = this.llm.create({});
       const prompt = buildGenerationPrompt(brief, allowedClaims.map((c) => ({ id: c.id, text: c.text })), 1);
-      const { text } = await generateText({ model, prompt, temperature: 0.8, maxTokens: 1200 });
+      const { text } = await generateText({ model, prompt, temperature: 0.8, maxTokens: 1200, abortSignal: AbortSignal.timeout(90_000) });
       const grounded = groundVariants(parseVariants(text), allowedIds);
       if (grounded.length === 0) throw new NotFoundException("重新生成失败，请重试");
       const v = grounded[0];
@@ -228,9 +238,9 @@ export class CampaignsService {
 
       const { rows: variants } = await client.query<{
         id: string; source: string; angle: string; hook: string; body: string; cta: string;
-        claim_ids: unknown; created_at: Date;
+        claim_ids: unknown; adopted: boolean; created_at: Date;
       }>(
-        `SELECT id, source, angle, hook, body, cta, claim_ids, created_at
+        `SELECT id, source, angle, hook, body, cta, claim_ids, adopted, created_at
            FROM content_variants WHERE campaign_id = $1 ORDER BY source DESC, created_at ASC`,
         [campaignId],
       );
@@ -243,13 +253,27 @@ export class CampaignsService {
         );
         return {
           id: v.id, source: v.source, angle: v.angle, hook: v.hook, body: v.body, cta: v.cta,
-          claimIds, createdAt: v.created_at,
+          claimIds, adopted: v.adopted, createdAt: v.created_at,
           gatePassed: gate.passed, gateFailures: gate.failures,
           decision: decide(gate, null), // 无评测分 → human_review（除非门禁已 blocked）
         };
       });
 
       return { campaign: { ...row, allowed_claim_ids: this.mapCampaign(row).allowedClaimIds }, variants: withGate };
+    });
+  }
+
+  /** 采纳/取消采纳一个角度（3.6：采纳=消费掉的最终产出，可导出） */
+  async setAdopted(userId: string, projectId: string, campaignId: string, variantId: string, adopted: boolean) {
+    await this.assertOwner(userId, projectId);
+    return this.db.withClient(async (client) => {
+      const { rowCount } = await client.query(
+        `UPDATE content_variants SET adopted = $4
+          WHERE id = $1 AND campaign_id = $2 AND project_id = $3`,
+        [variantId, campaignId, projectId, adopted],
+      );
+      if (rowCount === 0) throw new NotFoundException("角度不存在");
+      return { adopted };
     });
   }
 

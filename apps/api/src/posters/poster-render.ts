@@ -15,6 +15,8 @@ export interface PosterSpecInput {
   subtitle?: string;
   claimId?: string;
   logoAssetId?: string;
+  /** 背景图资产（hero-image 模板）*/
+  bgImageAssetId?: string;
   bgColor?: string;
   fgColor?: string;
 }
@@ -25,6 +27,8 @@ export interface PosterSlots {
   subtitle?: string;
   claimText?: string;
   logoDataUri?: string;
+  /** 背景图（官网主图）data URI —— hero-image 模板用 */
+  bgImageDataUri?: string;
   bgColor: string;
   fgColor: string;
 }
@@ -141,9 +145,31 @@ ${sub}
   },
 };
 
+/** 模板 C：官网图打底 —— 主图铺满 + 暗色遮罩 + 白字标题/主张（3.7 自动海报用） */
+const heroImage: PosterTemplate = {
+  id: "hero-image",
+  width: 1080,
+  height: 1080,
+  limits: { title: 24, subtitle: 50, claim: 70 },
+  build(s) {
+    const bg = s.bgImageDataUri && s.bgImageDataUri.startsWith("data:")
+      ? `<image x="0" y="0" width="${this.width}" height="${this.height}" href="${xmlEscape(s.bgImageDataUri)}" preserveAspectRatio="xMidYMid slice"/>
+<rect width="${this.width}" height="${this.height}" fill="#000000" opacity="0.45"/>`
+      : `<rect width="${this.width}" height="${this.height}" fill="${s.bgColor}"/>`;
+    const claim = s.claimText ? `<text x="80" y="720" fill="#ffffff" font-size="46" font-family="sans-serif" font-weight="600">${wrapTspans(s.claimText, 20, 80, 62)}</text>` : "";
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${this.width}" height="${this.height}" viewBox="0 0 ${this.width} ${this.height}">
+${bg}
+${logoTag(s, 80, 90, 88)}
+<text x="80" y="560" fill="#ffffff" font-size="72" font-family="sans-serif" font-weight="700">${wrapTspans(s.title, 12, 80, 84)}</text>
+${claim}
+</svg>`;
+  },
+};
+
 export const POSTER_TEMPLATES: Record<string, PosterTemplate> = {
   [simpleQuote.id]: simpleQuote,
   [featureCard.id]: featureCard,
+  [heroImage.id]: heroImage,
 };
 export const POSTER_TEMPLATE_IDS = Object.keys(POSTER_TEMPLATES);
 
@@ -192,7 +218,9 @@ export function validatePosterSpec(input: PosterSpecInput, ctx: PosterValidateCo
   if (input.claimId && !ctx.approvedClaimIds.has(input.claimId))
     failures.push({ rule: "unapproved_claim", detail: "引用了未批准的 Claim" });
   if (input.logoAssetId && !ctx.approvedAssetIds.has(input.logoAssetId))
-    failures.push({ rule: "unapproved_asset", detail: "引用了未批准的视觉资产" });
+    failures.push({ rule: "unapproved_asset", detail: "引用了未批准的视觉资产（logo）" });
+  if (input.bgImageAssetId && !ctx.approvedAssetIds.has(input.bgImageAssetId))
+    failures.push({ rule: "unapproved_asset", detail: "引用了未批准的视觉资产（背景图）" });
 
   const bg = input.bgColor ?? DEFAULT_BG;
   const fg = input.fgColor ?? DEFAULT_FG;

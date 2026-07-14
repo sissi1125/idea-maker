@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText, Wand2, CheckCircle2, Pencil, XCircle, ShieldCheck,
-  AlertTriangle, Loader2, Plus, RotateCcw,
+  AlertTriangle, Loader2, Plus, RotateCcw, Image as ImageIcon,
 } from "lucide-react";
 import {
   productBriefApi,
@@ -27,6 +27,7 @@ import {
   type BriefFieldSource,
 } from "@/lib/api";
 import { ApiError } from "@/lib/api";
+import { AssetGallery } from "@/components/assets/AssetGallery";
 
 // 分组展示顺序 + 中文标签 + 说明
 const GROUP_META: Array<{ key: BriefFieldGroup; label: string; hint: string }> = [
@@ -196,7 +197,7 @@ export function ProductBriefWorkbench({ projectId }: { projectId: string }) {
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-            <FileText size={16} className="text-indigo-600" />
+            <FileText size={16} className="text-brand" />
             产品事实档案
             <span className="text-xs font-normal text-gray-400">
               v{snap.brief.version} · {snap.brief.status === "confirmed" ? "已确认" : "草稿"}
@@ -266,6 +267,16 @@ export function ProductBriefWorkbench({ projectId }: { projectId: string }) {
         </div>
       )}
 
+      {/* 视觉资产（3.3）：官网导入自动抓的图 + 手动上传。导入动作在「知识库」页 */}
+      <section className="border rounded-lg p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <ImageIcon size={15} className="text-brand" />
+          <span className="text-sm font-medium text-gray-800">视觉资产</span>
+          <span className="text-xs text-gray-400">logo/主图（官网导入自动抓 or 手动上传，批准后可用于海报）</span>
+        </div>
+        <AssetGallery projectId={projectId} />
+      </section>
+
       {/* 分组字段 */}
       <div className="space-y-5">
         {GROUP_META.map((g) => {
@@ -301,7 +312,7 @@ export function ProductBriefWorkbench({ projectId }: { projectId: string }) {
                             {isEditing ? (
                               <div className="space-y-2 mt-2">
                                 <textarea
-                                  className="w-full text-sm border rounded px-2 py-1.5 font-mono"
+                                  className="w-full text-sm field font-mono"
                                   rows={3}
                                   value={editing.text}
                                   onChange={(e) => setEditing({ ...editing, text: e.target.value })}
@@ -309,7 +320,7 @@ export function ProductBriefWorkbench({ projectId }: { projectId: string }) {
                                 />
                                 {needReason && (
                                   <input
-                                    className="w-full text-sm border rounded px-2 py-1.5"
+                                    className="w-full text-sm field"
                                     value={editing.reason}
                                     onChange={(e) => setEditing({ ...editing, reason: e.target.value })}
                                     placeholder="修改原因（事实型字段必填）"
@@ -443,7 +454,7 @@ function AddFieldForm({
     <div className="card p-3 space-y-2">
       <div className="flex items-center gap-2">
         <select
-          className="text-sm border rounded px-2 py-1.5"
+          className="text-sm field"
           value={group}
           onChange={(e) => setGroup(e.target.value as BriefFieldGroup)}
         >
@@ -452,14 +463,14 @@ function AddFieldForm({
           ))}
         </select>
         <input
-          className="text-sm border rounded px-2 py-1.5 font-mono flex-1"
+          className="text-sm field font-mono flex-1"
           placeholder="字段 key，如 name / pricing"
           value={key}
           onChange={(e) => setKey(e.target.value)}
         />
       </div>
       <textarea
-        className="w-full text-sm border rounded px-2 py-1.5"
+        className="w-full text-sm field"
         rows={2}
         placeholder="字段值（多个并列值每行一个）"
         value={value}

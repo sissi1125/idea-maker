@@ -28,6 +28,7 @@ import { FeedbackLearningModule } from "./feedback-learning/feedback-learning.mo
 import { CampaignsModule } from "./campaigns/campaigns.module";
 import { AssetsModule } from "./assets/assets.module";
 import { PostersModule } from "./posters/posters.module";
+import { JobsModule } from "./jobs/jobs.module";
 
 @Module({
   controllers: [HealthController],
@@ -35,6 +36,8 @@ import { PostersModule } from "./posters/posters.module";
     // 基础设施（@Global）
     CommonModule,
     DbModule,
+    // 通用异步任务（@Global）：extract / 内容生成 异步化
+    JobsModule,
     // feat-200.2：进程内事件总线，IngestionService 发 / IngestionController SSE 订阅
     EventEmitterModule.forRoot({ wildcard: false, maxListeners: 100 }),
     // 旧 RAG pipeline（feat-100.x，保留双跑）

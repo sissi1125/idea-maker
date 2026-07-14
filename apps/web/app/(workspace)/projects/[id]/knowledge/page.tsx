@@ -27,6 +27,7 @@ import {
   Upload, Check, X, ArrowRight, AlertCircle, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
+import { WebsiteSourcesPanel } from "@/components/knowledge/WebsiteSourcesPanel";
 import { documentsApi } from "@/lib/api";
 import type {
   MvpDocument, DocumentCategory, IngestionJob,
@@ -501,6 +502,9 @@ export default function KnowledgePage() {
             按 <b>产品资料 / 竞品资料 / 历史宣传物料</b> 三类分别上传 — Agent 会针对不同来源使用不同的检索策略
           </div>
         </div>
+
+        {/* 官网来源（3.1）*/}
+        <WebsiteSourcesPanel projectId={projectId} />
 
         {/* Category tiles */}
         <div className="grid grid-cols-3 gap-2.5 mb-3.5">

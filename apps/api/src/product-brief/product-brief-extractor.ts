@@ -21,11 +21,16 @@ import { generateText } from "ai";
 import { z } from "zod";
 import { DbService } from "../db/db.service";
 import { LlmService } from "../llm/llm.service";
+import { JobsService } from "../jobs/jobs.service";
 import { ProductBriefService } from "./product-brief.service";
 import { BRIEF_FIELD_GROUPS, FACTUAL_FIELD_GROUPS, type BriefFieldGroup } from "./product-brief.types";
 
-/** 一次喂给 LLM 的 chunk 文本字符上限（约 8k token 量级，留足输出空间） */
-const MAX_INPUT_CHARS = 24_000;
+/**
+ * 一次喂给 LLM 的 chunk 文本字符上限。
+ * 调小到 14k：文档多的项目原来拼到 24k → GLM 单次要 100s+，前端像卡死。
+ * 14k 下抽取更快、也更不容易撞生产网关超时。（根治仍是异步 job，见 progress.md）
+ */
+const MAX_INPUT_CHARS = 14_000;
 /** 单个 chunk 过长时截断，避免一个大 chunk 吃满预算 */
 const MAX_CHARS_PER_CHUNK = 1_200;
 
@@ -65,7 +70,19 @@ export class ProductBriefExtractor {
     private readonly db: DbService,
     private readonly llm: LlmService,
     private readonly briefs: ProductBriefService,
+    private readonly jobs: JobsService,
   ) {}
+
+  /**
+   * 异步启动抽取：立即建 job 返回 jobId，后台跑 LLM（避免同步长请求被生产网关超时掐断）。
+   * 前端拿 jobId 轮询 /product-brief/extract/jobs/:jobId。
+   */
+  async startExtract(userId: string, projectId: string): Promise<{ jobId: string }> {
+    await this.assertOwner(userId, projectId);
+    const jobId = await this.jobs.create(projectId, "brief_extract");
+    this.jobs.runInBackground(jobId, () => this.extract(userId, projectId));
+    return { jobId };
+  }
 
   /** owner 校验（与其他 service 一致语义） */
   private async assertOwner(userId: string, projectId: string): Promise<void> {
@@ -260,6 +277,8 @@ export class ProductBriefExtractor {
       prompt: this.buildPrompt(block),
       temperature: 0.2,
       maxTokens: 2000,
+      // 防止 LLM 端点挂起导致请求无限 pending（前端一直转圈）。超时抛错，走上层兜底。
+      abortSignal: AbortSignal.timeout(100_000),
     });
     this.logger.log(
       `[extractor] LLM done project=${projectId} chunks=${usedIds.size}/${chunks.length} took=${Date.now() - t0}ms`,

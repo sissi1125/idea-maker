@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Megaphone, Sparkles, Loader2, RotateCcw, PlusCircle, CheckCircle2, XCircle,
+  ThumbsUp, Image as ImageIcon,
 } from "lucide-react";
 import {
-  campaignsApi, claimsApi, ApiError,
+  campaignsApi, claimsApi, postersApi, ApiError,
   type CampaignListItem, type CampaignDetail, type CampaignGoal, type Claim, type Decision,
 } from "@/lib/api";
 
@@ -38,6 +39,7 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [toast, setToast] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   // 创建表单
@@ -94,6 +96,23 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
     } finally { setBusy(null); }
   }
 
+  // 3.7 一键出海报：用该角度引用的卖点自动出图（产品名+卖点+官网图）
+  async function runAutoPoster(claimId: string, key: string) {
+    setBusy(key);
+    if (posterUrl) { URL.revokeObjectURL(posterUrl); setPosterUrl(null); }
+    try {
+      const r = await postersApi.autoPoster(projectId, claimId);
+      if (!r.passed) {
+        flash({ tone: "err", text: `没出图：${r.failures.map((f) => f.detail).join("；")}` });
+      } else {
+        setPosterUrl(await postersApi.posterPngUrl(projectId, r.posterId));
+        flash({ tone: "ok", text: "海报已生成" });
+      }
+    } catch (err) {
+      flash({ tone: "err", text: err instanceof ApiError ? err.message : "出图失败" });
+    } finally { setBusy(null); }
+  }
+
   async function createCampaign() {
     setBusy("create");
     try {
@@ -120,18 +139,18 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
       )}
 
       <h2 className="inline-flex items-center gap-2 text-base font-semibold text-gray-900">
-        <Megaphone size={16} className="text-indigo-600" /> 内容包
+        <Megaphone size={16} className="text-brand" /> 内容包
         <span className="text-xs font-normal text-gray-400">一次任务生成 3 个可比较角度，并排看去向</span>
       </h2>
 
       {/* 创建 Campaign */}
       <div className="card p-3 space-y-2">
         <div className="flex flex-wrap gap-2">
-          <select className="text-sm border rounded px-2 py-1.5" value={goal} onChange={(e) => setGoal(e.target.value as CampaignGoal)}>
+          <select className="text-sm field" value={goal} onChange={(e) => setGoal(e.target.value as CampaignGoal)}>
             {(Object.keys(GOAL_LABEL) as CampaignGoal[]).map((g) => <option key={g} value={g}>{GOAL_LABEL[g]}</option>)}
           </select>
-          <input className="text-sm border rounded px-2 py-1.5 flex-1 min-w-[120px]" placeholder="平台（如 小红书）" value={platform} onChange={(e) => setPlatform(e.target.value)} />
-          <input className="text-sm border rounded px-2 py-1.5 flex-1 min-w-[120px]" placeholder="CTA（可选）" value={cta} onChange={(e) => setCta(e.target.value)} />
+          <input className="text-sm field flex-1 min-w-[120px]" placeholder="平台（如 小红书）" value={platform} onChange={(e) => setPlatform(e.target.value)} />
+          <input className="text-sm field flex-1 min-w-[120px]" placeholder="CTA（可选）" value={cta} onChange={(e) => setCta(e.target.value)} />
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">可用卖点（只列已批准）：</div>
@@ -143,7 +162,7 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
                 const on = picked.has(c.id);
                 return (
                   <button key={c.id}
-                    className={`text-[11px] px-2 py-1 rounded border ${on ? "bg-indigo-50 text-indigo-700 border-indigo-300" : "bg-white text-gray-600 border-gray-200"}`}
+                    className={`text-[11px] px-2 py-1 rounded border ${on ? "bg-brand-soft text-brand-ink border-brand" : "bg-white text-gray-600 border-gray-200"}`}
                     onClick={() => { const n = new Set(picked); if (on) n.delete(c.id); else n.add(c.id); setPicked(n); }}>
                     {c.text.slice(0, 18)}
                   </button>
@@ -162,7 +181,7 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
         <div className="flex flex-wrap gap-1.5">
           {campaigns.map((c) => (
             <button key={c.id}
-              className={`text-xs px-2.5 py-1.5 rounded border ${selectedId === c.id ? "bg-indigo-50 text-indigo-700 border-indigo-300" : "bg-white text-gray-600 border-gray-200"}`}
+              className={`text-xs px-2.5 py-1.5 rounded border ${selectedId === c.id ? "bg-brand-soft text-brand-ink border-brand" : "bg-white text-gray-600 border-gray-200"}`}
               onClick={() => setSelectedId(c.id)}>
               {GOAL_LABEL[c.goal]}{c.platform ? ` · ${c.platform}` : ""}
             </button>
@@ -194,7 +213,7 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
                   </div>
                   {v.hook && <p className="text-[11px] text-gray-400">{v.hook}</p>}
                   <p className="text-sm text-gray-700 break-words flex-1">{v.body}</p>
-                  {v.cta && <p className="text-[11px] text-indigo-600">CTA：{v.cta}</p>}
+                  {v.cta && <p className="text-[11px] text-brand">CTA：{v.cta}</p>}
                   <div className="flex items-center gap-1.5 text-[11px]">
                     {v.gatePassed
                       ? <span className="inline-flex items-center gap-0.5 text-emerald-600"><CheckCircle2 size={11} /> 硬规则检查通过</span>
@@ -207,14 +226,38 @@ export function CampaignPanel({ projectId }: { projectId: string }) {
                       {v.gateFailures.map((f, i) => <li key={i}>{RULE_LABEL[f.rule] ?? f.rule}</li>)}
                     </ul>
                   )}
-                  {v.source === "generated" && (
-                    <button className="btn-ghost btn-sm inline-flex items-center gap-1 text-gray-500 self-start" disabled={busy === v.id}
-                      onClick={() => act(v.id, () => campaignsApi.regenerateVariant(projectId, detail.campaign.id, v.id), "已重新生成该角度")}>
-                      {busy === v.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} 重新生成
-                    </button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {v.adopted ? (
+                      <span className="text-[11px] text-emerald-700 inline-flex items-center gap-0.5"><CheckCircle2 size={11} /> 已采纳</span>
+                    ) : (
+                      <button className="btn-ghost btn-sm inline-flex items-center gap-1 text-emerald-700" disabled={busy === `adopt-${v.id}`}
+                        onClick={() => act(`adopt-${v.id}`, () => campaignsApi.adoptVariant(projectId, detail.campaign.id, v.id), "已采纳该角度")}>
+                        <ThumbsUp size={12} /> 采纳
+                      </button>
+                    )}
+                    {v.claimIds.length > 0 && (
+                      <button className="btn-ghost btn-sm inline-flex items-center gap-1 text-brand" disabled={busy === `poster-${v.id}`}
+                        onClick={() => runAutoPoster(v.claimIds[0], `poster-${v.id}`)}>
+                        {busy === `poster-${v.id}` ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />} 一键出海报
+                      </button>
+                    )}
+                    {v.source === "generated" && (
+                      <button className="btn-ghost btn-sm inline-flex items-center gap-1 text-gray-500" disabled={busy === v.id}
+                        onClick={() => act(v.id, () => campaignsApi.regenerateVariant(projectId, detail.campaign.id, v.id), "已重新生成该角度")}>
+                        {busy === v.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} 重新生成
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
+            </div>
+          )}
+          {posterUrl && (
+            <div className="border-t pt-3 space-y-1.5">
+              <div className="text-sm text-gray-700 inline-flex items-center gap-1.5"><ImageIcon size={14} className="text-brand" /> 自动生成的海报</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={posterUrl} alt="海报" className="max-w-[300px] w-full rounded border" />
+              <a href={posterUrl} download="poster.png" className="text-xs text-brand underline">下载 PNG</a>
             </div>
           )}
         </div>

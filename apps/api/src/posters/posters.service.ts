@@ -87,12 +87,14 @@ export class PostersService {
       return { posterId, passed: false, failures: v.failures };
     }
 
-    // 3. 解析 logo（只从已批准资产读，base64 内嵌，不引用外链）
-    let logoDataUri: string | undefined;
-    if (input.logoAssetId) {
-      const a = await this.assets.readApproved(projectId, input.logoAssetId);
-      if (a) logoDataUri = `data:${a.mime};base64,${a.buffer.toString("base64")}`;
-    }
+    // 3. 解析 logo + 背景图（只从已批准资产读，base64 内嵌，不引用外链）
+    const toDataUri = async (assetId?: string): Promise<string | undefined> => {
+      if (!assetId) return undefined;
+      const a = await this.assets.readApproved(projectId, assetId);
+      return a ? `data:${a.mime};base64,${a.buffer.toString("base64")}` : undefined;
+    };
+    const logoDataUri = await toDataUri(input.logoAssetId);
+    const bgImageDataUri = await toDataUri(input.bgImageAssetId);
 
     // 4. 受限模板渲染 SVG → sharp 光栅化真实 PNG
     const template = POSTER_TEMPLATES[input.templateId];
@@ -101,6 +103,7 @@ export class PostersService {
       subtitle: input.subtitle,
       claimText,
       logoDataUri,
+      bgImageDataUri,
       bgColor: input.bgColor ?? DEFAULT_BG,
       fgColor: input.fgColor ?? DEFAULT_FG,
     });
@@ -116,6 +119,45 @@ export class PostersService {
     );
     this.logger.log(`[poster] rendered ${posterId} ${template.width}x${template.height} ${png.length}B`);
     return { posterId, passed: true, failures: [], ref: fileRef, width: template.width, height: template.height, bytes: png.length };
+  }
+
+  /**
+   * 自动出海报（3.7）：给一个已批准卖点，自动填 产品名(标题) + 卖点(文案) + 官网图。
+   * 有官网主图 → 用 hero-image 模板(图打底)；否则 simple-quote + logo。仍走同一套硬规则检查。
+   */
+  async autoRender(userId: string, projectId: string, claimId: string): Promise<RenderResult> {
+    await this.assertOwner(userId, projectId);
+    const picked = await this.db.withClient(async (client) => {
+      // 产品名：已确认的 identity/name
+      const { rows: nameRows } = await client.query<{ value: unknown }>(
+        `SELECT f.value FROM product_brief_fields f
+           JOIN product_briefs b ON b.id = f.brief_id
+          WHERE b.project_id = $1 AND f.field_group = 'identity' AND f.field_key = 'name'
+            AND f.status = 'confirmed' LIMIT 1`,
+        [projectId],
+      );
+      // 已批准资产：logo + 主图
+      const { rows: logo } = await client.query<{ id: string }>(
+        `SELECT id FROM visual_assets WHERE project_id = $1 AND status = 'approved' AND kind = 'logo' ORDER BY created_at DESC LIMIT 1`,
+        [projectId],
+      );
+      const { rows: hero } = await client.query<{ id: string }>(
+        `SELECT id FROM visual_assets WHERE project_id = $1 AND status = 'approved' AND kind = 'product_screenshot' ORDER BY created_at DESC LIMIT 1`,
+        [projectId],
+      );
+      let name = "";
+      const v = nameRows[0]?.value;
+      if (typeof v === "string") name = v;
+      return { name, logoId: logo[0]?.id, heroId: hero[0]?.id };
+    });
+
+    return this.render(userId, projectId, {
+      templateId: picked.heroId ? "hero-image" : "simple-quote",
+      title: picked.name || "产品海报",
+      claimId,
+      logoAssetId: picked.logoId,
+      bgImageAssetId: picked.heroId,
+    });
   }
 
   async list(userId: string, projectId: string) {

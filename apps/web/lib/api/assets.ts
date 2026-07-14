@@ -54,3 +54,13 @@ export async function approveAsset(projectId: string, assetId: string): Promise<
   );
   return res.asset;
 }
+
+/** 拉资产图片 blob → object URL（缩略图，用完 revoke） */
+export async function assetFileUrl(projectId: string, assetId: string): Promise<string> {
+  const token = authToken();
+  const res = await fetch(`${apiBaseUrl()}/projects/${projectId}/assets/${assetId}/file`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error("图片加载失败");
+  return URL.createObjectURL(await res.blob());
+}

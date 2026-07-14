@@ -137,6 +137,37 @@ body {
   color: var(--ink-2);
 }
 
+/* ── 统一表单控件（.field）+ 品牌强调色工具类 ───────────────────── */
+.field {
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  transition: border-color .15s, box-shadow .15s;
+}
+.field:hover { border-color: #c6c3b8 }
+.field:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.field::placeholder { color: var(--ink-4) }
+.field-sm { padding: 4px 8px; font-size: 12px; border-radius: 7px }
+select.field { cursor: pointer }
+
+/* 品牌强调色（替代散落的 indigo，统一到 sage 主题） */
+.text-brand { color: var(--brand) }
+.text-brand-ink { color: var(--brand-ink) }
+.bg-brand-soft { background: var(--brand-soft) }
+.border-brand { border-color: var(--brand) }
+
+/* card 轻微悬浮反馈，界面更有层次 */
+.card { transition: box-shadow .15s, border-color .15s }
+.card:hover { box-shadow: var(--shadow-md) }
+
 /* ── Animation ──────────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px) }
