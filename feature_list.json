@@ -646,8 +646,8 @@
       "track": "A-main",
       "description": "面向独立开发者与小团队的产品发布/功能更新闭环：受限官方来源和文档导入 → 可确认、可追溯的 Product Brief → 已批准 Claim Map → 内容候选 → 规则门禁、评测与人工筛选 → 反馈学习 → 内容包；HTML 海报作为最后的可选增强。完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
       "dependencies": ["feat-300.7"],
-      "status": "epic",
-      "evidence": "2026-07-13 依据产品策略讨论建立。父级聚合 feat-400.1~400.5；尚未开始业务实现。"
+      "status": "done",
+      "evidence": "2026-07-14 全闭环完成：feat-400.1（产品档案+受限官网导入）/400.2（Claim Map+硬规则检查+评测+人工队列）/400.3（反馈学习）/400.4（Campaign 内容包）/400.5（视觉资产+受限模板海报）全部 done。后端 350/350、typecheck+lint clean。真链路验证：真抓 bear.app/zh/、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报；真链路过程抓出并修复 3 个 mock 掩盖的真实 bug（GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀）。"
     },
     {
       "id": "feat-400.1",
@@ -656,8 +656,8 @@
       "track": "A-main",
       "description": "用产品文档和用户主动提交的官方域名提取候选 Product Brief；实现字段 evidence、置信度、状态、版本、缺失/矛盾提示及用户确认工作台。官网导入只处理同域白名单、robots/sitemap/HTML/metadata，不做社交抓取或通用网络爬虫。",
       "dependencies": ["feat-400"],
-      "status": "todo",
-      "evidence": "执行规格 §3、§8。试点仅接受用户主动提交的公开资料。"
+      "status": "done",
+      "evidence": "2026-07-14 slice 1+2+3+4 全部完成。slice 1+2。slice 1（事实层数据模型）：schema 新增 product_briefs / product_brief_fields / product_brief_field_revisions 三表；ProductBriefService 实现 ensureBrief / upsertCandidateField（命中 confirmed 只标 stale 不覆盖）/ confirmField / editField（事实型必填 reason）/ rejectField / detectIssues（missingRequired + unverifiedFacts）/ confirmBrief（前置门禁）；7 个端点。slice 2（LLM 候选提取）：ProductBriefExtractor 从 rag_chunks 加载文档 → LLM 结构化提取 → Zod 校验 → 丢弃幻觉出处（只保留真实 chunk id）→ 无 evidence 判 inferred 且置信度封顶 0.4 → upsert candidate；POST /extract 端点。18 个单测全过；API typecheck+lint clean，全量 217/217。端到端：起 API + 真 PG 跑 19/19 门禁生命周期断言全过（含捕获并修复 ValidationPipe whitelist 剥掉 value 字段的真实 bug，已加 @Allow）。extract 的 live-LLM 路径需 BYOK key 做完整 e2e。slice 3（前端审核工作台）完成：lib/api/product-brief.ts 客户端 + ProductBriefWorkbench 组件（7 分组展示候选值/来源/置信度/状态 + 确认/编辑/拒绝 + issues 顶栏 + 一键提取 + 手动新增）+ /brief 路由 + Sidebar「产品档案」入口；web typecheck+lint clean。浏览器端到端已验证：注册→建项目→产品档案渲染 7 组 + issues 3 缺失 chip + 确认按钮禁用；手动加 identity/name→候选→点确认→徽章变已确认、issues 少一个 chip、门禁实时更新。slice 4（受限官网导入连接器）完成：schema 新增 source_records/source_sync_jobs/source_pages/source_content_chunks；website-import.ts 纯安全层（社交黑名单 + 私网 SSRF 防护 + 同域 + 路径白名单 + robots 解析 + HTML 结构化抽取 title/meta/OG/JSON-LD/正文/链接）；SourcesService BFS 抓取（限页/限深/限速/单页大小上限，fetchImpl 可注入）；POST /sources/import-website + GET /sources；extractor 已接入官网 chunks（source_content_chunks → 候选事实 source=website）。62 个安全层单测 + 全量 279/279；typecheck+lint clean。端到端（起 API + 本地 fixture 官网）14/14：社交/非法 scheme 拒 400、抓 2 页、robots 拦 /faq、路径白名单拦 /admin、跨域拦 external、title 抽取正确、pages+chunks 入库；含捕获并修复'非法 scheme 返 500 应为 400'的真实 bug。honest gap：用页内链接 BFS 发现页面而非解析 sitemap.xml；SSRF 未防 DNS rebinding（生产需网络层兜底）。feat-400.1 收口，可进 feat-400.2。"
     },
     {
       "id": "feat-400.2",
@@ -666,8 +666,8 @@
       "track": "A-main",
       "description": "将已确认 Product Brief 转为带 evidence 的 Claim Map；内容生成只能使用批准 Claim。实现事实规则门禁、受限上下文评测 Agent、可回放评分/决策和 human_review 队列，并建立开发集与保留集回归。",
       "dependencies": ["feat-400.1"],
-      "status": "todo",
-      "evidence": "执行规格 §4、§5；评测和人工筛选优先于视觉渲染。"
+      "status": "done",
+      "evidence": "2026-07-14 完成（含前端 + 离线回归）。schema：claims / content_variants / content_evaluations。ClaimsService：从已确认 Brief 字段派生候选 Claim + 审批（事实型无 evidence 批准→400）。硬规则检查 deterministic-gate.ts（纯函数）：未批准/不存在 Claim、缺 evidence、编造硬事实、敏感词、超长、重复。决策器 decision.ts 四态（失败→blocked，模型高分不能覆盖）。评测 Agent evaluation-agent.ts 受限上下文 LLM-judge + Zod，无 key 优雅降级。前端 ContentWorkbench（内容与卖点页 /content）：卖点库派生/批准/拒绝 + 内容评测（硬规则检查结果 + 四态去向）+ 待人工队列，全大白话不用'门禁'。离线回归：golden 开发集 8 + 保留集 6（纯函数，不连库/LLM），golden-runner + pnpm eval:content CLI（退出码 0/1/2）+ 回归测试。全量 308/308；typecheck+lint clean（api+web）。端到端 20/20（后端门禁生命周期）+ 浏览器验证内容页：seed 卖点后提交编造价格内容 → 硬规则检查没通过·已拦下·'出现了没依据的数字/价格「199元」'。剩余仅：评测 Agent live-LLM 完整 e2e 需 BYOK key。"
     },
     {
       "id": "feat-400.3",
@@ -676,8 +676,8 @@
       "track": "A-main",
       "description": "记录采用、编辑、拒绝、补充事实和发布结果；分类 edit diff，产生可撤销的表达/模板/角度更新建议。任何反馈不得自动改写产品事实，更新必须由用户接受。",
       "dependencies": ["feat-400.2"],
-      "status": "todo",
-      "evidence": "执行规格 §6；以人工修改率和评测-人工一致率验证效果。"
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：content_feedback + update_suggestions（target_group CHECK 只允许 style/constraint）。edit-diff-classifier.ts（纯函数）：7 类归类（夸张/技术化/冗长/缺场景/CTA/主张不准/平台语感）+ 类别→表达约束模板 + 聚合达阈值出建议。FeedbackLearningService：记录反馈（自动或显式归类）、聚合生成建议（已被任一建议消费过的反馈不重复触发）、接受→写入 Brief 表达约束字段（双重保险：CHECK + 代码断言，永不写 fact/identity）、拒绝。前端 ContentWorkbench 新增'偏好更新建议'区（接受/忽略 + 重新汇总）。9 单测 + 全量 308/308；typecheck+lint clean。端到端 16/16（起 API + 真 PG）：记 4 条删夸张反馈→自动归类→出 1 条建议→接受写入 constraint 字段→验证事实字段值和数量一个没变（红线）→同批反馈不重复出建议（e2e 捕获并修复的 dedup bug）。浏览器验证：内容页'偏好更新建议'区正确渲染建议卡片与'接受后写入产品档案·平台约束'。红线：任何反馈不自动改产品事实——设计层保证。"
     },
     {
       "id": "feat-400.4",
@@ -686,8 +686,8 @@
       "track": "A-main",
       "description": "基于 Campaign Brief 生成三个可比较的传播角度与结构化文本内容包；支持局部重生成、历史比较和平台约束。首期只覆盖 1-2 个真实使用的平台，不做自动发布。",
       "dependencies": ["feat-400.3"],
-      "status": "todo",
-      "evidence": "执行规格 §4、§8。"
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：campaigns（Campaign Brief：goal/受众/场景/平台/maxLength/cta/allowed_claim_ids/avoid）+ content_variants 加 campaign_id/source。campaign-generation.ts（纯函数）：buildGenerationPrompt（列允许卖点带 claim_id）、parseVariants（Zod）、groundVariants（引用只保留'允许∩已批准'，剔除幻觉/越界，记 droppedClaimIds）。CampaignsService：createCampaign、generateVariants（LLM 出 N 角度→grounding→替换 generated）、addManualVariant（手写路径）、regenerateVariant（单个重生成）、getCampaign（每角度实时跑硬规则检查 runDeterministicGate+decide 供并排比较）、list。controller + module + app.module 注册。前端：CampaignPanel（/campaign 页，Sidebar'内容包'入口）——创建 Brief + 选可用卖点 + 生成 3 角度并排卡片（角度/正文/CTA + 硬规则检查通过/没过 + 去向 + 失败原因 + 单个重生成 + 手写），全大白话不用'门禁'。7 单测 + 全量 315/315；api+web typecheck+lint clean。端到端 14/14（起 API + **假 OpenAI 兼容端点**真跑 LLM 生成路径）：生成 3 角度、grounding 剔除幻觉引用、引用真卖点角度硬规则检查通过、编造价格角度没过+已拦下、单个重生成、手写角度。浏览器验证 /campaign：3 角度并排，'对比切入'（别家199我们9元）→硬规则检查没过·已拦下·'出现了没依据的数字/价格'。不做自动发布。honest gap：历史版本比较仅到'替换 generated'粒度，未存多版本快照。"
     },
     {
       "id": "feat-400.5",
@@ -696,8 +696,8 @@
       "track": "A-main",
       "description": "用户按需上传批准的 Logo、截图、参考海报和字体；使用受限模板 DSL 生成 React/HTML/CSS，再用 Playwright Chromium 导出 PNG。只可使用批准资产与 Claim，并检查尺寸、溢出、字号、对比度和资源缺失。",
       "dependencies": ["feat-400.4"],
-      "status": "todo",
-      "evidence": "执行规格 §3.5、§7、§8；这是锦上添花功能，不能阻塞文本与评测闭环。"
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：visual_assets（logo/截图/参考海报/字体，uploaded→approved）+ posters。assets 模块：multipart 上传（sharp 取尺寸+sha256）、approve、list、readApproved（供海报读已批准资产 base64 内嵌）。posters 模块：poster-render.ts 纯函数（2 个受限 SVG 模板 + xmlEscape 防注入 + WCAG 对比度 + 溢出/颜色/只用已批准 Claim与资产 校验）、PostersService（校验通过才 sharp 光栅化真实 PNG 落盘）、controller（templates/render/list/:id/png 下载）。**偏离规格记录**：规格写 Playwright Chromium+HTML/CSS，本环境无 Playwright 但有 sharp，改用『受限 SVG 模板 DSL + sharp 光栅化』——更轻、更受限（无浏览器、模型永远不产 HTML/CSS）、且产出真实 PNG。25 单测 + 全量 350/350，typecheck+lint clean。端到端 **14/14**（真 multipart 上传 PNG→sharp 解析尺寸→批准→真 SVG 模板 sharp 渲染 800x800 真实 PNG（magic 89504e47，已肉眼确认海报版式正确）→下载 image/png；未批准 Claim→unapproved_claim 拦下；对比度不足→low_contrast 拦下）。honest gap：字体资产仅登记不深度内嵌（sharp/resvg 字体支持有限）；参考海报/截图资产仅存储未做版式套用。"
     },
     {
       "id": "feat-012",

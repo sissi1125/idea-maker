@@ -571,7 +571,7 @@ export default function ProjectSettingsPage() {
             { id: "memory", label: "AI 偏好" },
           ]}
           defaultTab="llm"
-          children={{
+          panels={{
             llm: (
               <Section icon={Cpu} title="LLM 配置" desc="选择大模型供应商、模型和生成参数">
             <Field label="Provider" hint="选择 LLM 供应商，留空则使用系统默认（需后端已配置 OPENAI_API_KEY）">

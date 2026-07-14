@@ -30,8 +30,8 @@ interface TabsProps {
   paramName?: string;
   /** 默认 tab id（URL 无 ?tab= 时用） */
   defaultTab?: string;
-  /** 各 Tab 对应的 content，按 id 索引 */
-  children: Record<string, React.ReactNode>;
+  /** 各 Tab 对应的 content，按 id 索引（不是 React children，故命名 panels 避免 no-children-prop） */
+  panels: Record<string, React.ReactNode>;
   /** 切 tab 副作用（可选，比如埋点） */
   onChange?: (id: string) => void;
   /** 让外层调整布局：sticky / scroll 等 */
@@ -42,7 +42,7 @@ export function Tabs({
   tabs,
   paramName = "tab",
   defaultTab,
-  children,
+  panels,
   onChange,
   className,
 }: TabsProps) {
@@ -114,7 +114,7 @@ export function Tabs({
         aria-labelledby={`tab-${activeId}`}
         className="pt-4"
       >
-        {children[activeId] ?? null}
+        {panels[activeId] ?? null}
       </div>
     </div>
   );

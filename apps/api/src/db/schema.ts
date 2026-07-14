@@ -558,6 +558,341 @@ CREATE INDEX IF NOT EXISTS idx_eval_items_run ON eval_items (eval_run_id);
 CREATE INDEX IF NOT EXISTS idx_eval_items_golden ON eval_items (golden_id, created_at DESC);
 `;
 
+/**
+ * feat-400.1：Product Brief 事实层。
+ *
+ * 设计动机（面试考点）：
+ *   营销文案出问题分两类——"产品事实本身错了" vs "事实对但表达砸了"。
+ *   这两类要在不同层治理，所以我们把"产品事实"单独沉淀成一份可审核、可版本、
+ *   可追溯的档案（Product Brief），生成内容时只准引用其中"已确认"的事实。
+ *
+ * 三张表职责：
+ *   - product_briefs            项目级容器，一项目一份（UNIQUE project_id），带整体 version
+ *   - product_brief_fields      字段级事实，每条带 evidence/置信度/状态/版本
+ *   - product_brief_field_revisions  字段编辑历史，落实"改事实必须记录原因和新版本"
+ *
+ * 硬规则（AGENTS.md）：fact 类字段没有 evidence 或未经用户确认，不得进入正式 Claim。
+ *   → 提取阶段只能写 status='candidate'，永远不能自动置 'confirmed'；
+ *   → 只有用户显式确认/编辑才会变 confirmed，且留下 revision 审计。
+ */
+export const DDL_PRODUCT_BRIEFS = `
+CREATE TABLE IF NOT EXISTS product_briefs (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  version      INTEGER NOT NULL DEFAULT 1,
+  status       TEXT NOT NULL DEFAULT 'draft',
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (status IN ('draft', 'confirmed')),
+  UNIQUE (project_id)
+);
+`;
+
+export const DDL_PRODUCT_BRIEF_FIELDS = `
+CREATE TABLE IF NOT EXISTS product_brief_fields (
+  id                  TEXT PRIMARY KEY,
+  brief_id            TEXT NOT NULL REFERENCES product_briefs (id) ON DELETE CASCADE,
+  field_group         TEXT NOT NULL,
+  field_key           TEXT NOT NULL,
+  value               JSONB,
+  source              TEXT NOT NULL DEFAULT 'user',
+  evidence_chunk_ids  JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence          NUMERIC(4, 3) NOT NULL DEFAULT 0.5,
+  status              TEXT NOT NULL DEFAULT 'candidate',
+  version             INTEGER NOT NULL DEFAULT 1,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (field_group IN ('identity', 'fact', 'audience', 'positioning', 'style', 'visual', 'constraint')),
+  CHECK (source IN ('document', 'website', 'user', 'historical_content', 'inferred')),
+  CHECK (status IN ('candidate', 'confirmed', 'rejected', 'stale')),
+  CHECK (confidence BETWEEN 0 AND 1),
+  UNIQUE (brief_id, field_group, field_key)
+);
+CREATE INDEX IF NOT EXISTS idx_pbf_brief ON product_brief_fields (brief_id, field_group);
+`;
+
+export const DDL_PRODUCT_BRIEF_FIELD_REVISIONS = `
+CREATE TABLE IF NOT EXISTS product_brief_field_revisions (
+  id           TEXT PRIMARY KEY,
+  field_id     TEXT NOT NULL REFERENCES product_brief_fields (id) ON DELETE CASCADE,
+  version      INTEGER NOT NULL,
+  value        JSONB,
+  status       TEXT NOT NULL,
+  reason       TEXT,
+  changed_by   TEXT REFERENCES users (id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pbfr_field ON product_brief_field_revisions (field_id, version DESC);
+`;
+
+/**
+ * feat-400.1 slice 4：受限官网导入的来源表。
+ *
+ * 定位（面试考点）：这不是通用爬虫，是"受限官方来源连接器"——只抓用户主动提交的
+ * 官方域名、同域白名单路径、遵守 robots、限页/限深/限速，禁止社交平台与私网地址（防 SSRF）。
+ *
+ * 表职责：
+ *   - source_records        项目提交的一个官方来源（域名）
+ *   - source_sync_jobs      一次导入任务的状态与统计（可回放）
+ *   - source_pages          抓到的每个页面（url/标题/类型/hash/状态）
+ *   - source_content_chunks 清洗后的正文分片（作为 Product Brief 事实的 evidence 来源）
+ *
+ * 事实门禁延续：官网内容只作为 candidate 事实的 evidence，不自动写入已确认字段。
+ */
+export const DDL_SOURCE_RECORDS = `
+CREATE TABLE IF NOT EXISTS source_records (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL DEFAULT 'website',
+  root_url     TEXT NOT NULL,
+  host         TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'active',
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (kind IN ('website', 'document', 'manual')),
+  CHECK (status IN ('active', 'archived'))
+);
+CREATE INDEX IF NOT EXISTS idx_source_records_project ON source_records (project_id, created_at DESC);
+`;
+
+export const DDL_SOURCE_SYNC_JOBS = `
+CREATE TABLE IF NOT EXISTS source_sync_jobs (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  source_record_id  TEXT NOT NULL REFERENCES source_records (id) ON DELETE CASCADE,
+  status            TEXT NOT NULL DEFAULT 'running',
+  pages_fetched     INTEGER NOT NULL DEFAULT 0,
+  pages_skipped     INTEGER NOT NULL DEFAULT 0,
+  error             TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  finished_at       TIMESTAMPTZ,
+  CHECK (status IN ('running', 'succeeded', 'failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_source_sync_jobs_project ON source_sync_jobs (project_id, created_at DESC);
+`;
+
+export const DDL_SOURCE_PAGES = `
+CREATE TABLE IF NOT EXISTS source_pages (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  source_record_id  TEXT NOT NULL REFERENCES source_records (id) ON DELETE CASCADE,
+  url               TEXT NOT NULL,
+  path              TEXT NOT NULL,
+  title             TEXT,
+  description       TEXT,
+  page_type         TEXT NOT NULL DEFAULT 'other',
+  content_hash      TEXT,
+  status            TEXT NOT NULL DEFAULT 'fetched',
+  fetched_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (source_record_id, url)
+);
+CREATE INDEX IF NOT EXISTS idx_source_pages_project ON source_pages (project_id, fetched_at DESC);
+`;
+
+export const DDL_SOURCE_CONTENT_CHUNKS = `
+CREATE TABLE IF NOT EXISTS source_content_chunks (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  page_id      TEXT NOT NULL REFERENCES source_pages (id) ON DELETE CASCADE,
+  chunk_index  INTEGER NOT NULL,
+  text         TEXT NOT NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_source_content_chunks_project ON source_content_chunks (project_id);
+CREATE INDEX IF NOT EXISTS idx_source_content_chunks_page ON source_content_chunks (page_id, chunk_index);
+`;
+
+/**
+ * feat-400.2：Claim Map + 内容评测。
+ *
+ * 主线（面试考点）：内容生成"只能引用已批准 Claim"，且每条内容过一道
+ * 【确定性规则门禁】——硬事实用代码死规则卡死，评测 Agent 的高分不能覆盖门禁。
+ *
+ * 表职责：
+ *   - claims              可审核的传播单元（从已确认 Brief 字段派生），带 evidence/风险/状态
+ *   - content_variants    待评测的内容候选（angle/hook/body/cta + 引用的 claimIds）
+ *   - content_evaluations 每次评测的门禁结果 + 评分 + 决策（可回放）
+ */
+export const DDL_CLAIMS = `
+CREATE TABLE IF NOT EXISTS claims (
+  id                  TEXT PRIMARY KEY,
+  project_id          TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  brief_id            TEXT NOT NULL REFERENCES product_briefs (id) ON DELETE CASCADE,
+  text                TEXT NOT NULL,
+  claim_type          TEXT NOT NULL,
+  target_audience_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  scenario_ids        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  evidence_chunk_ids  JSONB NOT NULL DEFAULT '[]'::jsonb,
+  source_field_id     TEXT REFERENCES product_brief_fields (id) ON DELETE SET NULL,
+  risk_level          TEXT NOT NULL DEFAULT 'low',
+  status              TEXT NOT NULL DEFAULT 'candidate',
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (claim_type IN ('functional', 'outcome', 'differentiation', 'emotional')),
+  CHECK (risk_level IN ('low', 'medium', 'high')),
+  CHECK (status IN ('candidate', 'approved', 'blocked'))
+);
+CREATE INDEX IF NOT EXISTS idx_claims_project ON claims (project_id, status);
+`;
+
+export const DDL_CONTENT_VARIANTS = `
+CREATE TABLE IF NOT EXISTS content_variants (
+  id               TEXT PRIMARY KEY,
+  project_id       TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  angle            TEXT,
+  target_audience  TEXT,
+  hook             TEXT,
+  body             TEXT NOT NULL,
+  cta              TEXT,
+  claim_ids        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  brief_version    INTEGER,
+  platform         TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_content_variants_project ON content_variants (project_id, created_at DESC);
+`;
+
+export const DDL_CONTENT_EVALUATIONS = `
+CREATE TABLE IF NOT EXISTS content_evaluations (
+  id               TEXT PRIMARY KEY,
+  project_id       TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  variant_id       TEXT NOT NULL REFERENCES content_variants (id) ON DELETE CASCADE,
+  gate_passed      BOOLEAN NOT NULL,
+  gate_failures    JSONB NOT NULL DEFAULT '[]'::jsonb,
+  scores           JSONB,
+  issues           JSONB NOT NULL DEFAULT '[]'::jsonb,
+  decision         TEXT NOT NULL,
+  human_decision   TEXT,
+  eval_model       TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (decision IN ('publish_candidate', 'human_review', 'revise', 'blocked')),
+  CHECK (human_decision IS NULL OR human_decision IN ('accepted', 'edited', 'rejected'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_evaluations_project ON content_evaluations (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_content_evaluations_decision ON content_evaluations (project_id, decision);
+`;
+
+/**
+ * feat-400.3：反馈学习。
+ *
+ * 核心红线（面试考点）：用户的采纳/编辑/拒绝只影响"怎么说"（表达约束），
+ * 绝不自动改"产品是什么"（事实）。系统只产出「更新建议」，用户点接受才落到 Brief 的
+ * 表达约束字段（group=style/constraint），永远碰不到 fact/identity 等事实分组。
+ *
+ * 表：
+ *   - content_feedback     一条内容的人工动作 + 编辑前后文本 + 归类
+ *   - update_suggestions   聚合多条反馈后给出的可撤销偏好更新建议（待用户批准）
+ */
+export const DDL_CONTENT_FEEDBACK = `
+CREATE TABLE IF NOT EXISTS content_feedback (
+  id             TEXT PRIMARY KEY,
+  project_id     TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  evaluation_id  TEXT,
+  action         TEXT NOT NULL,
+  original_text  TEXT,
+  edited_text    TEXT,
+  category       TEXT,
+  note           TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (action IN ('adopted', 'edited', 'rejected'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_feedback_project ON content_feedback (project_id, created_at DESC);
+`;
+
+export const DDL_UPDATE_SUGGESTIONS = `
+CREATE TABLE IF NOT EXISTS update_suggestions (
+  id                  TEXT PRIMARY KEY,
+  project_id          TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  category            TEXT NOT NULL,
+  suggestion_text     TEXT NOT NULL,
+  target_group        TEXT NOT NULL,
+  target_key          TEXT NOT NULL,
+  target_value        TEXT NOT NULL,
+  source_feedback_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status              TEXT NOT NULL DEFAULT 'pending',
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  decided_at          TIMESTAMPTZ,
+  CHECK (target_group IN ('style', 'constraint')),
+  CHECK (status IN ('pending', 'accepted', 'rejected'))
+);
+CREATE INDEX IF NOT EXISTS idx_update_suggestions_project ON update_suggestions (project_id, status, created_at DESC);
+`;
+
+/**
+ * feat-400.4：Campaign 内容包。
+ *
+ * Campaign Brief = 一次传播任务的目标/受众/平台/CTA/可用卖点/要避免的表达。
+ * 基于它生成 3 个可比较的角度（ContentVariant），每个只能引用"已批准且在本次允许清单里"
+ * 的卖点（grounding）；不做自动发布。
+ */
+export const DDL_CAMPAIGNS = `
+CREATE TABLE IF NOT EXISTS campaigns (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  goal              TEXT NOT NULL,
+  target_audience   TEXT,
+  scenario          TEXT,
+  platform          TEXT,
+  max_length        INTEGER,
+  cta               TEXT,
+  allowed_claim_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  avoid_notes       TEXT,
+  status            TEXT NOT NULL DEFAULT 'active',
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (goal IN ('launch', 'feature_update', 'acquisition', 'messaging')),
+  CHECK (status IN ('active', 'archived'))
+);
+CREATE INDEX IF NOT EXISTS idx_campaigns_project ON campaigns (project_id, created_at DESC);
+`;
+
+/** content_variants 挂到 campaign 上（幂等 ADD COLUMN，兼容已有行） */
+export const DDL_CONTENT_VARIANTS_CAMPAIGN = `
+ALTER TABLE content_variants ADD COLUMN IF NOT EXISTS campaign_id TEXT;
+ALTER TABLE content_variants ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'generated';
+CREATE INDEX IF NOT EXISTS idx_content_variants_campaign ON content_variants (campaign_id, created_at DESC);
+`;
+
+/**
+ * feat-400.5：后置视觉资产 + 海报。
+ *
+ * 定位（面试考点）：海报只用**受限模板 DSL（固定 SVG 模板 + 文本槽）** 渲染，
+ * Agent/模型永远不产出任意 HTML/CSS；且只能用**已批准的资产和 Claim**。
+ * 用 sharp 把 SVG 光栅化成 PNG（比 Playwright Chromium 更轻、更受限、无浏览器）。
+ */
+export const DDL_VISUAL_ASSETS = `
+CREATE TABLE IF NOT EXISTS visual_assets (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  file_ref    TEXT NOT NULL,
+  hash        TEXT NOT NULL,
+  mime        TEXT,
+  width       INTEGER,
+  height      INTEGER,
+  label       TEXT,
+  status      TEXT NOT NULL DEFAULT 'uploaded',
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (kind IN ('logo', 'product_screenshot', 'reference_poster', 'font')),
+  CHECK (status IN ('uploaded', 'approved', 'archived'))
+);
+CREATE INDEX IF NOT EXISTS idx_visual_assets_project ON visual_assets (project_id, created_at DESC);
+`;
+
+export const DDL_POSTERS = `
+CREATE TABLE IF NOT EXISTS posters (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  template_id  TEXT NOT NULL,
+  spec         JSONB NOT NULL,
+  file_ref     TEXT,
+  width        INTEGER,
+  height       INTEGER,
+  status       TEXT NOT NULL DEFAULT 'rendered',
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (status IN ('rendered', 'failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_posters_project ON posters (project_id, created_at DESC);
+`;
+
 export const FEAT_200_DDL_BLOCKS = [
   DDL_USERS,
   DDL_PROJECTS,
@@ -586,4 +921,26 @@ export const FEAT_200_DDL_BLOCKS = [
   // feat-300.5：eval_runs / eval_items
   DDL_EVAL_RUNS,
   DDL_EVAL_ITEMS,
+  // feat-400.1：Product Brief 事实层
+  DDL_PRODUCT_BRIEFS,
+  DDL_PRODUCT_BRIEF_FIELDS,
+  DDL_PRODUCT_BRIEF_FIELD_REVISIONS,
+  // feat-400.1 slice 4：受限官网导入来源表
+  DDL_SOURCE_RECORDS,
+  DDL_SOURCE_SYNC_JOBS,
+  DDL_SOURCE_PAGES,
+  DDL_SOURCE_CONTENT_CHUNKS,
+  // feat-400.2：Claim Map + 内容评测
+  DDL_CLAIMS,
+  DDL_CONTENT_VARIANTS,
+  DDL_CONTENT_EVALUATIONS,
+  // feat-400.3：反馈学习
+  DDL_CONTENT_FEEDBACK,
+  DDL_UPDATE_SUGGESTIONS,
+  // feat-400.4：Campaign 内容包
+  DDL_CAMPAIGNS,
+  DDL_CONTENT_VARIANTS_CAMPAIGN,
+  // feat-400.5：视觉资产 + 海报
+  DDL_VISUAL_ASSETS,
+  DDL_POSTERS,
 ];

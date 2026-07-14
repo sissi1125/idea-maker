@@ -212,6 +212,91 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 ---
 
+## Product Brief 事实层（feat-400.1，JwtAuthGuard）
+
+字段级、可审核、可版本的产品事实档案。事实门禁从数据层开始：提取只写 `candidate`，只有用户 confirm/edit 才 `confirmed` 且写 revision 审计。
+
+- `POST /projects/:projectId/product-brief/extract`（feat-400.1 slice 2）：从项目已 ingest 的 `rag_chunks` LLM 提取候选事实字段。只提取事实型分组；evidence 只保留真实存在的 chunk id（丢弃幻觉出处）；无 evidence 判 `inferred` 且置信度封顶 0.4。返回 `{ result: { extracted, chunkCount, truncated, fields[] } }`。无文档时 404。
+- `GET /projects/:projectId/product-brief`：返回 `{ brief, fields, issues }`。`issues = { missingRequired[], unverifiedFacts[] }`。
+- `POST /projects/:projectId/product-brief/fields`：新增/更新候选字段。body `{ group, key, value, source?, evidenceChunkIds?, confidence? }`。命中已确认字段时只标 `stale`，不覆盖值。
+- `POST /projects/:projectId/product-brief/fields/:fieldId/confirm`：确认字段（version+1，写 revision）。
+- `PATCH /projects/:projectId/product-brief/fields/:fieldId`：编辑字段值。body `{ value, reason? }`；事实型分组（identity/fact/audience/positioning）必填 `reason`。
+- `POST /projects/:projectId/product-brief/fields/:fieldId/reject`：拒绝字段。body `{ reason? }`。
+- `POST /projects/:projectId/product-brief/confirm`：确认整份 Brief v(N)。前置门禁：无缺失关键字段且无未核实事实，否则拒绝。
+
+字段枚举：`group ∈ identity|fact|audience|positioning|style|visual|constraint`；`source ∈ document|website|user|historical_content|inferred`；`status ∈ candidate|confirmed|rejected|stale`。
+
+## 受限官网导入（feat-400.1 slice 4，JwtAuthGuard）
+
+只抓用户主动提交的官方域名，遵守 robots、同域白名单、路径白名单、限页/限深/限速；拒绝社交平台与私网地址（防 SSRF）。导入内容进 `source_content_chunks`，被 `/product-brief/extract` 作为 `source=website` 的候选事实 evidence。
+
+- `POST /projects/:projectId/sources/import-website`：body `{ url, maxPages?(1-30,默认10), maxDepth?(0-3,默认2) }`。同步抓取，返回 `{ result: { jobId, sourceRecordId, host, pagesFetched, pagesSkipped, pages[] } }`。社交平台/私网/非 http(s) → 400。
+- `GET /projects/:projectId/sources`：返回 `{ records[], pages[] }`（来源记录 + 已抓页面）。
+
+安全边界：不登录、不绕权限、不抓私有页、不做通用爬虫、不抓社交平台。私网地址默认拒绝，可用 env `ALLOW_PRIVATE_IMPORT_HOSTS=1` 放开（仅测试）。
+
+## Claim Map（feat-400.2，JwtAuthGuard）
+
+从已确认 Brief 字段派生的可审核传播单元。事实型（functional/outcome）无 evidence 不得批准；内容只能引用 approved Claim。
+
+- `GET  /projects/:projectId/claims`：列出 Claim Map。
+- `POST /projects/:projectId/claims/derive`：从已确认 Brief 字段派生候选 Claim（按 source_field_id 去重）。
+- `POST /projects/:projectId/claims`：手动新增。body `{ text, claimType, evidenceChunkIds?, riskLevel?, ... }`。`claimType ∈ functional|outcome|differentiation|emotional`。
+- `POST /projects/:projectId/claims/:claimId/approve`：批准。事实型无 evidence → 400。
+- `POST /projects/:projectId/claims/:claimId/block`：阻止。
+
+## 内容评测门禁（feat-400.2，JwtAuthGuard）
+
+顺序：确定性规则门禁 → （门禁过才）评测 Agent → 决策器四态。**门禁失败直接 blocked，模型高分不能覆盖。**
+
+- `POST /projects/:projectId/content/evaluate`：body `{ body, angle?, hook?, cta?, claimIds?, platform?, platformMaxLength?, platformBannedWords? }`。返回 `{ result: { variantId, gatePassed, gateFailures[], scores, decision, evaluationId } }`。`decision ∈ publish_candidate|human_review|revise|blocked`。门禁规则：unknown_claim / unapproved_claim / missing_evidence / unsupported_number（编造价格规格）/ banned_word / too_long / duplicate_claim。无评测（无 LLM key）→ human_review（不自动放行）。
+- `GET  /projects/:projectId/content/queue`：human_review 队列。
+- `POST /projects/:projectId/content/evaluations/:evalId/decision`：人工结论。body `{ decision: accepted|edited|rejected }`。
+- `GET  /projects/:projectId/content/evaluations`：全部评测（可回放）。
+
+---
+
+## 反馈学习（feat-400.3，JwtAuthGuard）
+
+从用户改稿里学偏好：系统只出「更新建议」，用户接受才落到产品档案的**表达约束**（group=style/constraint），**任何反馈都不会自动改产品事实**（数据库 CHECK + 代码断言双重保证）。
+
+- `POST /projects/:projectId/feedback-learning/feedback`：记录一条内容反馈。body `{ action(adopted|edited|rejected), evaluationId?, originalText?, editedText?, category?, note? }`。未给 category 且 action=edited 时按 edit-diff 自动归类。返回 `{ id, category }`。
+- `POST /projects/:projectId/feedback-learning/suggest`：聚合近期同类编辑反馈（达阈值 3）生成建议；已被任一既有建议消费过的反馈不重复触发。返回 `{ created[] }`。
+- `GET /projects/:projectId/feedback-learning/suggestions`：列出建议（pending 在前）。
+- `POST /projects/:projectId/feedback-learning/suggestions/:id/accept`：接受 → 写入 Brief 表达约束字段（confirmed）。返回 `{ accepted, fieldId, group, key }`。
+- `POST /projects/:projectId/feedback-learning/suggestions/:id/reject`：忽略。
+
+编辑归类 7 类：`tone_exaggerated | too_technical | too_verbose | missing_scenario | cta_unnatural | claim_inaccurate | platform_tone_off`。
+
+---
+
+## Campaign 内容包（feat-400.4，JwtAuthGuard）
+
+一次传播任务（Campaign Brief）→ 3 个可比较角度。生成的角度只能引用**已批准 ∩ 本次允许**的卖点（grounding 剔除越界/幻觉引用）；读取时每个角度实时跑硬规则检查 + 决策，方便并排比较。**不做自动发布。**
+
+- `POST /projects/:projectId/campaigns`：创建 Campaign Brief。body `{ goal(launch|feature_update|acquisition|messaging), targetAudience?, scenario?, platform?, maxLength?, cta?, allowedClaimIds?, avoidNotes? }`。
+- `GET /projects/:projectId/campaigns`：列出。
+- `GET /projects/:projectId/campaigns/:id`：详情，返回 `{ campaign, variants[] }`，每个 variant 带 `{ gatePassed, gateFailures, decision }`。
+- `POST /projects/:projectId/campaigns/:id/generate`：LLM 生成 3 个角度（替换已有 generated）。返回 `{ generated, droppedRefs }`。
+- `POST /projects/:projectId/campaigns/:id/variants`：手写一个角度。body `{ body, angle?, hook?, cta?, claimIds? }`。
+- `POST /projects/:projectId/campaigns/:id/variants/:vid/regenerate`：重新生成单个角度。
+
+---
+
+## 视觉资产 + 海报（feat-400.5，JwtAuthGuard）
+
+海报只用**受限 SVG 模板 DSL（固定模板 + 文本槽，模型永不产 HTML/CSS）**渲染，且只能用**已批准的资产与 Claim**；出图前查模板/溢出/对比度/资产合法。用 sharp 把 SVG 光栅化成真实 PNG（替代 Playwright Chromium，见 feature_list feat-400.5 偏离说明）。
+
+- `POST /projects/:projectId/assets`：multipart（字段 `file`；body `kind(logo|product_screenshot|reference_poster|font)`, `label?`）。返回 `{ asset }`（含 sharp 解析的 width/height、sha256 hash，status=uploaded）。
+- `GET /projects/:projectId/assets`：列表。
+- `POST /projects/:projectId/assets/:id/approve`：批准（海报只能用已批准资产）。
+- `GET /projects/:projectId/posters/templates`：可用模板（id + 尺寸 + 字数上限）。
+- `POST /projects/:projectId/posters/render`：body `{ templateId, title, subtitle?, claimId?, logoAssetId?, bgColor?, fgColor? }`。先硬规则检查（unknown_template/missing_title/*_overflow/unapproved_claim/unapproved_asset/bad_color/low_contrast），通过才渲染。返回 `{ result: { posterId, passed, failures[], width?, height?, bytes? } }`。
+- `GET /projects/:projectId/posters`：列表。
+- `GET /projects/:projectId/posters/:id/png`：下载 PNG（Content-Type image/png）。
+
+---
+
 ## 待实现 Endpoints
 
 以下 endpoints 已在 `feature_list.json` 中规划，尚未实现：

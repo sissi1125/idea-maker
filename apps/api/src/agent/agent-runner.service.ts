@@ -21,7 +21,7 @@
  *   其他抛错归一为 "Internal error: <eventId>"，stack 写 Logger。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type { Client as PgClient } from "pg";
 import { generateText, type CoreMessage } from "ai";
@@ -42,10 +42,7 @@ import { MemoryReader } from "./memory-reader";
 import { CostTracker, BudgetExceededError } from "./cost-tracker";
 import { SpillStorage } from "./spill-storage.service";
 
-import {
-  agentSystemPrompt,
-  toPromptTraceTag,
-} from "./prompts";
+import { agentSystemPrompt } from "./prompts";
 import {
   type AgentFinishReason,
   type AgentRunInput,

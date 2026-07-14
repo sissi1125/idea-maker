@@ -18,10 +18,9 @@
  *   本服务在选 batch 时优先带 edit_diff 的 feedback。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { generateText } from "ai";
-import type { Client as PgClient } from "pg";
 import { DbService } from "../db/db.service";
 import { LlmService } from "../llm/llm.service";
 import { ProjectsService } from "../projects/projects.service";

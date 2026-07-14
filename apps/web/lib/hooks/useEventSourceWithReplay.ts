@@ -286,7 +286,6 @@ export function useEventSourceWithReplay<T>(
       aliveRef.current = false;
       closeStreamRef.current();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, connect, fetchHistory]);
 
   const reconnect = useCallback(() => {

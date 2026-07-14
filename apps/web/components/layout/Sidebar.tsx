@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   MessageSquare, Upload, Clock, Settings, BookOpen, Activity,
-  Folder, ChevronDown, Check, DollarSign, LogOut,
+  Folder, ChevronDown, Check, DollarSign, LogOut, FileText, Tag, Megaphone, Image as ImageIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useProjectsStore } from "@/lib/stores/projects-store";
@@ -24,6 +24,14 @@ import { useProjectsStore } from "@/lib/stores/projects-store";
 const NAV_ITEMS = [
   { id: "chat",     label: "对话",     icon: MessageSquare, path: "" },
   { id: "knowledge",label: "知识库",   icon: Upload,        path: "/knowledge" },
+  // feat-400.1：产品事实档案审核工作台
+  { id: "brief",    label: "产品档案", icon: FileText,      path: "/brief" },
+  // feat-400.2：卖点库 + 内容评测 + 待人工队列
+  { id: "content",  label: "内容与卖点", icon: Tag,         path: "/content" },
+  // feat-400.4：Campaign 内容包
+  { id: "campaign", label: "内容包",     icon: Megaphone,   path: "/campaign" },
+  // feat-400.5：海报工作台
+  { id: "poster",   label: "海报",       icon: ImageIcon,   path: "/poster" },
   { id: "history",  label: "生成历史", icon: Clock,         path: "/history" },
   { id: "notes",    label: "笔记库",   icon: BookOpen,      path: "/notes" },
   // feat-300.6：Eval 报告独立顶级路由（质量监控不是项目设置）
