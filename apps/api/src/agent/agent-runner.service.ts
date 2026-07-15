@@ -478,10 +478,20 @@ export class AgentRunnerService {
       return out;
     }
 
-    // 其他异常 → 脱敏 + status='failed'
+    // 其他异常 → 分类后脱敏 + status='failed'。认证错误可以安全地告诉用户如何修复，
+    // 但绝不回传 provider 原文，避免其中夹带请求 ID、端点或凭据片段。
     const eventId = randomUUID().slice(0, 8);
     this.logger.error(`Agent run ${runId} failed (eventId=${eventId})`, err as Error);
-    const safeMessage = `Internal error: ${eventId}`;
+    const isLlmAuthError = this.isLlmAuthError(err);
+    const detail = err instanceof Error
+      ? err.message.replace(/\s+/g, " ").slice(0, 500)
+      : String(err).replace(/\s+/g, " ").slice(0, 500);
+    const safeMessage = isLlmAuthError
+      ? "LLM 凭据无效或已过期，请在项目设置或服务端环境变量中更新 API Key"
+      : process.env.NODE_ENV === "development"
+        ? `Agent failed: ${detail}`
+        : `Internal error: ${eventId}`;
+    const errorCode = isLlmAuthError ? "llm_auth" : "internal";
 
     await this.repo.finalize(pgClient, runId, {
       status: "failed",
@@ -491,11 +501,41 @@ export class AgentRunnerService {
     await this.updateGenerationFailure(pgClient, generationId, safeMessage);
     this.sse.emitError({
       runId,
-      code: "internal",
+      code: errorCode,
       message: safeMessage,
       eventId,
     });
     throw new Error(safeMessage);
+  }
+
+  /**
+   * 识别 OpenAI 兼容 provider 常见的认证失败包装。
+   * ai-sdk 会把上游 401 再包装成重试错误，因此同时检查 HTTP 状态和中英文消息。
+   */
+  private isLlmAuthError(err: unknown): boolean {
+    const candidate = err as {
+      statusCode?: unknown;
+      status?: unknown;
+      message?: unknown;
+      cause?: { statusCode?: unknown; status?: unknown; message?: unknown };
+    };
+    const statuses = [
+      candidate?.statusCode,
+      candidate?.status,
+      candidate?.cause?.statusCode,
+      candidate?.cause?.status,
+    ];
+    if (statuses.some((status) => Number(status) === 401 || Number(status) === 403)) {
+      return true;
+    }
+
+    const message = [candidate?.message, candidate?.cause?.message]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ")
+      .toLowerCase();
+    return /令牌.*(?:过期|不正确|无效)|(?:api[ _-]?key|token|credential).*(?:invalid|expired|incorrect)|unauthori[sz]ed|forbidden/.test(
+      message,
+    );
   }
 
   /**

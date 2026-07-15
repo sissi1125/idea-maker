@@ -44,6 +44,8 @@ interface AgentTracePanelProps {
   budgetUsd?: number;
   /** 收到 finish 帧时通知父组件（Chat 页用来追加 assistant message + 加载 generation） */
   onFinish?: (text: string) => void;
+  /** 收到 error 帧时通知父组件结束 running 状态并展示可操作错误。 */
+  onError?: (message: string) => void;
 }
 
 export function AgentTracePanel({
@@ -52,6 +54,7 @@ export function AgentTracePanel({
   token,
   budgetUsd = 0.2,
   onFinish,
+  onError,
 }: AgentTracePanelProps) {
   const {
     steps,
@@ -95,6 +98,15 @@ export function AgentTracePanel({
       onFinish?.(finalText);
     }
   }, [finalText, runId, onFinish]);
+
+  // error 与 finish 都是业务终态；只通知一次，避免 React 重渲染重复 toast。
+  const errorNotifiedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (errorMessage && runId && errorNotifiedRef.current !== runId) {
+      errorNotifiedRef.current = runId;
+      onError?.(errorMessage);
+    }
+  }, [errorMessage, runId, onError]);
 
   if (!runId) {
     return (

@@ -2,12 +2,13 @@
 
 ## 最后更新
 
-2026-07-15（**Phase 4 审查修复，改动未提交**）
+2026-07-15（**Agent 模式失败收尾已修复，改动未提交**）
 
 ## 当前状态
 
 - 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8844553`；本轮审查修复尚未提交。
-- 本机未保留 `apps/api/.env`，因此不能在当前工作区运行依赖 PostgreSQL/LLM 的真实 E2E。复制 `apps/api/.env.example` 后填入本地凭据即可启动。
+- 本机 PostgreSQL、Web（3000）和 API（3001）正在运行；有效智谱配置已放入 Git 忽略的 `apps/api/.env`，直连认证 HTTP 200。真实 Agent 已完成 `generate_draft` tool call → tool result → reasoning → done，全程步骤可见。
+- **Agent 模式本轮修复**：① SSE error 通知对话页结束 running，② 认证失败映射为脱敏可操作的 `llm_auth`，③ cost/finish/error/steps 按 `runId` 隔离，连续重试不残留旧状态。浏览器连续两次 E2E 已确认失败能正确收尾，不再卡住。
 - **本轮审查修复**：① 官网/图片导入每跳重定向 + DNS 私网校验，② Agent 全部 run 读取/SSE/abort 端点加 owner 校验，③ Campaign 生成/重生成接入评测并持久化决策，④ Claim evidence 存在性和项目归属校验，⑤ 上传大小/像素限制，⑥ 官网重导去重并替换变更 chunk，⑦ API `.env` 路径与 `init.sh` HEAD 检查修复。
 - 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（602 tests）和 `./init.sh` 均通过。
 - **本轮做完的事**：
@@ -30,6 +31,7 @@
 
 ## 待办 / next
 
+- **Agent 后续**：在有真实产品文档的项目复验 `search_kb → generate_draft → critic/refine` 多工具路径；当前无文档测试项目已验证单工具成功路径。
 - **真实 E2E（下一步）**：配置 `apps/api/.env` 后，用隔离 PostgreSQL 运行 Product Brief 专用 smoke：官网导入→Brief 确认→Claim evidence/审批→Campaign 评测→人工决策→海报。
 - **确认后 commit 本轮改动**（用户说"确认后 commit"，尚未 commit）。
 - **UI：换 antd**（用户两次反馈「太丑」，本轮只做了 CSS 换肤没换组件库；antd + React 19 需确认 `@ant-design/v5-patch-for-react-19` 兼容）。
