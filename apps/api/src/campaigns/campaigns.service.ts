@@ -13,6 +13,7 @@ import { generateText } from "ai";
 import { DbService } from "../db/db.service";
 import { LlmService } from "../llm/llm.service";
 import { JobsService } from "../jobs/jobs.service";
+import { ContentEvaluationService } from "../content-evaluation/content-evaluation.service";
 import { runDeterministicGate, type GateClaim } from "../content-evaluation/deterministic-gate";
 import { decide } from "../content-evaluation/decision";
 import {
@@ -56,6 +57,7 @@ export class CampaignsService {
     private readonly db: DbService,
     private readonly llm: LlmService,
     private readonly jobs: JobsService,
+    private readonly evaluations: ContentEvaluationService,
   ) {}
 
   /** 异步启动生成：立即返回 jobId，后台跑 LLM（防生产网关超时）。前端轮询 job 端点。 */
@@ -130,12 +132,28 @@ export class CampaignsService {
     return rows[0];
   }
 
+  /** Campaign 也必须尊重项目级 BYOK / model，不能静默消费服务端默认凭据。 */
+  private async resolveLlmModel(projectId: string) {
+    const settings = await this.db.withClient(async (client) => {
+      const { rows } = await client.query<{ provider: string | null; encrypted_api_key: string | null; model: string | null }>(
+        `SELECT provider, encrypted_api_key, model FROM project_settings WHERE project_id = $1`,
+        [projectId],
+      );
+      return rows[0] ?? null;
+    });
+    return this.llm.create({
+      provider: settings?.provider ?? null,
+      apiKey: settings?.encrypted_api_key ?? null,
+      model: settings?.model ?? null,
+    });
+  }
+
   /**
    * 生成 N 个角度（默认 3）。替换该 campaign 已有的 generated 角度（手写的保留）。
    */
   async generateVariants(userId: string, projectId: string, campaignId: string, count = 3) {
     await this.assertOwner(userId, projectId);
-    return this.db.withClient(async (client) => {
+    const context = await this.db.withClient(async (client) => {
       const row = await this.getCampaignRow(client, campaignId, projectId);
       const brief = this.mapCampaign(row);
       const allClaims = await this.loadClaims(client, projectId);
@@ -146,33 +164,41 @@ export class CampaignsService {
       const allowedClaims = approved.filter((c) => allowSet.size === 0 || allowSet.has(c.id));
       const allowedIds = new Set(allowedClaims.map((c) => c.id));
 
-      const model = this.llm.create({});
-      const prompt = buildGenerationPrompt(brief, allowedClaims.map((c) => ({ id: c.id, text: c.text })), count);
-      const t0 = Date.now();
-      const { text } = await generateText({ model, prompt, temperature: 0.7, maxTokens: 2000, abortSignal: AbortSignal.timeout(90_000) });
-      this.logger.log(`[campaign] gen done campaign=${campaignId} took=${Date.now() - t0}ms`);
-
-      const grounded = groundVariants(parseVariants(text), allowedIds);
-
-      // 替换旧的 generated 角度
+      return { brief, allowedClaims, allowedIds };
+    });
+    const model = await this.resolveLlmModel(projectId);
+    const prompt = buildGenerationPrompt(context.brief, context.allowedClaims.map((c) => ({ id: c.id, text: c.text })), count);
+    const t0 = Date.now();
+    const { text } = await generateText({ model, prompt, temperature: 0.7, maxTokens: 2000, abortSignal: AbortSignal.timeout(90_000) });
+    this.logger.log(`[campaign] gen done campaign=${campaignId} took=${Date.now() - t0}ms`);
+    const grounded = groundVariants(parseVariants(text), context.allowedIds);
+    const created = await this.db.withClient(async (client) => {
       await client.query(
         `DELETE FROM content_variants WHERE campaign_id = $1 AND source = 'generated'`,
         [campaignId],
       );
-      const created: string[] = [];
+      const created: Array<{ id: string; angle: string; hook: string; body: string; cta: string; claimIds: string[] }> = [];
       for (const v of grounded) {
         const id = randomUUID();
         await client.query(
           `INSERT INTO content_variants
              (id, project_id, campaign_id, source, angle, target_audience, hook, body, cta, claim_ids, platform)
            VALUES ($1,$2,$3,'generated',$4,$5,$6,$7,$8,$9::jsonb,$10)`,
-          [id, projectId, campaignId, v.angle, brief.targetAudience ?? null, v.hook, v.body, v.cta,
-           JSON.stringify(v.claimIds), brief.platform ?? null],
+        [id, projectId, campaignId, v.angle, context.brief.targetAudience ?? null, v.hook, v.body, v.cta,
+           JSON.stringify(v.claimIds), context.brief.platform ?? null],
         );
-        created.push(id);
+        created.push({ id, ...v });
       }
-      return { generated: created.length, droppedRefs: grounded.reduce((n, v) => n + v.droppedClaimIds.length, 0) };
+      return created;
     });
+    for (const variant of created) {
+      await this.evaluations.evaluateExistingVariant(userId, projectId, variant.id, {
+        angle: variant.angle, hook: variant.hook, body: variant.body, cta: variant.cta,
+        claimIds: variant.claimIds, platform: context.brief.platform ?? undefined,
+        platformMaxLength: context.brief.maxLength ?? undefined,
+      });
+    }
+    return { generated: created.length, droppedRefs: grounded.reduce((n, v) => n + v.droppedClaimIds.length, 0) };
   }
 
   /** 用户手写一个角度（无 LLM 路径） */
@@ -197,7 +223,7 @@ export class CampaignsService {
   /** 重新生成单个角度（替换该 variant） */
   async regenerateVariant(userId: string, projectId: string, campaignId: string, variantId: string) {
     await this.assertOwner(userId, projectId);
-    return this.db.withClient(async (client) => {
+    const context = await this.db.withClient(async (client) => {
       const row = await this.getCampaignRow(client, campaignId, projectId);
       const { rows: vrows } = await client.query(
         `SELECT id FROM content_variants WHERE id = $1 AND campaign_id = $2`,
@@ -211,20 +237,27 @@ export class CampaignsService {
       const allowedClaims = approved.filter((c) => allowSet.size === 0 || allowSet.has(c.id));
       const allowedIds = new Set(allowedClaims.map((c) => c.id));
 
-      const model = this.llm.create({});
-      const prompt = buildGenerationPrompt(brief, allowedClaims.map((c) => ({ id: c.id, text: c.text })), 1);
-      const { text } = await generateText({ model, prompt, temperature: 0.8, maxTokens: 1200, abortSignal: AbortSignal.timeout(90_000) });
-      const grounded = groundVariants(parseVariants(text), allowedIds);
-      if (grounded.length === 0) throw new NotFoundException("重新生成失败，请重试");
-      const v = grounded[0];
+      return { brief, allowedClaims, allowedIds };
+    });
+    const model = await this.resolveLlmModel(projectId);
+    const prompt = buildGenerationPrompt(context.brief, context.allowedClaims.map((c) => ({ id: c.id, text: c.text })), 1);
+    const { text } = await generateText({ model, prompt, temperature: 0.8, maxTokens: 1200, abortSignal: AbortSignal.timeout(90_000) });
+    const grounded = groundVariants(parseVariants(text), context.allowedIds);
+    if (grounded.length === 0) throw new NotFoundException("重新生成失败，请重试");
+    const v = grounded[0];
+    await this.db.withClient(async (client) => {
       await client.query(
         `UPDATE content_variants
             SET angle = $2, hook = $3, body = $4, cta = $5, claim_ids = $6::jsonb, created_at = NOW()
           WHERE id = $1`,
         [variantId, v.angle, v.hook, v.body, v.cta, JSON.stringify(v.claimIds)],
       );
-      return { regenerated: true, id: variantId };
     });
+    await this.evaluations.evaluateExistingVariant(userId, projectId, variantId, {
+      angle: v.angle, hook: v.hook, body: v.body, cta: v.cta, claimIds: v.claimIds,
+      platform: context.brief.platform ?? undefined, platformMaxLength: context.brief.maxLength ?? undefined,
+    });
+    return { regenerated: true, id: variantId };
   }
 
   /** campaign + 角度（每个角度带硬规则检查结果 + 去向，供并排比较） */
@@ -238,10 +271,17 @@ export class CampaignsService {
 
       const { rows: variants } = await client.query<{
         id: string; source: string; angle: string; hook: string; body: string; cta: string;
-        claim_ids: unknown; adopted: boolean; created_at: Date;
+        claim_ids: unknown; adopted: boolean; created_at: Date; evaluation_decision: string | null;
       }>(
-        `SELECT id, source, angle, hook, body, cta, claim_ids, adopted, created_at
-           FROM content_variants WHERE campaign_id = $1 ORDER BY source DESC, created_at ASC`,
+        `SELECT v.id, v.source, v.angle, v.hook, v.body, v.cta, v.claim_ids, v.adopted, v.created_at,
+                latest.decision AS evaluation_decision
+           FROM content_variants v
+           LEFT JOIN LATERAL (
+             SELECT decision FROM content_evaluations e
+              WHERE e.variant_id = v.id
+              ORDER BY e.created_at DESC LIMIT 1
+           ) latest ON true
+          WHERE v.campaign_id = $1 ORDER BY v.source DESC, v.created_at ASC`,
         [campaignId],
       );
 
@@ -255,7 +295,7 @@ export class CampaignsService {
           id: v.id, source: v.source, angle: v.angle, hook: v.hook, body: v.body, cta: v.cta,
           claimIds, adopted: v.adopted, createdAt: v.created_at,
           gatePassed: gate.passed, gateFailures: gate.failures,
-          decision: decide(gate, null), // 无评测分 → human_review（除非门禁已 blocked）
+          decision: v.evaluation_decision ?? decide(gate, null),
         };
       });
 

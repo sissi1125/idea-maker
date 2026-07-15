@@ -15,12 +15,14 @@
 
 import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
 import { randomUUID, createHash } from "crypto";
+import { lookup } from "dns/promises";
 import { DbService } from "../db/db.service";
 import { AssetsService } from "../assets/assets.service";
 import {
   normalizeRootUrl,
   isSocialHost,
   isPrivateHost,
+  isPrivateIpAddress,
   sameRegistrableDomain,
   isAllowedPath,
   parseRobotsTxt,
@@ -120,15 +122,24 @@ export class SourcesService {
     const maxPages = Math.min(Math.max(input.maxPages ?? DEFAULT_MAX_PAGES, 1), 30);
     const maxDepth = Math.min(Math.max(input.maxDepth ?? DEFAULT_MAX_DEPTH, 0), 3);
 
-    // 建 source_record + job
-    const sourceRecordId = randomUUID();
+    // 同一项目同一官网复用 source_record；重导入是一次同步，不应累积平行来源和重复向量。
+    let sourceRecordId = "";
     const jobId = randomUUID();
     await this.db.withClient(async (client) => {
-      await client.query(
-        `INSERT INTO source_records (id, project_id, kind, root_url, host)
-         VALUES ($1, $2, 'website', $3, $4)`,
-        [sourceRecordId, projectId, root.toString(), host],
+      const { rows: existing } = await client.query<{ id: string }>(
+        `SELECT id FROM source_records
+          WHERE project_id = $1 AND kind = 'website' AND root_url = $2
+          ORDER BY created_at DESC LIMIT 1`,
+        [projectId, root.toString()],
       );
+      sourceRecordId = existing[0]?.id ?? randomUUID();
+      if (!existing[0]) {
+        await client.query(
+          `INSERT INTO source_records (id, project_id, kind, root_url, host)
+           VALUES ($1, $2, 'website', $3, $4)`,
+          [sourceRecordId, projectId, root.toString(), host],
+        );
+      }
       await client.query(
         `INSERT INTO source_sync_jobs (id, project_id, source_record_id, status)
          VALUES ($1, $2, $3, 'running')`,
@@ -146,7 +157,7 @@ export class SourcesService {
 
     try {
       // 1. robots.txt
-      const robotsRules = await this.loadRobots(root);
+      const robotsRules = await this.loadRobots(root, host);
 
       // 2. BFS 同域白名单抓取
       const rootPath = root.pathname; // 用户主动提交的入口页，永远允许抓
@@ -182,7 +193,7 @@ export class SourcesService {
         if (!firstFetch) await sleep(RATE_MS); // 限速
         firstFetch = false;
 
-        const html = await this.fetchHtml(u.toString());
+        const html = await this.fetchHtml(u.toString(), host);
         if (html === null) {
           skipped++;
           continue;
@@ -194,19 +205,33 @@ export class SourcesService {
         imgs.logos.forEach((x) => logoUrls.add(x));
         imgs.images.forEach((x) => imageUrls.add(x));
         const chunks = chunkText(parsed.text.slice(0, MAX_TEXT_CHARS));
-        const pageId = randomUUID();
         const hash = createHash("sha256").update(parsed.text).digest("hex");
         const pageType = classifyPageType(u.pathname);
-
-        await this.db.withClient(async (client) => {
-          await client.query(
-            `INSERT INTO source_pages
-               (id, project_id, source_record_id, url, path, title, description, page_type, content_hash, status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'fetched')
-             ON CONFLICT (source_record_id, url) DO NOTHING`,
-            [pageId, projectId, sourceRecordId, u.toString(), u.pathname,
-             parsed.title, parsed.description, pageType, hash],
+        const page = await this.db.withClient(async (client) => {
+          const { rows: existing } = await client.query<{ id: string; content_hash: string | null }>(
+            `SELECT id, content_hash FROM source_pages WHERE source_record_id = $1 AND url = $2`,
+            [sourceRecordId, u.toString()],
           );
+          if (existing[0]?.content_hash === hash) return { id: existing[0].id, unchanged: true };
+          const pageId = existing[0]?.id ?? randomUUID();
+          if (existing[0]) {
+            // 内容变更时替换来源片段和对应 RAG 分片，确保检索只使用最新官网快照。
+            await client.query(`DELETE FROM source_content_chunks WHERE page_id = $1`, [pageId]);
+            await client.query(`DELETE FROM rag_chunks WHERE document_id = $1`, [pageId]);
+            await client.query(
+              `UPDATE source_pages SET path=$2, title=$3, description=$4, page_type=$5, content_hash=$6,
+                 status='fetched', fetched_at=NOW() WHERE id=$1`,
+              [pageId, u.pathname, parsed.title, parsed.description, pageType, hash],
+            );
+          } else {
+            await client.query(
+              `INSERT INTO source_pages
+                 (id, project_id, source_record_id, url, path, title, description, page_type, content_hash, status)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'fetched')`,
+              [pageId, projectId, sourceRecordId, u.toString(), u.pathname,
+               parsed.title, parsed.description, pageType, hash],
+            );
+          }
           for (let i = 0; i < chunks.length; i++) {
             await client.query(
               `INSERT INTO source_content_chunks (id, project_id, page_id, chunk_index, text)
@@ -214,11 +239,12 @@ export class SourcesService {
               [randomUUID(), projectId, pageId, i, chunks[i]],
             );
           }
+          return { id: pageId, unchanged: false };
         });
 
         fetched++;
         pages.push({ url: u.toString(), title: parsed.title, pageType, chunks: chunks.length });
-        if (chunks.length) ragCandidates.push({ pageId, url: u.toString(), chunks });
+        if (!page.unchanged && chunks.length) ragCandidates.push({ pageId: page.id, url: u.toString(), chunks });
 
         // 3. 入队同域链接（未超深度）
         if (depth < maxDepth) {
@@ -337,9 +363,9 @@ export class SourcesService {
   }
 
   /** 抓 robots.txt（失败即视为无限制，但仍受同域+白名单约束） */
-  private async loadRobots(root: URL): Promise<{ disallow: string[] }> {
+  private async loadRobots(root: URL, rootHost: string): Promise<{ disallow: string[] }> {
     try {
-      const res = await this.fetchImpl(`${root.origin}/robots.txt`, {
+      const res = await this.fetchWithSafeRedirects(`${root.origin}/robots.txt`, rootHost, {
         headers: { "User-Agent": IMPORT_USER_AGENT },
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
@@ -351,11 +377,10 @@ export class SourcesService {
   }
 
   /** 抓单页 HTML：超时 / 非 2xx / 非 html / 过大 → 返回 null（跳过） */
-  private async fetchHtml(url: string): Promise<string | null> {
+  private async fetchHtml(url: string, rootHost: string): Promise<string | null> {
     try {
-      const res = await this.fetchImpl(url, {
+      const res = await this.fetchWithSafeRedirects(url, rootHost, {
         headers: { "User-Agent": IMPORT_USER_AGENT, Accept: "text/html" },
-        redirect: "follow",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       if (!res.ok) return null;
@@ -367,6 +392,41 @@ export class SourcesService {
     } catch (err) {
       this.logger.warn(`[sources] fetch failed ${url}: ${err instanceof Error ? err.message : err}`);
       return null;
+    }
+  }
+
+  /**
+   * 手动跟随重定向并逐跳校验 URL 与 DNS 结果。
+   * fetch 的 redirect='follow' 只会校验首跳，攻击者可借合法官网跳进内网；
+   * 因此每一跳都先限制同一官方域名，再解析 A/AAAA 记录拦截私网地址。
+   */
+  private async fetchWithSafeRedirects(
+    initialUrl: string,
+    rootHost: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    let current = new URL(initialUrl);
+    for (let redirects = 0; redirects <= 3; redirects++) {
+      await this.assertSafeRemoteUrl(current, rootHost);
+      const response = await this.fetchImpl(current.toString(), { ...init, redirect: "manual" });
+      if (response.status < 300 || response.status >= 400) return response;
+      const location = response.headers.get("location");
+      if (!location) return response;
+      current = new URL(location, current);
+    }
+    throw new Error("重定向次数超过上限");
+  }
+
+  private async assertSafeRemoteUrl(url: URL, rootHost: string): Promise<void> {
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("只支持 http/https");
+    if (!sameRegistrableDomain(url.hostname, rootHost) || isSocialHost(url.hostname)) {
+      throw new Error("重定向目标不在允许的官网域名内");
+    }
+    if (this.allowPrivateHosts()) return;
+    if (isPrivateHost(url.hostname)) throw new Error("不支持导入内网/本地地址");
+    const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+    if (addresses.length === 0 || addresses.some((entry) => isPrivateIpAddress(entry.address))) {
+      throw new Error("官网域名解析到内网地址");
     }
   }
 

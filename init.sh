@@ -71,7 +71,7 @@ fi
 echo "=== session-handoff.md HEAD 一致性检查 ==="
 CURRENT_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "")
 if [ -n "$CURRENT_HEAD" ]; then
-  RECORDED_HEAD=$(grep "当前 HEAD" session-handoff.md | sed 's/.*HEAD：`\([a-f0-9]*\)`.*/\1/' | head -1)
+  RECORDED_HEAD=$(grep -E "(当前|已提交) HEAD" session-handoff.md | sed 's/.*HEAD：`\([a-f0-9]*\)`.*/\1/' | head -1 || true)
   if [ -z "$RECORDED_HEAD" ]; then
     echo "警告：session-handoff.md 中未找到 HEAD 记录，请检查格式。"
     exit 1

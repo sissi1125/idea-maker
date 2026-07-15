@@ -31,7 +31,8 @@ export class AssetsController {
   constructor(private readonly assets: AssetsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor("file"))
+  // Multer 在内存中暂存文件；必须先限流，不能把大小判断留到 service 才做。
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
   async upload(
     @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,

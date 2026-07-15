@@ -70,6 +70,24 @@ export class ClaimsService {
   }
 
   /**
+   * Claim 上保存的是两类可检索 evidence 的 id：上传文档 rag_chunks 或官网 source_content_chunks。
+   * 只检查数组非空会让伪造、跨项目或已删除的 id 混入事实主张，因此在创建和批准时都校验归属。
+   */
+  private async assertEvidenceChunksExist(client: PgClient, projectId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const uniqueIds = [...new Set(ids)];
+    const { rows } = await client.query<{ id: string }>(
+      `SELECT id FROM rag_chunks WHERE project_id = $1 AND id = ANY($2::text[])
+       UNION
+       SELECT id FROM source_content_chunks WHERE project_id = $1 AND id = ANY($2::text[])`,
+      [projectId, uniqueIds],
+    );
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException("evidence chunk 不存在、已删除或不属于当前项目");
+    }
+  }
+
+  /**
    * 从"已确认"的 Brief 事实字段派生候选 Claim。
    * 幂等：按 source_field_id 去重（同一字段不重复派生）。只处理事实型分组。
    */
@@ -143,6 +161,7 @@ export class ClaimsService {
     return this.db.withClient(async (client) => {
       const briefId = await this.getBriefId(client, projectId);
       if (!briefId) throw new BadRequestException("项目还没有 Product Brief");
+      await this.assertEvidenceChunksExist(client, projectId, input.evidenceChunkIds ?? []);
       const id = randomUUID();
       const { rows } = await client.query<ClaimRow>(
         `INSERT INTO claims
@@ -172,6 +191,7 @@ export class ClaimsService {
       ) {
         throw new BadRequestException("事实型主张（功能/效果）必须有 evidence 才能批准");
       }
+      await this.assertEvidenceChunksExist(client, projectId, toArr(claim.evidence_chunk_ids));
       const { rows } = await client.query<ClaimRow>(
         `UPDATE claims SET status = 'approved', updated_at = NOW()
           WHERE id = $1 RETURNING ${COLS}`,

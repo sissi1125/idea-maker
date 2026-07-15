@@ -2,12 +2,14 @@
 
 ## 最后更新
 
-2026-07-14 晚（**验收反馈修复 + Q3 官网进 RAG**，改动未提交）
+2026-07-15（**Phase 4 审查修复，改动未提交**）
 
 ## 当前状态
 
-- 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8d39fad`（feat-400 全闭环 + 部署交接文档，已推 origin，PR 开着）。
-- **本轮验收反馈修复 + Q3，全部改动尚未提交**（用户说"确认后 commit"）。服务在跑：postgres（docker）、API :3001、web :3000。demo 账号 `demo@demo.com / demo12345`。apps/api/.env 已配 GLM + `ALLOW_PRIVATE_IMPORT_HOSTS=1`。
+- 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8844553`；本轮审查修复尚未提交。
+- 本机未保留 `apps/api/.env`，因此不能在当前工作区运行依赖 PostgreSQL/LLM 的真实 E2E。复制 `apps/api/.env.example` 后填入本地凭据即可启动。
+- **本轮审查修复**：① 官网/图片导入每跳重定向 + DNS 私网校验，② Agent 全部 run 读取/SSE/abort 端点加 owner 校验，③ Campaign 生成/重生成接入评测并持久化决策，④ Claim evidence 存在性和项目归属校验，⑤ 上传大小/像素限制，⑥ 官网重导去重并替换变更 chunk，⑦ API `.env` 路径与 `init.sh` HEAD 检查修复。
+- 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（602 tests）和 `./init.sh` 均通过。
 - **本轮做完的事**：
   - 修 bug：① AgentRunner 默认模型回退 `LLM_MODEL`（原写死 gpt-4o-mini → GLM「模型不存在 06bb0562」）② name 不再成为卖点（deriveFromBrief 跳过 identity 里 name/category/website/url）③ 官网导入 0 资产 → 加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时 ⑤ **rag-core is-html ESM 冷启动崩溃** → 内联正则替换 is-html（否则生产 Docker 也会崩）⑥ embedding 256≠1024 → 改裸 fetch 强制 `dimensions:1024` + NULL 兜底。
   - **Q3 官网进统一 RAG**：官网正文 → 1024 维 embedding → `rag_chunks`（project_id 隔离）→ 对话/search_kb 可检索。已本地 fixture 验证 2 段入库、维度正确、project_id 隔离。（用户明确：原始 HTML 快照不做。）
@@ -24,11 +26,11 @@
 - 验证现状：后端 **350 单测**通过；api + web **typecheck + lint 全绿**（apps/web 旧 react-hooks lint 债已清）；生产构建链 nest build + next build 通过。
 - **真链路验证**（用户提供真 GLM key + 真域名）：真抓 bear.app/zh/（6 页）、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报。过程抓修 3 个 mock 掩盖的真实 bug：GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀。
 - 工程：apps/api 新增 `sharp@0.34.5`（lockfile 已含 linux 二进制）；`docker-compose.named-tunnel.yml` 加 `api_uploads` 持久卷（文档/资产/海报落盘持久化）。
-- 最高优先级风险（仍未修，遗留）：Agent 读取 / SSE / abort 端点跨用户授权、BYOK 明文存储、数据隔离——在修复前不得宣传企业级私有资料托管，试点仅用公开资料。
+- 遗留风险：BYOK 仍以明文保存在 `project_settings.encrypted_api_key`；需要独立实现 AES-GCM、密钥轮换与历史数据迁移。多租户项目访问已在本轮补齐 Agent 端点校验，但仍应做一次跨用户 API 回归。
 
 ## 待办 / next
 
-- **用户浏览器复验（本轮的最终验收）**：重点验 Q3 —— 对话/检索能否命中官网导入的正文（Q3 终验）；再走一遍 官网导入→资产批准→内容包采纳→一键出海报 全链路。
+- **真实 E2E（下一步）**：配置 `apps/api/.env` 后，用隔离 PostgreSQL 运行 Product Brief 专用 smoke：官网导入→Brief 确认→Claim evidence/审批→Campaign 评测→人工决策→海报。
 - **确认后 commit 本轮改动**（用户说"确认后 commit"，尚未 commit）。
 - **UI：换 antd**（用户两次反馈「太丑」，本轮只做了 CSS 换肤没换组件库；antd + React 19 需确认 `@ant-design/v5-patch-for-react-19` 兼容）。
 - **部署**：本轮改动 commit 后再走 —— ① PR 合 `main` → Vercel 部署前端 ② SSH ECS `git pull && docker compose -f docker-compose.named-tunnel.yml up -d --build`。注意 rag-core is-html 修复对生产冷启动是必需项。DB 无需手动迁移（CREATE TABLE IF NOT EXISTS），无新增必填 env。

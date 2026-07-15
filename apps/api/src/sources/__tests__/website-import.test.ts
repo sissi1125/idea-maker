@@ -10,6 +10,7 @@ import {
   normalizeRootUrl,
   isSocialHost,
   isPrivateHost,
+  isPrivateIpAddress,
   sameRegistrableDomain,
   isAllowedPath,
   parseRobotsTxt,
@@ -58,6 +59,16 @@ describe("isPrivateHost (SSRF 防护)", () => {
   });
   it.each(["8.8.8.8", "acme.com", "172.15.0.1", "172.32.0.1"])("公网放行 %s", (h) => {
     expect(isPrivateHost(h)).toBe(false);
+  });
+});
+
+describe("isPrivateIpAddress (DNS rebinding 防护)", () => {
+  it.each(["127.0.0.1", "10.0.0.2", "169.254.169.254", "::1", "fc00::1", "fe80::1", "::ffff:127.0.0.1"])(
+    "拦截 DNS 解析出的内网地址 %s",
+    (ip) => expect(isPrivateIpAddress(ip)).toBe(true),
+  );
+  it.each(["8.8.8.8", "2606:4700:4700::1111"])("公网地址放行 %s", (ip) => {
+    expect(isPrivateIpAddress(ip)).toBe(false);
   });
 });
 

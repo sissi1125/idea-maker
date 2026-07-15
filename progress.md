@@ -1,5 +1,15 @@
 # 进度记录
 
+## 2026-07-15 Phase 4 审查修复（进行中）
+
+- 官网正文与自动图片导入改为手动处理最多 3 跳重定向；每一跳校验协议、官方域名（正文）以及 DNS 解析后的 IPv4/IPv6 私网地址，修复重定向与 DNS rebinding SSRF 风险。
+- Agent 的启动、SSE、读取、spill 和 abort 入口统一校验 `projects.owner_id`，避免已登录的其他用户凭 run ID 跨项目访问。
+- Campaign 生成与重生成现在写入 `content_evaluations`：硬规则通过后运行评测 Agent，Campaign 列表读取最近评测决策；LLM 调用移出 DB 连接生命周期，并尊重项目级模型/密钥配置。
+- Claim 在创建及批准时验证 evidence chunk 存在且属于当前项目；官网重导复用 source record，未变页面跳过，变更页面替换旧来源/RAG chunks。
+- 资产上传限制为 5 MB 和 4,000 万像素；新增 `apps/api/.env.example`，API 固定从自身 `.env` 加载，`init.sh` 的 HEAD 检查已修复。
+- 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（602 tests）和 `./init.sh` 通过。
+- 未完成：`project_settings.encrypted_api_key` 仍为历史明文，需要单独完成 AES-GCM 加密与已有数据迁移；真实 Product Brief E2E 需先在 `apps/api/.env` 配置本地 PostgreSQL、JWT 和 LLM 凭据。
+
 ## 2026-07-13 Product Brief 产品迭代方案
 
 - 新增 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`，定义 Phase 4 的完整产品闭环：受限官网与文档来源 → 可确认 Product Brief → Claim Map → 规则门禁与评测 Agent → 人工筛选 → 反馈学习 → 内容包 → 后置 HTML 海报。

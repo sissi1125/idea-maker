@@ -105,10 +105,8 @@ export class ContentEvaluationService {
     await this.assertOwner(userId, projectId);
     if (!input.body?.trim()) throw new BadRequestException("内容正文不能为空");
     const claimIds = input.claimIds ?? [];
-
-    return this.db.withClient(async (client) => {
-      // 1. 存 variant
-      const variantId = randomUUID();
+    const variantId = randomUUID();
+    await this.db.withClient(async (client) => {
       await client.query(
         `INSERT INTO content_variants
            (id, project_id, angle, target_audience, hook, body, cta, claim_ids, platform)
@@ -116,8 +114,23 @@ export class ContentEvaluationService {
         [variantId, projectId, input.angle ?? null, input.targetAudience ?? null,
          input.hook ?? null, input.body, input.cta ?? null, JSON.stringify(claimIds), input.platform ?? null],
       );
+    });
+    return this.evaluateExistingVariant(userId, projectId, variantId, input);
+  }
 
-      // 2. 确定性门禁
+  /**
+   * 为已落库的内容候选补跑完整评测。Campaign 生成和单条内容提交共用此入口，
+   * 确保每个进入人工筛选的候选都有同一份规则结论与模型评分。
+   */
+  async evaluateExistingVariant(
+    userId: string,
+    projectId: string,
+    variantId: string,
+    input: SubmitVariantInput,
+  ): Promise<EvaluationResult> {
+    await this.assertOwner(userId, projectId);
+    const claimIds = input.claimIds ?? [];
+    const prepared = await this.db.withClient(async (client) => {
       const claimsById = await this.loadClaims(client, projectId);
       const platform: GatePlatform | undefined =
         input.platformMaxLength || input.platformBannedWords
@@ -127,47 +140,48 @@ export class ContentEvaluationService {
         { body: input.body, hook: input.hook, cta: input.cta, claimIds },
         { claimsById, platform },
       );
+      const briefFacts = gate.passed ? await this.loadBriefFacts(client, projectId) : [];
+      const claims = claimIds
+        .map((id) => claimsById.get(id))
+        .filter((c): c is GateClaim => !!c)
+        .map((c) => ({ text: c.text, evidenceCount: c.evidenceChunkIds.length }));
+      return { gate, platform, briefFacts, claims };
+    });
 
-      // 3. 门禁过 → 跑评测 Agent（受限上下文）；门禁不过 → 不跑，直接 blocked
-      let scores: ContentScores | null = null;
-      let evalModel: string | null = null;
-      if (gate.passed) {
-        const briefFacts = await this.loadBriefFacts(client, projectId);
-        const claims = claimIds
-          .map((id) => claimsById.get(id))
-          .filter((c): c is GateClaim => !!c)
-          .map((c) => ({ text: c.text, evidenceCount: c.evidenceChunkIds.length }));
-        const ctx: EvalContext = {
-          variant: { angle: input.angle, hook: input.hook, body: input.body, cta: input.cta, platform: input.platform },
-          briefFacts,
-          claims,
-          platformNote: platform?.maxLength ? `字数上限 ${platform.maxLength}` : undefined,
-        };
-        const r = await this.agent.evaluate(projectId, ctx);
-        scores = r.scores;
-        evalModel = r.model;
-      }
+    // 门禁失败不能被评测高分绕过，因此不调用模型。
+    let scores: ContentScores | null = null;
+    let evalModel: string | null = null;
+    if (prepared.gate.passed) {
+      const ctx: EvalContext = {
+        variant: { angle: input.angle, hook: input.hook, body: input.body, cta: input.cta, platform: input.platform },
+        briefFacts: prepared.briefFacts,
+        claims: prepared.claims,
+        platformNote: prepared.platform?.maxLength ? `字数上限 ${prepared.platform.maxLength}` : undefined,
+      };
+      const result = await this.agent.evaluate(projectId, ctx);
+      scores = result.scores;
+      evalModel = result.model;
+    }
 
-      // 4. 决策 + 存评测（可回放）
-      const decision = decide(gate, scores);
-      const evaluationId = randomUUID();
+    const decision = decide(prepared.gate, scores);
+    const evaluationId = randomUUID();
+    await this.db.withClient(async (client) => {
       await client.query(
         `INSERT INTO content_evaluations
            (id, project_id, variant_id, gate_passed, gate_failures, scores, issues, decision, eval_model)
          VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9)`,
-        [evaluationId, projectId, variantId, gate.passed, JSON.stringify(gate.failures),
+        [evaluationId, projectId, variantId, prepared.gate.passed, JSON.stringify(prepared.gate.failures),
          scores ? JSON.stringify(scores) : null, JSON.stringify(scores?.issues ?? []), decision, evalModel],
       );
-
-      return {
-        variantId,
-        gatePassed: gate.passed,
-        gateFailures: gate.failures,
-        scores,
-        decision,
-        evaluationId,
-      };
     });
+    return {
+      variantId,
+      gatePassed: prepared.gate.passed,
+      gateFailures: prepared.gate.failures,
+      scores,
+      decision,
+      evaluationId,
+    };
   }
 
   /** human_review 队列：需要人工处理的内容 */

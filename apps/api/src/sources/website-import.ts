@@ -85,12 +85,7 @@ export function isSocialHost(host: string): boolean {
   return SOCIAL_HOSTS.some((s) => h === s || h.endsWith(`.${s}`));
 }
 
-/**
- * 是否私网 / 本地地址（防 SSRF）。
- * 默认拦截 localhost、回环、私有网段、link-local（含云元数据 169.254.169.254）。
- * 已知局限：不解析 DNS，挡不住"公网域名解析到内网 IP"的 DNS rebinding —— 生产需在
- * 网络层再加一道；作为个人项目 MVP 先挡最常见的直连私网。
- */
+/** 是否私网 / 本地地址（防 SSRF 的 URL 字面量第一层检查）。 */
 export function isPrivateHost(host: string): boolean {
   const h = host.toLowerCase().replace(/\.$/, "");
   if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
@@ -105,6 +100,18 @@ export function isPrivateHost(host: string): boolean {
     if (a === 169 && b === 254) return true;
   }
   return false;
+}
+
+/** DNS 解析后的地址也必须检查，避免公网域名在解析时指向内网（DNS rebinding）。 */
+export function isPrivateIpAddress(address: string): boolean {
+  const value = address.toLowerCase().replace(/^\[|\]$/g, "");
+  // IPv4-mapped IPv6（::ffff:127.0.0.1）按原 IPv4 规则处理。
+  const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateHost(mapped[1]);
+  if (value.includes(":")) {
+    return value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") || value.startsWith("fe8") || value.startsWith("fe9") || value.startsWith("fea") || value.startsWith("feb");
+  }
+  return isPrivateHost(value);
 }
 
 /** 同一可注册域：host 相等，或是根域的子域（简化版，按最后两段比较） */

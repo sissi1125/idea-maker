@@ -66,6 +66,17 @@ export class AgentController {
     private readonly spill: SpillStorage,
   ) {}
 
+  /** Agent run 的 id 不能替代项目授权：所有读写入口都先按 owner_id 校验项目。 */
+  private async assertProjectOwner(userId: string, projectId: string): Promise<void> {
+    await this.db.withClient(async (client) => {
+      const { rows } = await client.query(
+        "SELECT 1 FROM projects WHERE id = $1 AND owner_id = $2",
+        [projectId, userId],
+      );
+      if (rows.length === 0) throw new NotFoundException("项目不存在");
+    });
+  }
+
   /**
    * 启动 agent run（feat-300.6 修复：真正的非阻塞启动）。
    *
@@ -94,6 +105,7 @@ export class AgentController {
     if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
       throw new BadRequestException("messages 至少含 1 条 ChatMessage");
     }
+    await this.assertProjectOwner(user.id, projectId);
     const input: AgentRunInput = {
       projectId,
       userId: user.id,
@@ -114,12 +126,15 @@ export class AgentController {
    */
   @Sse("runs/:runId/stream")
   stream(
-    @CurrentUserOrQueryToken() _user: RequestUser, // 鉴权侧效，user.id 不在 stream 里用
-    @Param("projectId") _projectId: string,
+    @CurrentUserOrQueryToken() user: RequestUser,
+    @Param("projectId") projectId: string,
     @Param("runId") runId: string,
   ): Observable<AgentSseFrame> {
     // 用 defer 把订阅推迟到客户端连上 SSE 才开始——避免连接前 EventEmitter 事件丢失
-    return defer(() => Promise.resolve(this.sse.subscribe(runId))).pipe(
+    return defer(async () => {
+      await this.assertProjectOwner(user.id, projectId);
+      return this.sse.subscribe(runId);
+    }).pipe(
       switchMap((s$) => s$),
     );
   }
@@ -128,10 +143,11 @@ export class AgentController {
   @Get("runs/:runId")
   @UseGuards(JwtAuthGuard)
   async getRun(
-    @CurrentUser() _user: RequestUser,
+    @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,
     @Param("runId") runId: string,
   ) {
+    await this.assertProjectOwner(user.id, projectId);
     return this.db.withClient(async (pgClient) => {
       const run = await this.repo.getRun(pgClient, runId);
       if (!run) throw new NotFoundException("agent run 不存在");
@@ -144,12 +160,13 @@ export class AgentController {
   @Get("runs/:runId/steps")
   @UseGuards(JwtAuthGuard)
   async getSteps(
-    @CurrentUser() _user: RequestUser,
+    @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,
     @Param("runId") runId: string,
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ) {
+    await this.assertProjectOwner(user.id, projectId);
     return this.db.withClient(async (pgClient) => {
       const run = await this.repo.getRun(pgClient, runId);
       if (!run || run.projectId !== projectId) {
@@ -171,7 +188,7 @@ export class AgentController {
   @Get("runs/:runId/steps/:stepIndex/spill")
   @UseGuards(JwtAuthGuard)
   async getSpill(
-    @CurrentUser() _user: RequestUser,
+    @CurrentUser() user: RequestUser,
     @Param("projectId") projectId: string,
     @Param("runId") runId: string,
     @Param("stepIndex") stepIndex: string,
@@ -179,6 +196,7 @@ export class AgentController {
     const idx = parseInt(stepIndex, 10);
     if (Number.isNaN(idx)) throw new BadRequestException("stepIndex 必须是数字");
 
+    await this.assertProjectOwner(user.id, projectId);
     return this.db.withClient(async (pgClient) => {
       const run = await this.repo.getRun(pgClient, runId);
       if (!run || run.projectId !== projectId) {
@@ -206,11 +224,12 @@ export class AgentController {
   @Delete("runs/:runId")
   @UseGuards(JwtAuthGuard)
   @HttpCode(204)
-  abort(
-    @CurrentUser() _user: RequestUser,
-    @Param("projectId") _projectId: string,
+  async abort(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
     @Param("runId") runId: string,
-  ): void {
+  ): Promise<void> {
+    await this.assertProjectOwner(user.id, projectId);
     const aborted = this.runner.abort(runId);
     if (!aborted) throw new NotFoundException("agent run 不在运行中");
   }
