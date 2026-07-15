@@ -79,7 +79,7 @@ if [ -n "$CURRENT_HEAD" ]; then
   # 计算记录的 HEAD 与当前 HEAD 之间的提交数（容差 ≤5 个 commit 视为正常：会话收尾的 fix/docs 提交）
   COMMITS_BEHIND=$(git rev-list --count "${RECORDED_HEAD}..HEAD" 2>/dev/null || echo "999")
   if [ "$COMMITS_BEHIND" -gt 5 ]; then
-    echo "文档严重滞后（${COMMITS_BEHIND} 个提交）：记录 $RECORDED_HEAD，当前 $CURRENT_HEAD"
+    echo "文档严重滞后（${COMMITS_BEHIND} 个提交）：记录 ${RECORDED_HEAD}，当前 ${CURRENT_HEAD}"
     echo "请先更新 session-handoff.md 和 progress.md，再继续开发。"
     exit 1
   elif [ "$COMMITS_BEHIND" -gt 0 ]; then

@@ -50,21 +50,33 @@ const AGENT_TOOLS: Array<{ name: string; desc: string }> = [
   { name: "log_decision", desc: "记录关键决策，写入 trace" },
 ];
 
+interface ContextLoadState {
+  requestKey: string | null;
+  status: "idle" | "loaded" | "error";
+  error: string | null;
+}
+
 export function AgentContextPanel({ open, onClose, projectId, userMessage, runId }: Props) {
   const [memory, setMemory] = useState<MemoryRow[]>([]);
   const [rules, setRules] = useState<PlatformRule[]>([]);
   const [knowledge, setKnowledge] = useState<Partial<Record<AutoGenCardType, ProjectAutoGenLatest>>>({});
   const [rawPrompt, setRawPrompt] = useState<string | null>(null);
   const [rawMessages, setRawMessages] = useState<ChatMessage[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<ContextLoadState>({
+    requestKey: null,
+    status: "idle",
+    error: null,
+  });
+  // loading/error 由当前请求 key 派生，避免 effect 启动时同步 setState 造成级联渲染。
+  const requestKey = open && projectId ? `${projectId}:${runId ?? "latest"}` : null;
+  const isCurrentRequest = requestKey !== null && loadState.requestKey === requestKey;
+  const loading = requestKey !== null && (!isCurrentRequest || loadState.status === "idle");
+  const error = isCurrentRequest && loadState.status === "error" ? loadState.error : null;
 
   // 打开时按需拉一次；关闭后不清状态，二次打开还能看上次的快照
   useEffect(() => {
-    if (!open || !projectId) return;
+    if (!requestKey) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     // runId 存在时并发去拉落库的真实 prompt；不存在就 null 占位
     const ctxPromise = runId
       ? agentApi
@@ -86,18 +98,20 @@ export function AgentContextPanel({ open, onClose, projectId, userMessage, runId
         setKnowledge(idx);
         setRawPrompt(ctx.systemPrompt ?? null);
         setRawMessages((ctx.inputMessages as ChatMessage[] | null) ?? null);
+        setLoadState({ requestKey, status: "loaded", error: null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "加载上下文失败");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoadState({
+          requestKey,
+          status: "error",
+          error: err instanceof Error ? err.message : "加载上下文失败",
+        });
       });
     return () => {
       cancelled = true;
     };
-  }, [open, projectId, runId]);
+  }, [projectId, requestKey, runId]);
 
   if (!open) return null;
 

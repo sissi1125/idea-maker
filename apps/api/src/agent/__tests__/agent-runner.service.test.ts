@@ -49,6 +49,7 @@ function makeRunner() {
   };
   const repo = {
     createRun: vi.fn().mockResolvedValue("run-1"),
+    saveContextSnapshot: vi.fn().mockResolvedValue(undefined),
     appendStep: vi.fn().mockResolvedValue("step-id"),
     updateProgress: vi.fn(),
     finalize: vi.fn(),
@@ -160,6 +161,25 @@ describe("AgentRunnerService 成功路径", () => {
     await runner.run(pg as never, sampleInput);
     expect(capturedSystem).toContain("护肤项目");
     expect(capturedSystem).not.toContain("「p」"); // 不应回落到 projectId
+  });
+
+  it("调用 LLM 前保存真实 system prompt 和输入消息快照", async () => {
+    const { runner, repo } = makeRunner();
+    const pg = makePg();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ok",
+      finishReason: "stop",
+      usage: { promptTokens: 1, completionTokens: 1 },
+    });
+
+    await runner.run(pg as never, sampleInput);
+
+    expect(repo.saveContextSnapshot).toHaveBeenCalledWith(
+      pg,
+      "run-1",
+      expect.stringContaining("测试项目"),
+      sampleInput.messages,
+    );
   });
 
   it("成功收尾后调 costs.recordGeneration 写入 cost_summary", async () => {

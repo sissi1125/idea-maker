@@ -2,15 +2,16 @@
 
 ## 最后更新
 
-2026-07-15（**Agent 模式失败收尾已修复，改动未提交**）
+2026-07-15（**main 回归阻断已修复，改动未提交**）
 
 ## 当前状态
 
-- 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8844553`；本轮审查修复尚未提交。
+- 当前分支：`main`，已提交 HEAD：`774aba4`；本轮回归修复尚未提交。
+- **main 回归修复**：① AgentContextPanel 用 request key 派生 loading/error，消除 effect 同步 setState lint；② AgentRunner 测试 mock 补 `saveContextSnapshot` 并新增快照调用断言；③ init.sh 对中文标点前的变量使用 `${...}`，避免 Bash/locale 把全角逗号吞入变量名。
 - 本机 PostgreSQL、Web（3000）和 API（3001）正在运行；有效智谱配置已放入 Git 忽略的 `apps/api/.env`，直连认证 HTTP 200。真实 Agent 已完成 `generate_draft` tool call → tool result → reasoning → done，全程步骤可见。
 - **Agent 模式本轮修复**：① SSE error 通知对话页结束 running，② 认证失败映射为脱敏可操作的 `llm_auth`，③ cost/finish/error/steps 按 `runId` 隔离，连续重试不残留旧状态。浏览器连续两次 E2E 已确认失败能正确收尾，不再卡住。
 - **本轮审查修复**：① 官网/图片导入每跳重定向 + DNS 私网校验，② Agent 全部 run 读取/SSE/abort 端点加 owner 校验，③ Campaign 生成/重生成接入评测并持久化决策，④ Claim evidence 存在性和项目归属校验，⑤ 上传大小/像素限制，⑥ 官网重导去重并替换变更 chunk，⑦ API `.env` 路径与 `init.sh` HEAD 检查修复。
-- 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（602 tests）和 `./init.sh` 均通过。
+- 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（604 tests）和 `./init.sh` 均通过；浏览器已验证“查看上下文”加载真实 prompt/messages，真实 GLM Agent 再次 `done`。
 - **本轮做完的事**：
   - 修 bug：① AgentRunner 默认模型回退 `LLM_MODEL`（原写死 gpt-4o-mini → GLM「模型不存在 06bb0562」）② name 不再成为卖点（deriveFromBrief 跳过 identity 里 name/category/website/url）③ 官网导入 0 资产 → 加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时 ⑤ **rag-core is-html ESM 冷启动崩溃** → 内联正则替换 is-html（否则生产 Docker 也会崩）⑥ embedding 256≠1024 → 改裸 fetch 强制 `dimensions:1024` + NULL 兜底。
   - **Q3 官网进统一 RAG**：官网正文 → 1024 维 embedding → `rag_chunks`（project_id 隔离）→ 对话/search_kb 可检索。已本地 fixture 验证 2 段入库、维度正确、project_id 隔离。（用户明确：原始 HTML 快照不做。）
