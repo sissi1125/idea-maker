@@ -8,7 +8,10 @@
  *
  * 这里硬 require 一次（用 try/catch 防生产构建无 dotenv 依赖），保证 dev/prod 都能拿到 env。
  */
-try { require("dotenv").config(); } catch { /* 生产环境无 dotenv 依赖时安静跳过 */ }
+try {
+  // 无论从仓库根目录还是 apps/api 启动，都固定读取 API 自己的 .env。
+  require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
+} catch { /* 生产环境无 dotenv 依赖时安静跳过 */ }
 
 import "reflect-metadata";
 

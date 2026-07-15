@@ -38,6 +38,10 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1024}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       API_PORT: 3001
+      # feat-400.5：上传的文档/视觉资产/海报 PNG 落盘于此，挂持久卷防容器重建丢数据
+      UPLOAD_ROOT: /app/data/uploads
+    volumes:
+      - api_uploads:/app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,3 +72,4 @@ networks:
 
 volumes:
   postgres_data:
+  api_uploads:

@@ -94,7 +94,6 @@ export class DocumentsController {
     }
 
     const doc = this.store.create(fileName, mimeType, rawContent, isBinary);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { rawContent: _u, ...meta } = doc;
     return { document: meta };
   }

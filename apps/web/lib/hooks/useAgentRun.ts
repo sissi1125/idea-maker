@@ -67,15 +67,32 @@ export interface UseAgentRunResult {
   reconnectAttempts: number;
 }
 
+interface AgentAuxState {
+  runId: string | null;
+  costUsedUsd: number;
+  percentBudget: number;
+  finalText: string | null;
+  finishReason: AgentFinishReason | null;
+  errorMessage: string | null;
+}
+
+const EMPTY_AUX_STATE: AgentAuxState = {
+  runId: null,
+  costUsedUsd: 0,
+  percentBudget: 0,
+  finalText: null,
+  finishReason: null,
+  errorMessage: null,
+};
+
 export function useAgentRun(args: UseAgentRunArgs): UseAgentRunResult {
   const { projectId, runId, token, budgetUsd = 0.2 } = args;
 
   // ── 辅助状态（cost / finish / error 不进 entries Map） ──
-  const [costUsedUsd, setCostUsedUsd] = useState(0);
-  const [percentBudget, setPercentBudget] = useState(0);
-  const [finalText, setFinalText] = useState<string | null>(null);
-  const [finishReason, setFinishReason] = useState<AgentFinishReason | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 辅助状态带所属 runId，切换 run 时旧 error/finalText 不会污染新一轮重试。
+  const [auxState, setAuxState] = useState<AgentAuxState>(EMPTY_AUX_STATE);
+  const activeAux = auxState.runId === runId ? auxState : EMPTY_AUX_STATE;
+  const { costUsedUsd, percentBudget, finalText, finishReason, errorMessage } = activeAux;
 
   // 稳定引用：connect / fetchHistory 在 runId/token 变化时才重建
   const connect = useCallback(() => {
@@ -105,29 +122,41 @@ export function useAgentRun(args: UseAgentRunArgs): UseAgentRunResult {
         const data = JSON.parse(e.data);
         if (t === "cost") {
           const c = data as CostFramePayload;
-          setCostUsedUsd(c.usedUsd);
-          setPercentBudget(c.percentBudget);
+          setAuxState((previous) => ({
+            ...(previous.runId === runId ? previous : EMPTY_AUX_STATE),
+            runId,
+            costUsedUsd: c.usedUsd,
+            percentBudget: c.percentBudget,
+          }));
         } else if (t === "error") {
           const err = data as ErrorFramePayload;
-          setErrorMessage(err.message);
+          setAuxState((previous) => ({
+            ...(previous.runId === runId ? previous : EMPTY_AUX_STATE),
+            runId,
+            errorMessage: err.message,
+          }));
         }
       } catch {
         /* 忽略解析失败 */
       }
     },
-    [],
+    [runId],
   );
 
   const onFinish = useCallback((e: MessageEvent) => {
     try {
       const f = JSON.parse(e.data) as FinishFramePayload;
-      setFinalText(f.text);
-      setFinishReason(f.finishReason);
-      setCostUsedUsd(f.costUsedUsd);
+      setAuxState((previous) => ({
+        ...(previous.runId === runId ? previous : EMPTY_AUX_STATE),
+        runId,
+        finalText: f.text,
+        finishReason: f.finishReason,
+        costUsedUsd: f.costUsedUsd,
+      }));
     } catch {
       /* 忽略 */
     }
-  }, []);
+  }, [runId]);
 
   const { entries, status: sseStatus, reconnect, reconnectAttempts } = useEventSourceWithReplay<StepFramePayload>(
     {
@@ -144,6 +173,8 @@ export function useAgentRun(args: UseAgentRunArgs): UseAgentRunResult {
   // ── 派生：steps 有序数组 + runStatus ─────────────────────────────
   const steps = useMemo<UnifiedStep[]>(() => {
     return Array.from(entries.values())
+      // 通用 SSE hook 的 Map 会保留旧连接历史；按 runId 过滤保证重试不显示上一轮步骤。
+      .filter((entry) => entry.runId === runId)
       .map((e) => ({
         stepIndex: e.stepIndex,
         stepType: e.stepType,
@@ -153,7 +184,7 @@ export function useAgentRun(args: UseAgentRunArgs): UseAgentRunResult {
         durationMs: e.durationMs ?? null,
       }))
       .sort((a, b) => a.stepIndex - b.stepIndex);
-  }, [entries]);
+  }, [entries, runId]);
 
   const runStatus = useMemo<AgentRunStatus | "idle">(() => {
     if (!runId) return "idle";

@@ -1,19 +1,19 @@
 {
   "project": "Idea-Maker (Marketing RAG Playground)",
-  "phase": "阶段 3 MVP（feat-200.1~8，8 周快速交付）+ RAG 实验流（feat-006/008）并行推进",
+  "phase": "Phase 3.5 真 Agent 已完成；当前规划 Phase 4 Product Brief 闭环（feat-400.x），RAG 实验流（feat-006/008）并行保留",
   "tracks": {
     "A-main": {
       "description": "主流程：Idea-Maker MVP（8 周）→ Phase 3.5 真 Agent → Studio → 工程化",
-      "current": "🎉 Phase 3.5 真 Agent 系列收官（feat-300.1 → 300.7 全 done）。完整链路：Schema/LLM 层 + 8 个 Tools + ReAct Runner + Memory 蒸馏（自动 + 手动 + edit_diff 主信号）+ Eval 体系（LLM-as-judge 三维 + trajectory 集合相似度 + baseline 漂移检测 + pnpm eval CLI 退出码 0/1/2）+ 前端 AgentTracePanel + MemoryPanel + EvalReport（独立 /eval 路由 + 自建 SVG 趋势）+ Settings Tab 化 + LangGraph 对比文档 + 17 步 e2e smoke。调试链路 5 个真实 bug 全修 + 入面试题（Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态 / close 副作用触发 onerror / useEffect deps 不稳定）。199 单测全过，typecheck 干净，e2e 跑通（GLM + ollama bge-m3）。next：录屏/截图 → README 改造 → 进 feat-012 Studio 或 feat-013 工程化。",
+      "current": "产品方向调整：Phase 3.5 真 Agent（feat-300.1 → 300.7）已完成；旧 feat-012 Studio 方案由 feat-400 Product Brief 闭环取代。下一步在公开资料试点中实施 feat-400.1：Product Brief v1、用户确认和受限官网导入；评测、人工筛选和反馈学习优先于 HTML 海报。完整规格：docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
       "scope": [
         "feat-200.x（当前 8 周 MVP）",
         "feat-010.x（Phase 3.5 真 Agent 核心，MVP 后）",
         "feat-011.x（Phase 3.5 真 Agent 配套）",
-        "feat-012.x（Phase 4 Studio）",
+        "feat-400.x（Phase 4 Product Brief 闭环）",
         "feat-013.x（Phase 5 工程化）"
       ],
-      "branch_hint": "claude/mvp-week-N 或类似",
-      "weekly_milestones": "Week 1-8 每周一个 milestone；详见 docs/ROADMAP_PHASE2_PLUS.md#阶段-3-mvp"
+      "branch_hint": "codex/mvp-week-N 或类似",
+      "weekly_milestones": "当前产品迭代顺序详见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md#8-feature-执行顺序"
     },
     "B-experiment": {
       "description": "RAG 实验流：阶段 2 收尾 + 持续算法实验，默认只产报告，不阻塞 MVP",
@@ -25,7 +25,7 @@
         "feat-008.x",
         "feat-009.x（如有第二批）"
       ],
-      "branch_hint": "claude/experiments/<topic>",
+      "branch_hint": "codex/experiments/<topic>",
       "report_path": "scripts/eval-matrix/results/run-XXX/",
       "sync_rule": "实验默认只产报告 + 数据；确认指标提升的算法/参数改动单独提小 PR 合入 main；MVP Week 3（pipeline-orchestrator）期间冻结算法核心改动只调参"
     }
@@ -39,7 +39,7 @@
     "2": "RAG 质量评估与调参能力（收尾）",
     "3": "产品 MVP：Idea-Maker（8 周快速交付）",
     "3.5": "Agent 自动化层（真 ReAct + 学习系统）",
-    "4": "Marketing Studio UX",
+    "4": "Product Brief 闭环：事实确认 / 评测 / 人工筛选 / 反馈学习 / 内容包（原 Studio 规划已 superseded）",
     "5": "工程化：Auth / 多租户 / BYOK / Drizzle / 部署",
     "2.5": "架构重构：pnpm monorepo + NestJS 前后端分离（已完成）"
   },
@@ -441,7 +441,7 @@
         "feat-100.4"
       ],
       "status": "epic",
-      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。详见 `.claude/memory/mvp-plan-2026-05-27.md` 和 `/Users/sissi/.claude/plans/users-sissi-claude-plans-coze-agent-war-peppy-peach.md`。"
+      "evidence": "父级 feature，用于聚合 feat-200.1 至 feat-200.8；不要直接执行本项。历史 Claude Code 计划已移出当前协作入口，执行依据为 docs/ROADMAP_PHASE2_PLUS.md、docs/PRODUCT.md 与 docs/agent/ARCHITECTURE.md。"
     },
     {
       "id": "feat-200.1",
@@ -627,7 +627,7 @@
       "description": "新增：apps/web/lib/api/{agent,memory,eval}.ts（API client）+ useEventSourceWithReplay hook（SSE + 历史回放 + watchdog + 重连）+ useAgentRun hook + AgentStepCard 5 类多态渲染 + AgentCostBar + AgentAbortButton + AgentTracePanel 时间轴。ui-store agentModeEnabled 默认开。Chat 页接入 Agent 模式 toggle 路由分支。MemoryPanel.tsx（Settings 页「AI 学到的偏好」Tab）+ EvalReport.tsx（独立 /eval 路由趋势图）+ Settings Tab 化（任务 8-10）。",
       "dependencies": ["feat-300.5"],
       "status": "done",
-      "evidence": "2026-06-01 完整 done。MVP scope（任务 0-7）：apps/web/lib/api/{agent,memory,eval}.ts API client + index re-export；apps/web/lib/hooks/{useEventSourceWithReplay,useAgentRun}.ts SSE + stepIndex 去重 + 历史 fetch 回放 + 45s watchdog + 最多 3 次重连 + ref 隔离防 effect 假重启；apps/web/components/agent/{AgentStepCard,AgentCostBar,AgentAbortButton,AgentTracePanel}.tsx 5 种 stepType 多态 + reasoning markdown + 长文本 max-h overflow + budget 进度条三段颜色 + inline 二次确认 + 自动滚到底；apps/web/lib/stores/ui-store.ts zustand persist agentModeEnabled 默认 true；Chat 页接入 Agent 模式 toggle 路由分支 + 经典模式 fallback。任务 8-10：apps/web/components/common/Tabs.tsx URL 同步受控；apps/web/components/memory/{KindBadge,MemoryRow,MemoryPanel}.tsx 4 kind 分组 + 行内编辑悲观更新 + 顶部 lastDistilledAt 自动学习时间 + 高级折叠区 Distill 按钮（4 态 toast + 5s cooldown）；apps/web/components/eval/{EvalTrendChart,EvalRunDrawer,EvalReport}.tsx 自建 SVG 折线图（零依赖）+ Drawer 详情 + 立即运行按钮（同步阻塞 + 30s 进度提示）；apps/web/app/(workspace)/projects/[id]/eval/page.tsx 独立顶级路由 + sidebar 加 Eval 入口；Settings 页 Tab 化（LLM/思考/RAG/平台/Memory 五标签）。e2e 跑通：GLM glm-4-flash + ollama bge-m3，POST /agent/run 142ms 返回，SSE 实时流，finish 后无 reconnect。调试链 5 个真实 bug 全修并入 .interview/feat-300.6_frontend.md（题 9-13）：Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态（ReplaySubject）/ close 副作用触发 onerror 误判（finishedRef 三重防御）/ useEffect deps 不稳定（ref 隔离 doConnect 等 helpers）。199 单测全过，typecheck 干净。"
+      "evidence": "2026-06-01 完整 done。MVP scope（任务 0-7）：apps/web/lib/api/{agent,memory,eval}.ts API client + index re-export；apps/web/lib/hooks/{useEventSourceWithReplay,useAgentRun}.ts SSE + stepIndex 去重 + 历史 fetch 回放 + 45s watchdog + 最多 3 次重连 + ref 隔离防 effect 假重启；apps/web/components/agent/{AgentStepCard,AgentCostBar,AgentAbortButton,AgentTracePanel}.tsx 5 种 stepType 多态 + reasoning markdown + 长文本 max-h overflow + budget 进度条三段颜色 + inline 二次确认 + 自动滚到底；apps/web/lib/stores/ui-store.ts zustand persist agentModeEnabled 默认 true；Chat 页接入 Agent 模式 toggle 路由分支 + 经典模式 fallback。任务 8-10：apps/web/components/common/Tabs.tsx URL 同步受控；apps/web/components/memory/{KindBadge,MemoryRow,MemoryPanel}.tsx 4 kind 分组 + 行内编辑悲观更新 + 顶部 lastDistilledAt 自动学习时间 + 高级折叠区 Distill 按钮（4 态 toast + 5s cooldown）；apps/web/components/eval/{EvalTrendChart,EvalRunDrawer,EvalReport}.tsx 自建 SVG 折线图（零依赖）+ Drawer 详情 + 立即运行按钮（同步阻塞 + 30s 进度提示）；apps/web/app/(workspace)/projects/[id]/eval/page.tsx 独立顶级路由 + sidebar 加 Eval 入口；Settings 页 Tab 化（LLM/思考/RAG/平台/Memory 五标签）。e2e 跑通：GLM glm-4-flash + ollama bge-m3，POST /agent/run 142ms 返回，SSE 实时流，finish 后无 reconnect。调试链 5 个真实 bug 全修并入 .interview/feat-300.6_frontend.md（题 9-13）：Provider 抽象漏抽 / POST 假装异步实则阻塞 / SSE Pub-Sub 竞态（ReplaySubject）/ close 副作用触发 onerror 误判（finishedRef 三重防御）/ useEffect deps 不稳定（ref 隔离 doConnect 等 helpers）。199 单测全过，typecheck 干净。2026-07-15 回归修复：SSE error 正确结束 Chat running 状态、认证错误映射为脱敏 llm_auth、useAgentRun 按 runId 隔离重试状态；浏览器连续两次失败 E2E 均正确收尾，api/web typecheck+lint 通过，Agent runner 16/16。更新有效 GLM key 后真实 Agent E2E `generate_draft` tool call → tool result → reasoning → done 成功，agent_steps 全程可见。"
     },
     {
       "id": "feat-300.7",
@@ -640,16 +640,76 @@
       "evidence": "2026-06-02 完成。docs/agent/langgraph-equivalent.md 8 行概念对照表 + 50 行 LangGraph 等价 Python 代码 + 4 个『为什么自建』理由 + 5 个『LangGraph 这些地方比我们好』场景（human-in-the-loop / multi-agent / time-travel / Streaming abstractions / 生态）。scripts/smoke.mjs 扩展从 10 步 → 17 步，新增 7 步覆盖 agent 端到端（settings 配置 / POST /agent/run < 5s 非阻塞断言（防 feat-300.6 #10 bug 复发）/ 后台轮询完成 / agent_steps 入库 / 高分 feedback + edit_diff / POST /memory/distill / GET /memory 表可读）。实测 17/17 全过，agent run 7.6s，distill 蒸馏出 3 条偏好。.interview/feat-300.{1..6}_*.md 6 个面试题文件已就位（300.6 含 13 题含 5 个真实 bug 调试链）。Phase 3.5 真 Agent 系列收官。"
     },
     {
+      "id": "feat-400",
+      "name": "Product Brief 产品闭环",
+      "phase": "4",
+      "track": "A-main",
+      "description": "面向独立开发者与小团队的产品发布/功能更新闭环：受限官方来源和文档导入 → 可确认、可追溯的 Product Brief → 已批准 Claim Map → 内容候选 → 规则门禁、评测与人工筛选 → 反馈学习 → 内容包；HTML 海报作为最后的可选增强。完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。",
+      "dependencies": ["feat-300.7"],
+      "status": "done",
+      "evidence": "2026-07-14 全闭环完成：feat-400.1（产品档案+受限官网导入）/400.2（Claim Map+硬规则检查+评测+人工队列）/400.3（反馈学习）/400.4（Campaign 内容包）/400.5（视觉资产+受限模板海报）全部 done。后端 350/350、typecheck+lint clean。真链路验证：真抓 bear.app/zh/、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报；真链路过程抓出并修复 3 个 mock 掩盖的真实 bug（GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀）。【2026-07-14 晚 验收反馈修复 + Q3，未提交】修 6 个真实 bug：① AgentRunner 默认模型回退 LLM_MODEL（原写死 gpt-4o-mini→GLM「模型不存在 06bb0562」）② name/category/website/url 不再派生为 Claim ③ 官网导入 0 资产→加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时防生产网关超时 ⑤ rag-core is-html ESM 冷启动 require 崩溃→内联正则替换（否则生产 Docker 也崩）⑥ embedding 256≠1024→改裸 fetch 强制 dimensions:1024 + NULL 兜底。【Q3 官网进统一 RAG】官网正文→1024 维 embedding→rag_chunks（project_id 隔离）→对话/search_kb 可检索；本地 fixture 验证 2 段入库、维度正确、project_id 隔离（用户明确：原始 HTML 快照不做）。新增：内容包「采纳」出口 + 「一键出海报」（campaign/claim→autoRender，有官网主图用 hero-image 模板）；视觉资产缩略图/上传/批准；产品逻辑归位（官网导入挪「知识库」，视觉资产留「产品档案」）。UI 换肤（.field 主题化输入 + 品牌色工具类，未换 antd）。验证：rag-core 239 + api 354 单测 + web，tc+lint 全绿。待用户浏览器复验 Q3 检索命中 + 全链路，确认后 commit。"
+    },
+    {
+      "id": "feat-400.1",
+      "name": "Product Brief v1 与受限官网导入",
+      "phase": "4",
+      "track": "A-main",
+      "description": "用产品文档和用户主动提交的官方域名提取候选 Product Brief；实现字段 evidence、置信度、状态、版本、缺失/矛盾提示及用户确认工作台。官网导入只处理同域白名单、robots/sitemap/HTML/metadata，不做社交抓取或通用网络爬虫。",
+      "dependencies": ["feat-400"],
+      "status": "done",
+      "evidence": "2026-07-14 slice 1+2+3+4 全部完成。slice 1+2。slice 1（事实层数据模型）：schema 新增 product_briefs / product_brief_fields / product_brief_field_revisions 三表；ProductBriefService 实现 ensureBrief / upsertCandidateField（命中 confirmed 只标 stale 不覆盖）/ confirmField / editField（事实型必填 reason）/ rejectField / detectIssues（missingRequired + unverifiedFacts）/ confirmBrief（前置门禁）；7 个端点。slice 2（LLM 候选提取）：ProductBriefExtractor 从 rag_chunks 加载文档 → LLM 结构化提取 → Zod 校验 → 丢弃幻觉出处（只保留真实 chunk id）→ 无 evidence 判 inferred 且置信度封顶 0.4 → upsert candidate；POST /extract 端点。18 个单测全过；API typecheck+lint clean，全量 217/217。端到端：起 API + 真 PG 跑 19/19 门禁生命周期断言全过（含捕获并修复 ValidationPipe whitelist 剥掉 value 字段的真实 bug，已加 @Allow）。extract 的 live-LLM 路径需 BYOK key 做完整 e2e。slice 3（前端审核工作台）完成：lib/api/product-brief.ts 客户端 + ProductBriefWorkbench 组件（7 分组展示候选值/来源/置信度/状态 + 确认/编辑/拒绝 + issues 顶栏 + 一键提取 + 手动新增）+ /brief 路由 + Sidebar「产品档案」入口；web typecheck+lint clean。浏览器端到端已验证：注册→建项目→产品档案渲染 7 组 + issues 3 缺失 chip + 确认按钮禁用；手动加 identity/name→候选→点确认→徽章变已确认、issues 少一个 chip、门禁实时更新。slice 4（受限官网导入连接器）完成：schema 新增 source_records/source_sync_jobs/source_pages/source_content_chunks；website-import.ts 纯安全层（社交黑名单 + 私网 SSRF 防护 + 同域 + 路径白名单 + robots 解析 + HTML 结构化抽取 title/meta/OG/JSON-LD/正文/链接）；SourcesService BFS 抓取（限页/限深/限速/单页大小上限，fetchImpl 可注入）；POST /sources/import-website + GET /sources；extractor 已接入官网 chunks（source_content_chunks → 候选事实 source=website）。62 个安全层单测 + 全量 279/279；typecheck+lint clean。端到端（起 API + 本地 fixture 官网）14/14：社交/非法 scheme 拒 400、抓 2 页、robots 拦 /faq、路径白名单拦 /admin、跨域拦 external、title 抽取正确、pages+chunks 入库；含捕获并修复'非法 scheme 返 500 应为 400'的真实 bug。honest gap：用页内链接 BFS 发现页面而非解析 sitemap.xml；SSRF 未防 DNS rebinding（生产需网络层兜底）。feat-400.1 收口，可进 feat-400.2。"
+    },
+    {
+      "id": "feat-400.2",
+      "name": "Claim Map、评测门禁与人工筛选",
+      "phase": "4",
+      "track": "A-main",
+      "description": "将已确认 Product Brief 转为带 evidence 的 Claim Map；内容生成只能使用批准 Claim。实现事实规则门禁、受限上下文评测 Agent、可回放评分/决策和 human_review 队列，并建立开发集与保留集回归。",
+      "dependencies": ["feat-400.1"],
+      "status": "done",
+      "evidence": "2026-07-14 完成（含前端 + 离线回归）。schema：claims / content_variants / content_evaluations。ClaimsService：从已确认 Brief 字段派生候选 Claim + 审批（事实型无 evidence 批准→400）。硬规则检查 deterministic-gate.ts（纯函数）：未批准/不存在 Claim、缺 evidence、编造硬事实、敏感词、超长、重复。决策器 decision.ts 四态（失败→blocked，模型高分不能覆盖）。评测 Agent evaluation-agent.ts 受限上下文 LLM-judge + Zod，无 key 优雅降级。前端 ContentWorkbench（内容与卖点页 /content）：卖点库派生/批准/拒绝 + 内容评测（硬规则检查结果 + 四态去向）+ 待人工队列，全大白话不用'门禁'。离线回归：golden 开发集 8 + 保留集 6（纯函数，不连库/LLM），golden-runner + pnpm eval:content CLI（退出码 0/1/2）+ 回归测试。全量 308/308；typecheck+lint clean（api+web）。端到端 20/20（后端门禁生命周期）+ 浏览器验证内容页：seed 卖点后提交编造价格内容 → 硬规则检查没通过·已拦下·'出现了没依据的数字/价格「199元」'。剩余仅：评测 Agent live-LLM 完整 e2e 需 BYOK key。"
+    },
+    {
+      "id": "feat-400.3",
+      "name": "反馈学习与 Product Brief 更新建议",
+      "phase": "4",
+      "track": "A-main",
+      "description": "记录采用、编辑、拒绝、补充事实和发布结果；分类 edit diff，产生可撤销的表达/模板/角度更新建议。任何反馈不得自动改写产品事实，更新必须由用户接受。",
+      "dependencies": ["feat-400.2"],
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：content_feedback + update_suggestions（target_group CHECK 只允许 style/constraint）。edit-diff-classifier.ts（纯函数）：7 类归类（夸张/技术化/冗长/缺场景/CTA/主张不准/平台语感）+ 类别→表达约束模板 + 聚合达阈值出建议。FeedbackLearningService：记录反馈（自动或显式归类）、聚合生成建议（已被任一建议消费过的反馈不重复触发）、接受→写入 Brief 表达约束字段（双重保险：CHECK + 代码断言，永不写 fact/identity）、拒绝。前端 ContentWorkbench 新增'偏好更新建议'区（接受/忽略 + 重新汇总）。9 单测 + 全量 308/308；typecheck+lint clean。端到端 16/16（起 API + 真 PG）：记 4 条删夸张反馈→自动归类→出 1 条建议→接受写入 constraint 字段→验证事实字段值和数量一个没变（红线）→同批反馈不重复出建议（e2e 捕获并修复的 dedup bug）。浏览器验证：内容页'偏好更新建议'区正确渲染建议卡片与'接受后写入产品档案·平台约束'。红线：任何反馈不自动改产品事实——设计层保证。"
+    },
+    {
+      "id": "feat-400.4",
+      "name": "Campaign 内容包与平台工作流",
+      "phase": "4",
+      "track": "A-main",
+      "description": "基于 Campaign Brief 生成三个可比较的传播角度与结构化文本内容包；支持局部重生成、历史比较和平台约束。首期只覆盖 1-2 个真实使用的平台，不做自动发布。",
+      "dependencies": ["feat-400.3"],
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：campaigns（Campaign Brief：goal/受众/场景/平台/maxLength/cta/allowed_claim_ids/avoid）+ content_variants 加 campaign_id/source。campaign-generation.ts（纯函数）：buildGenerationPrompt（列允许卖点带 claim_id）、parseVariants（Zod）、groundVariants（引用只保留'允许∩已批准'，剔除幻觉/越界，记 droppedClaimIds）。CampaignsService：createCampaign、generateVariants（LLM 出 N 角度→grounding→替换 generated）、addManualVariant（手写路径）、regenerateVariant（单个重生成）、getCampaign（每角度实时跑硬规则检查 runDeterministicGate+decide 供并排比较）、list。controller + module + app.module 注册。前端：CampaignPanel（/campaign 页，Sidebar'内容包'入口）——创建 Brief + 选可用卖点 + 生成 3 角度并排卡片（角度/正文/CTA + 硬规则检查通过/没过 + 去向 + 失败原因 + 单个重生成 + 手写），全大白话不用'门禁'。7 单测 + 全量 315/315；api+web typecheck+lint clean。端到端 14/14（起 API + **假 OpenAI 兼容端点**真跑 LLM 生成路径）：生成 3 角度、grounding 剔除幻觉引用、引用真卖点角度硬规则检查通过、编造价格角度没过+已拦下、单个重生成、手写角度。浏览器验证 /campaign：3 角度并排，'对比切入'（别家199我们9元）→硬规则检查没过·已拦下·'出现了没依据的数字/价格'。不做自动发布。honest gap：历史版本比较仅到'替换 generated'粒度，未存多版本快照。"
+    },
+    {
+      "id": "feat-400.5",
+      "name": "后置视觉资产与 HTML 海报渲染",
+      "phase": "4",
+      "track": "A-main",
+      "description": "用户按需上传批准的 Logo、截图、参考海报和字体；使用受限模板 DSL 生成 React/HTML/CSS，再用 Playwright Chromium 导出 PNG。只可使用批准资产与 Claim，并检查尺寸、溢出、字号、对比度和资源缺失。",
+      "dependencies": ["feat-400.4"],
+      "status": "done",
+      "evidence": "2026-07-14 完成。schema：visual_assets（logo/截图/参考海报/字体，uploaded→approved）+ posters。assets 模块：multipart 上传（sharp 取尺寸+sha256）、approve、list、readApproved（供海报读已批准资产 base64 内嵌）。posters 模块：poster-render.ts 纯函数（2 个受限 SVG 模板 + xmlEscape 防注入 + WCAG 对比度 + 溢出/颜色/只用已批准 Claim与资产 校验）、PostersService（校验通过才 sharp 光栅化真实 PNG 落盘）、controller（templates/render/list/:id/png 下载）。**偏离规格记录**：规格写 Playwright Chromium+HTML/CSS，本环境无 Playwright 但有 sharp，改用『受限 SVG 模板 DSL + sharp 光栅化』——更轻、更受限（无浏览器、模型永远不产 HTML/CSS）、且产出真实 PNG。25 单测 + 全量 350/350，typecheck+lint clean。端到端 **14/14**（真 multipart 上传 PNG→sharp 解析尺寸→批准→真 SVG 模板 sharp 渲染 800x800 真实 PNG（magic 89504e47，已肉眼确认海报版式正确）→下载 image/png；未批准 Claim→unapproved_claim 拦下；对比度不足→low_contrast 拦下）。honest gap：字体资产仅登记不深度内嵌（sharp/resvg 字体支持有限）；参考海报/截图资产仅存储未做版式套用。"
+    },
+    {
       "id": "feat-012",
       "name": "Marketing Studio UX",
       "phase": "4",
       "track": "A-main",
-      "description": "独立 /studio/[runId] 路由，从「展示 JSON 列表」升级为符合营销师工作习惯的内容创作工作流。四列看板：卖点 → 营销方向 → Content Ideas → 扩展为完整帖。包含踩赞反馈、Content Directions 中间层、PostTemplate 帖子扩展。",
+      "description": "⚠️ 旧 Phase 4 Studio 方案。它直接从卖点进入内容创作，缺少 Product Brief 事实确认、评测门禁和反馈学习优先级，已由 feat-400 取代。不要执行。",
       "dependencies": [
         "feat-011"
       ],
-      "status": "epic",
-      "evidence": "父级聚合 feat-012.1~012.4；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-012"
+      "status": "superseded",
+      "evidence": "2026-07-13 由 feat-400 Product Brief 产品闭环取代；完整规格见 docs/PRODUCT_BRIEF_ITERATION_PLAN.md。"
     },
     {
       "id": "feat-012.1",
@@ -660,8 +720,8 @@
       "dependencies": [
         "feat-012"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；后续工作由 feat-400.4 覆盖。"
     },
     {
       "id": "feat-012.2",
@@ -672,8 +732,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；反馈优先由 feat-400.2/400.3 在评测闭环内实现。"
     },
     {
       "id": "feat-012.3",
@@ -684,8 +744,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；内容角度由 feat-400.4 的 Campaign 内容包实现。"
     },
     {
       "id": "feat-012.4",
@@ -696,8 +756,8 @@
       "dependencies": [
         "feat-012.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "2026-07-13 随 feat-012 一并归档；受限 HTML 海报后续由 feat-400.5 实现。"
     },
     {
       "id": "feat-013",
@@ -706,7 +766,7 @@
       "track": "A-main",
       "description": "把 Playground 推进到可上线、多用户、可演示给雇主的产品形态。包含 Auth、多租户隔离、用户自带 API Key、ORM 迁移、Docker 部署。各子项相对独立可分批落地。",
       "dependencies": [
-        "feat-012"
+        "feat-400"
       ],
       "status": "epic",
       "evidence": "父级聚合 feat-013.1~013.5；详见 docs/ROADMAP_PHASE2_PLUS.md#feat-013"

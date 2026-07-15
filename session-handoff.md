@@ -2,23 +2,59 @@
 
 ## 最后更新
 
-2026-05-30（Phase 3.5 真 Agent 计划制定完成，feat-300 启动就绪）
+2026-07-15（**Agent 模式失败收尾已修复，改动未提交**）
 
-## 本次变更摘要
+## 当前状态
+
+- 当前分支：`claude/loving-ptolemy-b50e5c`，已提交 HEAD：`8844553`；本轮审查修复尚未提交。
+- 本机 PostgreSQL、Web（3000）和 API（3001）正在运行；有效智谱配置已放入 Git 忽略的 `apps/api/.env`，直连认证 HTTP 200。真实 Agent 已完成 `generate_draft` tool call → tool result → reasoning → done，全程步骤可见。
+- **Agent 模式本轮修复**：① SSE error 通知对话页结束 running，② 认证失败映射为脱敏可操作的 `llm_auth`，③ cost/finish/error/steps 按 `runId` 隔离，连续重试不残留旧状态。浏览器连续两次 E2E 已确认失败能正确收尾，不再卡住。
+- **本轮审查修复**：① 官网/图片导入每跳重定向 + DNS 私网校验，② Agent 全部 run 读取/SSE/abort 端点加 owner 校验，③ Campaign 生成/重生成接入评测并持久化决策，④ Claim evidence 存在性和项目归属校验，⑤ 上传大小/像素限制，⑥ 官网重导去重并替换变更 chunk，⑦ API `.env` 路径与 `init.sh` HEAD 检查修复。
+- 验证：`pnpm -r build`、`pnpm -r typecheck`、`pnpm -r lint`、`pnpm -r test`（602 tests）和 `./init.sh` 均通过。
+- **本轮做完的事**：
+  - 修 bug：① AgentRunner 默认模型回退 `LLM_MODEL`（原写死 gpt-4o-mini → GLM「模型不存在 06bb0562」）② name 不再成为卖点（deriveFromBrief 跳过 identity 里 name/category/website/url）③ 官网导入 0 资产 → 加 favicon 兜底（SPA 无 og:image 时抓 apple-touch-icon/favicon）④ 抽取/生成/判分全加 abortSignal 超时 ⑤ **rag-core is-html ESM 冷启动崩溃** → 内联正则替换 is-html（否则生产 Docker 也会崩）⑥ embedding 256≠1024 → 改裸 fetch 强制 `dimensions:1024` + NULL 兜底。
+  - **Q3 官网进统一 RAG**：官网正文 → 1024 维 embedding → `rag_chunks`（project_id 隔离）→ 对话/search_kb 可检索。已本地 fixture 验证 2 段入库、维度正确、project_id 隔离。（用户明确：原始 HTML 快照不做。）
+  - 功能：内容包「采纳」出口 + 「一键出海报」（campaign/claim → autoRender，有官网主图用 hero-image 模板）；视觉资产缩略图/上传/批准；产品逻辑归位（官网导入挪到「知识库」，视觉资产留「产品档案」）。
+  - UI 换肤：`.field` 主题化输入 + 品牌色工具类 + `.card:hover`（用户仍嫌丑，未换 antd —— 见待办）。
+- 验证现状：rag-core tc + 239 单测；api tc + lint + 354 单测；web tc + lint —— 全绿。
+- **feat-400（Product Brief 产品闭环）全部 5 个子功能 + 前端界面完成**：
+  - 400.1 产品事实档案（字段级 evidence/状态机/版本）+ 受限官网导入（robots/同域/白名单/限速/SSRF）+ LLM 候选提取
+  - 400.2 Claim Map + 确定性硬规则检查 + 评测 Agent + 决策器四态 + 人工队列 + 开发集/保留集离线回归
+  - 400.3 反馈学习（编辑归类 → 更新建议，不自动改事实）
+  - 400.4 Campaign 内容包（Brief → 3 可比较角度 + grounding + 并排硬规则检查）
+  - 400.5 视觉资产 + 受限 SVG 模板海报（sharp 光栅化 PNG，替代 Playwright）
+  - 前端页：产品档案 / 内容与卖点 / 内容包 / 海报（全大白话，不用"门禁"字眼）
+- 验证现状：后端 **350 单测**通过；api + web **typecheck + lint 全绿**（apps/web 旧 react-hooks lint 债已清）；生产构建链 nest build + next build 通过。
+- **真链路验证**（用户提供真 GLM key + 真域名）：真抓 bear.app/zh/（6 页）、真 GLM glm-4-flash 抽取/生成/判分、真 sharp 渲染 PNG 海报。过程抓修 3 个 mock 掩盖的真实 bug：GLM 数组包裹 / ValidationPipe 剥 value / 本地化路径前缀。
+- 工程：apps/api 新增 `sharp@0.34.5`（lockfile 已含 linux 二进制）；`docker-compose.named-tunnel.yml` 加 `api_uploads` 持久卷（文档/资产/海报落盘持久化）。
+- 遗留风险：BYOK 仍以明文保存在 `project_settings.encrypted_api_key`；需要独立实现 AES-GCM、密钥轮换与历史数据迁移。多租户项目访问已在本轮补齐 Agent 端点校验，但仍应做一次跨用户 API 回归。
+
+## 待办 / next
+
+- **Agent 后续**：在有真实产品文档的项目复验 `search_kb → generate_draft → critic/refine` 多工具路径；当前无文档测试项目已验证单工具成功路径。
+- **真实 E2E（下一步）**：配置 `apps/api/.env` 后，用隔离 PostgreSQL 运行 Product Brief 专用 smoke：官网导入→Brief 确认→Claim evidence/审批→Campaign 评测→人工决策→海报。
+- **确认后 commit 本轮改动**（用户说"确认后 commit"，尚未 commit）。
+- **UI：换 antd**（用户两次反馈「太丑」，本轮只做了 CSS 换肤没换组件库；antd + React 19 需确认 `@ant-design/v5-patch-for-react-19` 兼容）。
+- **部署**：本轮改动 commit 后再走 —— ① PR 合 `main` → Vercel 部署前端 ② SSH ECS `git pull && docker compose -f docker-compose.named-tunnel.yml up -d --build`。注意 rag-core is-html 修复对生产冷启动是必需项。DB 无需手动迁移（CREATE TABLE IF NOT EXISTS），无新增必填 env。
+- Phase 4 后可选：跨用户授权 + BYOK 加密 + 数据隔离（企业化前置）；海报模板扩充 / 字体深度内嵌。
+
+## 本次变更摘要（feat-400 Phase 4 收官）
+
+【新增后端模块】product-brief / sources / claims / content-evaluation / feedback-learning / campaigns / assets / posters（含各自 service/controller/module + 纯函数核心 + 单测）
+【schema】新增 product_briefs/fields/revisions、source_records/pages/content_chunks/sync_jobs、claims、content_variants(+campaign_id)、campaigns、visual_assets、posters、content_feedback、update_suggestions
+【前端】lib/api 各 client + 4 个页面（brief/content/campaign/poster）+ Sidebar 入口；Tabs children→panels 修 lint
+【工程】sharp 依赖 + compose 持久卷 + apps/web lint 清零
+
+**进度**：feat-400 done，代码已 commit+push，待合并部署。
+
+---
+
+## 上一次更新（Phase 3.5 真 Agent 计划）
 
 【Phase 3.5 计划（头脑风暴 + 计划制定）】
 - 架构方向确认：全面 ReAct（非 Plan-and-Execute），rag-core stages 降级为 tools
 - 技术栈确认：Vercel ai-sdk（LLM/tool 抽象）+ 自建 agent loop / memory / eval
 - 旧方案 feat-010.x / feat-011.x 标为 superseded，由 feat-300.1~300.7 取代
-- 架构文档：docs/agent/ARCHITECTURE.md
-
-【Harness 文档更新】
-- feature_list.json：feat-300 epic + 7 个子 feature 定义；feat-010/011 标 superseded；tracks.A-main.current 更新
-- AGENTS.md：新增「阶段 3.5 真 Agent 开发规范」章节（agent vs pipeline 边界 / 记忆规范 / eval 规范 / 技术栈约束）
-- session-handoff.md：本条目
-
-**进度**：Phase 3.5 计划批准，harness 就绪。
-**next：feat-300.1**（Schema 3 张新表 + LLM 层 ai-sdk 接入 + Tavily client）
 
 ---
 

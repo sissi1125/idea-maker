@@ -18,9 +18,7 @@ import {
   generateDraftSystemPrompt,
   generateDraftUserPrompt,
   refineDraftSystemPrompt,
-  refineDraftUserPrompt,
   criticReviewSystemPrompt,
-  criticReviewUserPrompt,
   // context
   compressSummarySystemPrompt,
   compressSummaryUserPrompt,

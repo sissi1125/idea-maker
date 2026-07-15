@@ -21,7 +21,7 @@
  *   其他抛错归一为 "Internal error: <eventId>"，stack 写 Logger。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type { Client as PgClient } from "pg";
 import { generateText, type CoreMessage } from "ai";
@@ -42,10 +42,7 @@ import { MemoryReader } from "./memory-reader";
 import { CostTracker, BudgetExceededError } from "./cost-tracker";
 import { SpillStorage } from "./spill-storage.service";
 
-import {
-  agentSystemPrompt,
-  toPromptTraceTag,
-} from "./prompts";
+import { agentSystemPrompt } from "./prompts";
 import {
   type AgentFinishReason,
   type AgentRunInput,
@@ -176,14 +173,9 @@ export class AgentRunnerService {
     const settings = await this.projects.getSettings(input.userId, input.projectId);
 
     // ── 2. 构造 LLM + embedding 客户端 ───────────────────────────────────
-    // fallback 链：modelOverride → 项目 settings.model → env LLM_MODEL → 最终兜底
-    // 之前直接落到 "gpt-4o-mini" 是个坑——env 里写了 glm-4-flash 也没用，
-    // 智谱接口拿 gpt-4o-mini 就抛"模型不存在"
-    const modelName =
-      input.modelOverride ??
-      settings.model ??
-      process.env.LLM_MODEL ??
-      "gpt-4o-mini";
+    // 项目没配 model 时回退到环境变量 LLM_MODEL（BYOK 部署常见），最后才兜底 gpt-4o-mini。
+    // 曾经硬默认 gpt-4o-mini：GLM 等 provider 会报"模型不存在"，对话直接挂。
+    const modelName = input.modelOverride ?? settings.model ?? process.env.LLM_MODEL ?? "gpt-4o-mini";
     const llmModel = this.llm.create({
       provider: settings.provider,
       apiKey: settings.encryptedApiKey,
@@ -503,10 +495,20 @@ export class AgentRunnerService {
       return out;
     }
 
-    // 其他异常 → 脱敏 + status='failed'
+    // 其他异常 → 分类后脱敏 + status='failed'。认证错误可以安全地告诉用户如何修复，
+    // 但绝不回传 provider 原文，避免其中夹带请求 ID、端点或凭据片段。
     const eventId = randomUUID().slice(0, 8);
     this.logger.error(`Agent run ${runId} failed (eventId=${eventId})`, err as Error);
-    const safeMessage = `Internal error: ${eventId}`;
+    const isLlmAuthError = this.isLlmAuthError(err);
+    const detail = err instanceof Error
+      ? err.message.replace(/\s+/g, " ").slice(0, 500)
+      : String(err).replace(/\s+/g, " ").slice(0, 500);
+    const safeMessage = isLlmAuthError
+      ? "LLM 凭据无效或已过期，请在项目设置或服务端环境变量中更新 API Key"
+      : process.env.NODE_ENV === "development"
+        ? `Agent failed: ${detail}`
+        : `Internal error: ${eventId}`;
+    const errorCode = isLlmAuthError ? "llm_auth" : "internal";
 
     await this.repo.finalize(pgClient, runId, {
       status: "failed",
@@ -516,11 +518,41 @@ export class AgentRunnerService {
     await this.updateGenerationFailure(pgClient, generationId, safeMessage);
     this.sse.emitError({
       runId,
-      code: "internal",
+      code: errorCode,
       message: safeMessage,
       eventId,
     });
     throw new Error(safeMessage);
+  }
+
+  /**
+   * 识别 OpenAI 兼容 provider 常见的认证失败包装。
+   * ai-sdk 会把上游 401 再包装成重试错误，因此同时检查 HTTP 状态和中英文消息。
+   */
+  private isLlmAuthError(err: unknown): boolean {
+    const candidate = err as {
+      statusCode?: unknown;
+      status?: unknown;
+      message?: unknown;
+      cause?: { statusCode?: unknown; status?: unknown; message?: unknown };
+    };
+    const statuses = [
+      candidate?.statusCode,
+      candidate?.status,
+      candidate?.cause?.statusCode,
+      candidate?.cause?.status,
+    ];
+    if (statuses.some((status) => Number(status) === 401 || Number(status) === 403)) {
+      return true;
+    }
+
+    const message = [candidate?.message, candidate?.cause?.message]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ")
+      .toLowerCase();
+    return /令牌.*(?:过期|不正确|无效)|(?:api[ _-]?key|token|credential).*(?:invalid|expired|incorrect)|unauthori[sz]ed|forbidden/.test(
+      message,
+    );
   }
 
   /**

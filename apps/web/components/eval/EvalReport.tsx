@@ -50,6 +50,7 @@ export function EvalReport({ projectId }: EvalReportProps) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRuns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -57,6 +58,7 @@ export function EvalReport({ projectId }: EvalReportProps) {
   // 点「立即运行」时，70s 后提示用户耐心
   useEffect(() => {
     if (!running) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRunProgressMsg(null);
       return;
     }

@@ -597,6 +597,13 @@ export default function ProjectChatPage() {
     setSummariesReloadTick((t) => t + 1);
   };
 
+  /** Agent error 帧也是终态：停止“思考中”并把后端脱敏后的可操作错误展示出来。 */
+  const onAgentError = (message: string) => {
+    setError(message);
+    setPhase("done");
+    toast.error(`Agent 运行失败：${message}`);
+  };
+
   const onSend = () => {
     if (!input.trim()) return;
     startGenerate(input.trim());
@@ -697,6 +704,7 @@ export default function ProjectChatPage() {
                       runId={agentRunId}
                       token={token}
                       onFinish={onAgentFinish}
+                      onError={onAgentError}
                     />
                   </div>
                   {phase === "done" && agentFinalText && (

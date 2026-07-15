@@ -3,6 +3,7 @@
 .claude/
 .claude/.DS_Store
 .claude/skills/.DS_Store
+.codex/
 
 node_modules/
 .next/

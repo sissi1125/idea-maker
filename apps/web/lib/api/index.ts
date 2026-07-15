@@ -57,3 +57,34 @@ export type {
   EvalRunSummary, EvalRunRowLite, EvalRunStatus,
   RunEvalBody, PromoteFeedbackResponse,
 } from "./eval";
+// feat-400.1 slice 3
+export * as productBriefApi from "./product-brief";
+export type {
+  BriefField, BriefContainer, BriefIssues, BriefSnapshot,
+  BriefFieldGroup, BriefFieldSource, BriefFieldStatus,
+  ExtractResult, UpsertFieldInput,
+} from "./product-brief";
+export { BRIEF_FIELD_GROUPS, FACTUAL_GROUPS } from "./product-brief";
+// feat-400.2
+export * as claimsApi from "./claims";
+export type { Claim, ClaimType, ClaimStatus } from "./claims";
+export { CLAIM_TYPES, EVIDENCE_REQUIRED_CLAIM_TYPES } from "./claims";
+export * as contentEvalApi from "./content-evaluation";
+export type {
+  Decision, GateFailure, ContentScores, EvaluateResult, EvaluateInput, QueueItem,
+} from "./content-evaluation";
+// feat-400.3
+export * as feedbackLearningApi from "./feedback-learning";
+export type { UpdateSuggestion } from "./feedback-learning";
+// feat-400.4
+export * as campaignsApi from "./campaigns";
+export type { CampaignGoal, CampaignListItem, CampaignVariant, CampaignDetail } from "./campaigns";
+export { CAMPAIGN_GOALS } from "./campaigns";
+// feat-400.5
+export * as assetsApi from "./assets";
+export type { VisualAsset, AssetKind } from "./assets";
+export { ASSET_KINDS } from "./assets";
+export * as postersApi from "./posters";
+export type { PosterTemplate, RenderResult, RenderInput, PosterFailure } from "./posters";
+export * as sourcesApi from "./sources";
+export type { SourceRecord, SourcePage } from "./sources";

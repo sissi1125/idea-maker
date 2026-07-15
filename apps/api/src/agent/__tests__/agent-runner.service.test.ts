@@ -417,6 +417,29 @@ describe("AgentRunnerService 系统异常路径", () => {
       expect.objectContaining({ code: "internal", message: expect.stringMatching(/Internal error/) }),
     );
   });
+
+  it("LLM 认证失败 → 返回可操作的脱敏提示和 llm_auth 错误码", async () => {
+    const { runner, repo, sse } = makeRunner();
+    const pg = makePg();
+    generateTextMock.mockRejectedValueOnce(
+      new Error("Failed after 2 attempts: 令牌已过期或验证不正确 request-id=secret"),
+    );
+
+    await expect(runner.run(pg as never, sampleInput)).rejects.toThrow(
+      "LLM 凭据无效或已过期",
+    );
+    const finalizeArgs = repo.finalize.mock.calls[0][2];
+    expect(finalizeArgs.error).toBe(
+      "LLM 凭据无效或已过期，请在项目设置或服务端环境变量中更新 API Key",
+    );
+    expect(finalizeArgs.error).not.toContain("request-id");
+    expect(sse.emitError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "llm_auth",
+        message: expect.stringContaining("LLM 凭据无效或已过期"),
+      }),
+    );
+  });
 });
 
 describe("AgentRunnerService context compression", () => {
