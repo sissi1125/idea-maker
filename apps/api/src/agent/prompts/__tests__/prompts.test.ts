@@ -23,12 +23,13 @@ import {
   compressSummarySystemPrompt,
   compressSummaryUserPrompt,
 } from "../index";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 describe("PromptDefinition meta", () => {
   it("toPromptTraceTag 抽取 id + version 两字段", () => {
     expect(toPromptTraceTag(agentBaseSystemPrompt)).toEqual({
       promptId: "agent.base",
-      promptVersion: "v1",
+      promptVersion: "v5",
     });
   });
 });
@@ -41,6 +42,8 @@ describe("agentBaseSystemPrompt", () => {
     expect(out).toMatch(/引用规范/);
     expect(out).toMatch(/evidence-N/);
     expect(out).toMatch(/何时停止/);
+    expect(out).toMatch(/critic_review/);
+    expect(out).toMatch(/passed=true/);
   });
 });
 
@@ -100,30 +103,35 @@ describe("platformRulesInjectionPrompt", () => {
 });
 
 describe("agentSystemPrompt (composer)", () => {
-  it("无 memory + 无 rules + 无 summary：只有 base", () => {
+  it("无 memory + 无 rules + 无 summary：仍包含 base 与 Brief Grounding", () => {
     const out = agentSystemPrompt.render({
       projectName: "P",
       memory: [],
       platformRules: [],
+      grounding: makeTestGrounding(),
     });
     expect(out).toMatch(/P/);
+    expect(out).toMatch(/Product Brief 事实/);
     expect(out).not.toMatch(/用户画像/);
     expect(out).not.toMatch(/平台硬约束/);
     expect(out).not.toMatch(/早期对话摘要/);
   });
 
-  it("齐全四段按顺序：base → memory → rules → summary", () => {
+  it("齐全五段按顺序：base → Brief → memory → rules → summary", () => {
     const out = agentSystemPrompt.render({
       projectName: "X",
       memory: [{ kind: "style", content: "活泼" }],
       platformRules: [{ name: "微博", constraints: ["140 字内"] }],
+      grounding: makeTestGrounding(),
       contextSummary: "用户问了 A，agent 回答了 B",
     });
     const baseIdx = out.indexOf("X");
+    const briefIdx = out.indexOf("Product Brief 事实");
     const memIdx = out.indexOf("用户画像");
     const ruleIdx = out.indexOf("平台硬约束");
     const sumIdx = out.indexOf("早期对话摘要");
-    expect(baseIdx).toBeLessThan(memIdx);
+    expect(baseIdx).toBeLessThan(briefIdx);
+    expect(briefIdx).toBeLessThan(memIdx);
     expect(memIdx).toBeLessThan(ruleIdx);
     expect(ruleIdx).toBeLessThan(sumIdx);
   });
@@ -133,6 +141,7 @@ describe("agentSystemPrompt (composer)", () => {
       projectName: "X",
       memory: [],
       platformRules: [],
+      grounding: makeTestGrounding(),
       contextSummary: "   ", // whitespace
     });
     expect(out).not.toMatch(/早期对话摘要/);
@@ -141,14 +150,14 @@ describe("agentSystemPrompt (composer)", () => {
 
 describe("generateDraftSystemPrompt / UserPrompt", () => {
   it("system 含引用规范 + 不带 evidence 标记", () => {
-    const sys = generateDraftSystemPrompt.render({});
+    const sys = generateDraftSystemPrompt.render({ grounding: makeTestGrounding() });
     expect(sys).toMatch(/evidence-N/);
     expect(sys).toMatch(/无足够依据/);
   });
 
-  it("user 无 evidence 时显示'基于通用知识'", () => {
+  it("user 无 evidence 时明确禁止生成", () => {
     const out = generateDraftUserPrompt.render({ task: "T" });
-    expect(out).toMatch(/无具体 evidence/);
+    expect(out).toMatch(/禁止生成/);
   });
 
   it("user 含 constraints 时拼到 task 下", () => {
@@ -178,12 +187,15 @@ describe("refineDraftSystemPrompt", () => {
     ["moderate", "调整段落顺序"],
     ["rewrite", "大幅重写"],
   ] as const)("intensity=%s 映射到 %s", (intensity, expected) => {
-    const out = refineDraftSystemPrompt.render({ intensity });
+    const out = refineDraftSystemPrompt.render({ intensity, grounding: makeTestGrounding() });
     expect(out).toContain(expected);
   });
 
   it("含 ===CHANGES=== 输出格式约定", () => {
-    const out = refineDraftSystemPrompt.render({ intensity: "moderate" });
+    const out = refineDraftSystemPrompt.render({
+      intensity: "moderate",
+      grounding: makeTestGrounding(),
+    });
     expect(out).toContain("===CHANGES===");
   });
 });
@@ -199,6 +211,8 @@ describe("criticReviewSystemPrompt", () => {
     expect(out).toMatch(/style/);
     expect(out).toMatch(/safety/);
     expect(out).toMatch(/违反任一硬约束直接 0 分/);
+    expect(out).toMatch(/严格蕴含标准/);
+    expect(out).toMatch(/安全有保障/);
   });
 
   it("注入规则 + 偏好", () => {

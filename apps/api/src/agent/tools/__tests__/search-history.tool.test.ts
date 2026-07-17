@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildSearchHistoryTool } from "../search-history.tool";
 import type { AgentToolContext } from "../types";
 import { makeFakeSpillStorage } from "./_test-utils";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
   return {
@@ -16,6 +17,7 @@ function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "gpt-4o-mini",
+    grounding: makeTestGrounding(),
   };
 }
 

@@ -16,6 +16,7 @@ vi.mock("ai", () => ({
 
 import { AgentRunnerService } from "../agent-runner.service";
 import type { AgentRunInput } from "../agent.types";
+import { makeTestGrounding } from "./grounding.fixture";
 
 // 构造一个完整的 service + mocks
 function makeRunner() {
@@ -68,6 +69,9 @@ function makeRunner() {
   const platformRulesService = {
     list: vi.fn().mockResolvedValue([]),
   };
+  const groundingService = {
+    load: vi.fn().mockResolvedValue(makeTestGrounding()),
+  };
 
   // feat-300.6：startInBackground 自己 withClient 跑后台 run，所以构造时要注入 DbService
   // 测试里只跑 runner.run(pgClient, input)（外部传 pgClient），不会触发 startInBackground 路径
@@ -84,6 +88,7 @@ function makeRunner() {
     spillStorage as never,
     costs as never,
     platformRulesService as never,
+    groundingService as never,
     db as never,
   );
   return {
@@ -98,6 +103,7 @@ function makeRunner() {
     sse,
     costs,
     platformRulesService,
+    groundingService,
   };
 }
 
@@ -127,7 +133,7 @@ describe("AgentRunnerService 成功路径", () => {
         usage: { promptTokens: 100, completionTokens: 30 },
       });
       return {
-        text: "最终文案输出",
+        text: "Bloomnote 支持时间线管理 [evidence-2]",
         finishReason: "stop",
         usage: { promptTokens: 100, completionTokens: 30 },
       };
@@ -135,7 +141,7 @@ describe("AgentRunnerService 成功路径", () => {
 
     const out = await runner.run(pg as never, sampleInput);
     expect(out.finishReason).toBe("done");
-    expect(out.text).toBe("最终文案输出");
+    expect(out.text).toBe("Bloomnote 支持时间线管理 [evidence-2]");
     expect(repo.finalize).toHaveBeenCalledWith(
       expect.anything(),
       "run-1",
@@ -180,6 +186,68 @@ describe("AgentRunnerService 成功路径", () => {
       expect.stringContaining("测试项目"),
       sampleInput.messages,
     );
+  });
+
+  it("无 Confirmed Brief 时最终出口 fail closed", async () => {
+    const { runner, groundingService } = makeRunner();
+    groundingService.load.mockResolvedValue({
+      briefId: null,
+      briefVersion: null,
+      confirmedFields: [],
+      approvedClaims: [],
+      evidenceChunks: [],
+      platformRules: [],
+    });
+    generateTextMock.mockResolvedValueOnce({
+      text: "与产品无关的通用卖点",
+      finishReason: "stop",
+      usage: { promptTokens: 1, completionTokens: 1 },
+    });
+
+    const out = await runner.run(makePg() as never, sampleInput);
+    expect(out.text).toMatch(/产品信息不足/);
+    expect(out.text).not.toContain("通用卖点");
+  });
+
+  it("outer LLM 绕过 tool 直接输出无引用内容时最终出口拦截", async () => {
+    const { runner } = makeRunner();
+    generateTextMock.mockResolvedValueOnce({
+      text: "采用环保材料和智能芯片",
+      finishReason: "stop",
+      usage: { promptTokens: 1, completionTokens: 1 },
+    });
+
+    const out = await runner.run(makePg() as never, sampleInput);
+    expect(out.text).toMatch(/未通过事实与平台校验/);
+    expect(out.text).not.toContain("环保材料");
+    expect(out.text).not.toContain("智能芯片");
+  });
+
+  it("交付最近一次 critic passed 的精确 draft，不采用删除引用的 outer 转述", async () => {
+    const { runner } = makeRunner();
+    const reviewedDraft = "Bloomnote 支持时间线管理 [evidence-2]";
+    generateTextMock.mockImplementationOnce(async ({ onStepFinish }) => {
+      await onStepFinish({
+        text: "",
+        toolCalls: [{
+          toolName: "critic_review",
+          args: { task: "写文案", draft: reviewedDraft },
+        }],
+        toolResults: [{
+          toolName: "critic_review",
+          result: { status: "ok", passed: true },
+        }],
+        usage: { promptTokens: 1, completionTokens: 1 },
+      });
+      return {
+        text: "Bloomnote 支持时间线管理",
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1 },
+      };
+    });
+
+    const out = await runner.run(makePg() as never, sampleInput);
+    expect(out.text).toBe(reviewedDraft);
   });
 
   it("成功收尾后调 costs.recordGeneration 写入 cost_summary", async () => {

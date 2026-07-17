@@ -100,6 +100,28 @@ export class ProductBriefService {
   }
 
   /**
+   * 给 Agent/下游生成读取的事实裁决视图。
+   * 只有整体 confirmed 的 Brief 和字段级 confirmed 值会返回；候选、过期和拒绝值不可见。
+   */
+  async getConfirmedBriefContext(
+    client: PgClient,
+    projectId: string,
+  ): Promise<{ brief: ProductBriefRow; fields: BriefFieldRow[] } | null> {
+    const { rows } = await client.query<ProductBriefRow>(
+      `SELECT id, project_id, version, status, created_at, updated_at
+         FROM product_briefs
+        WHERE project_id = $1 AND status = 'confirmed'
+        LIMIT 1`,
+      [projectId],
+    );
+    if (rows.length === 0) return null;
+    const fields = (await this.listFields(client, rows[0].id)).filter(
+      (field) => field.status === "confirmed",
+    );
+    return { brief: rows[0], fields };
+  }
+
+  /**
    * 写入 / 更新一个候选字段。
    *
    * 幂等键 (brief_id, group, key)：同一字段重复提取只保留一行。

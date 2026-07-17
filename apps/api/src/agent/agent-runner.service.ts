@@ -41,6 +41,12 @@ import { ContextManager } from "./context-manager";
 import { MemoryReader } from "./memory-reader";
 import { CostTracker, BudgetExceededError } from "./cost-tracker";
 import { SpillStorage } from "./spill-storage.service";
+import { AgentGroundingService } from "./grounding/agent-grounding.service";
+import { hasConfirmedProductFacts } from "./grounding/agent-grounding.types";
+import {
+  groundingBlockReasons,
+  validateGroundedDraft,
+} from "./grounding/agent-grounding-validation";
 
 import { agentSystemPrompt } from "./prompts";
 import {
@@ -50,6 +56,7 @@ import {
   type ChatMessage,
 } from "./agent.types";
 import { TRACE_FIELD } from "./tools/util/spill-if-large";
+import { AGENT_TOOL_NAMES } from "./tools/types";
 
 /** 默认 maxSteps：12（plan §SLA） */
 const DEFAULT_MAX_STEPS = 12;
@@ -84,6 +91,7 @@ export class AgentRunnerService {
     private readonly spillStorage: SpillStorage,
     private readonly costs: CostService,
     private readonly platformRulesService: PlatformRulesService,
+    private readonly groundingService: AgentGroundingService,
     /** feat-300.6：startInBackground 自己开 pgClient 跑完整 run，不再由 controller 包 */
     private readonly db: DbService,
   ) {}
@@ -185,17 +193,15 @@ export class AgentRunnerService {
       settings.encryptedApiKey ?? undefined,
     );
 
-    // ── 3. 加载 memory + platform_rules + 项目知识快照 ─────────────────────
+    // ── 3. 加载 memory + platform_rules + Product Brief Grounding ─────────
     const memoryEntries = await this.memory.load(pgClient, input.projectId);
     // PlatformRulesService.list 走 DbService.withClient（短查询），不复用本 run 的
     // pgClient——projectId 隔离 + enabled 过滤都在 adapter 里完成
     const ruleRows = await this.platformRulesService.list(input.userId, input.projectId);
     const platformRules = adaptPlatformRules(ruleRows);
 
-    // v1.0 优化项 3：把项目最新 intro/compete 摘要拼进 system prompt，让 agent 第一轮
-    // 就有"项目整体认知"。读 auto_generations + generations JOIN，只取 succeeded 的最新一条/类型。
-    // 直接走 pgClient 自查，避免 AgentModule 与 AutoGenerationsModule 互相依赖。
-    const projectKnowledge = await this.loadProjectKnowledge(pgClient, input.projectId);
+    // Product Brief 是事实裁决层；auto-generation 摘要是派生产物，不能进入正式事实上下文。
+    const grounding = await this.groundingService.load(pgClient, input.projectId, ruleRows);
 
     // ── 4. 创建 generations + agent_runs 记录 ────────────────────────────
     const generationId = await this.createPendingGeneration(
@@ -250,7 +256,7 @@ export class AgentRunnerService {
       projectName: project.name?.trim() || input.projectId,
       memory: memoryEntries,
       platformRules,
-      projectKnowledge,
+      grounding,
       contextSummary,
     });
 
@@ -278,6 +284,7 @@ export class AgentRunnerService {
       embeddingClient: embedding.client,
       llmModel,
       llmDefaultModel: modelName,
+      grounding,
       options: {
         embeddingModel: embedding.defaultModel,
         embeddingDimension: embedding.defaultDimension,
@@ -293,6 +300,8 @@ export class AgentRunnerService {
     // ── 9. ReAct 主循环 ─────────────────────────────────────────────────
     const cost = new CostTracker(modelName);
     let lastStepEndedAt = Date.now();
+    // 只有最近一次 critic 通过的原始 draft 才能交付；outer LLM 的转述可能删除引用。
+    let lastCriticApprovedDraft: string | null = null;
 
     try {
       const result = await generateText({
@@ -336,7 +345,33 @@ export class AgentRunnerService {
               input: tc.args,
             });
           }
-          for (const tr of toolResults) {
+          for (const [resultIndex, tr] of toolResults.entries()) {
+            const matchingCall = toolCalls[resultIndex]?.toolName === tr.toolName
+              ? toolCalls[resultIndex]
+              : toolCalls.find((call) => call.toolName === tr.toolName);
+            const toolResult = tr.result as Record<string, unknown> | null;
+
+            // 任何新生成/修订都会使旧 critic 结论失效，避免交付已经过时的草稿。
+            if (
+              tr.toolName === AGENT_TOOL_NAMES.generateDraft ||
+              tr.toolName === AGENT_TOOL_NAMES.refineDraft
+            ) {
+              lastCriticApprovedDraft = null;
+            }
+            if (
+              tr.toolName === AGENT_TOOL_NAMES.criticReview &&
+              toolResult?.passed === true &&
+              matchingCall?.args &&
+              typeof matchingCall.args === "object"
+            ) {
+              const reviewedDraft = (matchingCall.args as { draft?: unknown }).draft;
+              if (typeof reviewedDraft === "string") {
+                // critic 高分不能绕过代码门禁；再次验证后才记录为可交付版本。
+                const reviewedValidation = validateGroundedDraft(reviewedDraft, grounding);
+                if (reviewedValidation.passed) lastCriticApprovedDraft = reviewedDraft;
+              }
+            }
+
             // tool result 可能带 __trace 隐藏字段（spillIfLarge），剥出来写库不给 LLM
             const trWithTrace = tr.result as Record<string, unknown>;
             const traceMeta = trWithTrace?.[TRACE_FIELD] as
@@ -377,8 +412,19 @@ export class AgentRunnerService {
       });
 
       // ── 10. 成功收尾 ─────────────────────────────────────────────────
-      const finalText = result.text;
+      // critic 已通过时直接使用被评审的精确版本，防止 outer LLM 转述时删引用或改事实。
+      let finalText = lastCriticApprovedDraft ?? result.text;
       const finishReason: AgentFinishReason = this.mapAiSdkFinishReason(result.finishReason);
+      // outer LLM 即使绕过 generate_draft 直接作答，无 Confirmed Brief 时仍由代码 fail closed。
+      if (!hasConfirmedProductFacts(grounding)) {
+        finalText = "产品信息不足：请先在 Product Brief 中确认产品名称、核心价值和相关事实后再生成内容。";
+      } else {
+        // outer LLM 可能跳过 generate_draft 直接回答；最终出口再次执行同一硬门禁。
+        const validation = validateGroundedDraft(finalText, grounding);
+        if (!validation.passed) {
+          finalText = `内容未通过事实与平台校验，未予交付：${groundingBlockReasons(validation).join("；")}`;
+        }
+      }
       const status = finishReason === "done" ? "succeeded" : "succeeded";
       await this.repo.finalize(pgClient, runId, {
         status,
@@ -697,69 +743,4 @@ export class AgentRunnerService {
     return rest;
   }
 
-  /**
-   * v1.0 优化项 3：读取项目最新成功的 intro / compete 摘要拼进 system prompt。
-   *
-   * 与 AutoGenerationsService.getLatestByProject 同语义但内联实现——避免 AgentModule
-   * 反向依赖 AutoGenerationsModule（后者依赖 GenerationsModule，绕路太多）。
-   *
-   * 失败静默：拿不到摘要时 agent 退化到"无项目知识"的旧行为，不应让用户感知错误。
-   */
-  private async loadProjectKnowledge(
-    pgClient: PgClient,
-    projectId: string,
-  ): Promise<Array<{
-    cardType: "intro" | "compete";
-    content: string;
-    evidence: Array<{ text: string }>;
-  }>> {
-    try {
-      // 同时取 result_notes 和 retrieved_chunks——后者按 evidence-NNN 顺序展开占位符
-      const { rows } = await pgClient.query<{
-        card_type: string;
-        result_notes: string | null;
-        retrieved_chunks: unknown;
-      }>(
-        `SELECT DISTINCT ON (a.card_type)
-                a.card_type, g.result_notes, g.retrieved_chunks
-         FROM auto_generations a
-         JOIN generations g ON g.id = a.generation_id
-         WHERE a.project_id = $1
-           AND a.status = 'succeeded'
-           AND g.status = 'succeeded'
-         ORDER BY a.card_type ASC, a.created_at DESC`,
-        [projectId],
-      );
-      return rows
-        .filter((r) => r.result_notes && r.result_notes.trim())
-        .filter((r) => r.card_type === "intro" || r.card_type === "compete")
-        .map((r) => ({
-          cardType: r.card_type as "intro" | "compete",
-          content: r.result_notes as string,
-          evidence: extractEvidenceTexts(r.retrieved_chunks),
-        }));
-    } catch (err) {
-      this.logger.warn(
-        `[agent] 加载项目知识快照失败 projectId=${projectId}: ${(err as Error).message}`,
-      );
-      return [];
-    }
-  }
-}
-
-/**
- * retrieved_chunks 是 RankedChunk[]，但落库时是 JSONB unknown。
- * 这里做最小提取：只关心 .text 字段（其他字段对注入无用）。容错任何脏数据。
- */
-function extractEvidenceTexts(raw: unknown): Array<{ text: string }> {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((c) => {
-      if (c && typeof c === "object" && "text" in c) {
-        const t = (c as { text: unknown }).text;
-        return typeof t === "string" ? { text: t } : null;
-      }
-      return null;
-    })
-    .filter((x): x is { text: string } => x !== null);
 }

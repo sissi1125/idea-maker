@@ -16,6 +16,7 @@ vi.mock("@harness/rag-core", () => ({
 import { buildSearchKbTool } from "../search-kb.tool";
 import type { AgentToolContext } from "../types";
 import { makeFakeSpillStorage } from "./_test-utils";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
   return {
@@ -26,6 +27,7 @@ function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "gpt-4o-mini",
+    grounding: makeTestGrounding(),
     // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension，否则 fail loud
     // 测试默认值用 bge-m3（与 ollama 本地路径一致）；覆盖时用 overrides.options 传别的
     options: {

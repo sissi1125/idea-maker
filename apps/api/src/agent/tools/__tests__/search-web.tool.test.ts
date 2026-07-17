@@ -7,6 +7,7 @@ import { buildSearchWebTool } from "../search-web.tool";
 import type { AgentToolContext } from "../types";
 import type { TavilyClient } from "../../../llm/tavily.client";
 import { makeFakeSpillStorage } from "./_test-utils";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 function makeCtx(): AgentToolContext {
   return {
@@ -17,6 +18,7 @@ function makeCtx(): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "x",
+    grounding: makeTestGrounding(),
   };
 }
 

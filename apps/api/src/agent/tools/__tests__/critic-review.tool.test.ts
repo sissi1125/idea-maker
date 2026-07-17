@@ -15,8 +15,10 @@ vi.mock("ai", async () => {
 
 import { buildCriticReviewTool, type CriticCriteria } from "../critic-review.tool";
 import type { AgentToolContext } from "../types";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
+import { emptyAgentGroundingContext } from "../../grounding/agent-grounding.types";
 
-function makeCtx(): AgentToolContext {
+function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
   return {
     projectId: "p",
     userId: "u",
@@ -25,6 +27,8 @@ function makeCtx(): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "x",
+    grounding: makeTestGrounding(),
+    ...overrides,
   };
 }
 const exec = async (tool: ReturnType<ReturnType<typeof buildCriticReviewTool>>, args: unknown) =>
@@ -35,7 +39,7 @@ const exec = async (tool: ReturnType<ReturnType<typeof buildCriticReviewTool>>, 
     ) => Promise<unknown>
   )(args, { toolCallId: "t", messages: [] });
 
-const SAMPLE_ARGS = { draft: "d", task: "t" };
+const SAMPLE_ARGS = { draft: "Bloomnote 支持时间线 [evidence-1]", task: "t" };
 
 describe("critic_review tool", () => {
   beforeEach(() => generateObjectMock.mockReset());
@@ -59,13 +63,18 @@ describe("critic_review tool", () => {
     const args = generateObjectMock.mock.calls[0][0];
     expect(args.temperature).toBe(0);
     expect(args.schema).toBeDefined();
+    expect(args.mode).toBe("json");
   });
 
   it("全部维度 >= 3.5 → passed=true", async () => {
-    makeOk({ faithfulness: 4, completeness: 3.5, style: 5, safety: 4 });
+    makeOk(
+      { faithfulness: 4, completeness: 3.5, style: 5, safety: 4 },
+      { suggestions: ["judge 习惯性建议，但通过后不应继续修改"] },
+    );
     const t = buildCriticReviewTool({ platformRules: [], memoryPreferences: [] })(makeCtx());
-    const out = (await exec(t, SAMPLE_ARGS)) as { passed: boolean };
+    const out = (await exec(t, SAMPLE_ARGS)) as { passed: boolean; suggestions: string[] };
     expect(out.passed).toBe(true);
+    expect(out.suggestions).toEqual([]);
   });
 
   it("任一维度 < 3.5 → passed=false", async () => {
@@ -110,5 +119,26 @@ describe("critic_review tool", () => {
     })(makeCtx());
     const out = (await exec(t, SAMPLE_ARGS)) as { passed: boolean };
     expect(out.passed).toBe(false); // 3.6 < 4.0
+  });
+
+  it("无 Confirmed Brief 时不调用 judge LLM", async () => {
+    const t = buildCriticReviewTool({ platformRules: [], memoryPreferences: [] })(
+      makeCtx({ grounding: emptyAgentGroundingContext() }),
+    );
+    const out = (await exec(t, SAMPLE_ARGS)) as { status: string; passed: boolean };
+    expect(out.status).toBe("insufficient_context");
+    expect(out.passed).toBe(false);
+    expect(generateObjectMock).not.toHaveBeenCalled();
+  });
+
+  it("确定性门禁失败时 judge 高分也不能 passed", async () => {
+    makeOk({ faithfulness: 5, completeness: 5, style: 5, safety: 5 });
+    const t = buildCriticReviewTool({ platformRules: [], memoryPreferences: [] })(makeCtx());
+    const out = (await exec(t, { draft: "每月 99 元 [evidence-1]", task: "t" })) as {
+      passed: boolean;
+      violations: string[];
+    };
+    expect(out.passed).toBe(false);
+    expect(out.violations.join(" ")).toContain("99元");
   });
 });

@@ -14,6 +14,7 @@ export * from "./types";
 export * from "./system/agent-base.prompt";
 export * from "./system/memory-injection.prompt";
 export * from "./system/platform-rules-injection.prompt";
+export * from "./system/brief-grounding-injection.prompt";
 export * from "./system/compose";
 
 // Tool prompts（feat-300.2 迁移）

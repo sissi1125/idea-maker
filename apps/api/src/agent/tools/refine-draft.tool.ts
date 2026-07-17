@@ -21,6 +21,12 @@ import {
   refineDraftUserPrompt,
   type RefineIntensity,
 } from "../prompts/tools/refine-draft.prompt";
+import { hasConfirmedProductFacts } from "../grounding/agent-grounding.types";
+import {
+  groundingBlockReasons,
+  removeConfiguredBannedKeywords,
+  validateGroundedDraft,
+} from "../grounding/agent-grounding-validation";
 
 const ParamsSchema = z.object({
   draft: z.string().min(1).describe("待修改的原稿"),
@@ -54,24 +60,64 @@ export const buildRefineDraftTool: AgentToolFactory = (ctx: AgentToolContext) =>
     description: DESCRIPTION,
     parameters: ParamsSchema,
     execute: async ({ draft, feedback, intensity, temperature }) => {
+      if (!hasConfirmedProductFacts(ctx.grounding)) {
+        return {
+          status: "insufficient_context" as const,
+          message: "产品信息不足：请先确认 Product Brief 后再修订内容。",
+        };
+      }
       const effectiveIntensity: RefineIntensity = intensity ?? "moderate";
-      const system = refineDraftSystemPrompt.render({ intensity: effectiveIntensity });
+      const system = refineDraftSystemPrompt.render({
+        intensity: effectiveIntensity,
+        grounding: ctx.grounding,
+      });
       const prompt = refineDraftUserPrompt.render({ draft, feedback });
 
       const result = await generateText({
         model: ctx.llmModel,
         system,
         prompt,
-        // refine 默认 temperature 比 generate 低，避免改稿时再随机出新东西
-        temperature: temperature ?? 0.4,
+        // 规则修订强调确定性，低温减少模型重新引入违禁词或新事实。
+        temperature: temperature ?? 0.1,
       });
 
-      const { revisedDraft, changes } = splitOutput(result.text);
+      const parsed = splitOutput(result.text);
+      let revisedDraft = parsed.revisedDraft;
+      let validation = validateGroundedDraft(revisedDraft, ctx.grounding);
+      let removedKeywords: string[] = [];
+      if (
+        !validation.citationMissing &&
+        validation.unsupportedHardFacts.length === 0 &&
+        validation.ruleViolations.length > 0 &&
+        validation.ruleViolations.every((violation) => violation.type === "banned_keyword")
+      ) {
+        const normalized = removeConfiguredBannedKeywords(revisedDraft, ctx.grounding);
+        revisedDraft = normalized.text;
+        removedKeywords = normalized.removedKeywords;
+        validation = validateGroundedDraft(revisedDraft, ctx.grounding);
+      }
+      if (!validation.passed) {
+        return {
+          status: "blocked" as const,
+          reasons: groundingBlockReasons(validation),
+          citedSources: validation.citedSources,
+          unsupportedHardFacts: validation.unsupportedHardFacts,
+          ruleViolations: validation.ruleViolations,
+          promptIds: [refineDraftSystemPrompt.id, refineDraftUserPrompt.id],
+          promptVersions: [refineDraftSystemPrompt.version, refineDraftUserPrompt.version],
+          usage: {
+            promptTokens: result.usage.promptTokens,
+            completionTokens: result.usage.completionTokens,
+          },
+        };
+      }
 
       return {
         status: "ok" as const,
         revisedDraft,
-        changes,
+        changes: parsed.changes,
+        citedSources: validation.citedSources,
+        ...(removedKeywords.length > 0 ? { normalizations: { removedKeywords } } : {}),
         promptIds: [refineDraftSystemPrompt.id, refineDraftUserPrompt.id],
         promptVersions: [refineDraftSystemPrompt.version, refineDraftUserPrompt.version],
         usage: {

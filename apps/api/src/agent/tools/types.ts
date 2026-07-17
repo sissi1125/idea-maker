@@ -17,6 +17,7 @@ import type { Tool } from "ai";
 import type { Client as PgClient } from "pg";
 import type { LanguageModelV1 } from "ai";
 import type { OpenAICompatibleClient } from "@harness/shared-types";
+import type { AgentGroundingContext } from "../grounding/agent-grounding.types";
 
 /**
  * 一次 Agent run 的上下文。AgentRunner 在创建 run 时填充并传给 tool 工厂。
@@ -42,6 +43,8 @@ export interface AgentToolContext {
   llmModel: LanguageModelV1;
   /** 默认 LLM model 名（用于 rag-core runGeneration 的 legacy llmClient 适配） */
   llmDefaultModel: string;
+  /** 服务端事实裁决上下文；模型不能通过 tool 参数删除 confirmed facts 或平台规则。 */
+  grounding: AgentGroundingContext;
 
   /** Optional 配置：让 AgentRunner 按项目设置覆盖默认值 */
   options?: {

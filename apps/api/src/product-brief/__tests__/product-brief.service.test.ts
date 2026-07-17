@@ -79,6 +79,33 @@ describe("ProductBriefService.detectIssues", () => {
   });
 });
 
+describe("ProductBriefService.getConfirmedBriefContext", () => {
+  it("整体 draft Brief 不进入 Agent Grounding", async () => {
+    const client = fakeClient(() => []);
+    await expect(svc().getConfirmedBriefContext(client, "p")).resolves.toBeNull();
+    expect(client.queries[0].sql).toContain("status = 'confirmed'");
+  });
+
+  it("只保留字段级 confirmed，排除 candidate/stale/rejected", async () => {
+    const client = fakeClient((sql) => {
+      if (sql.includes("FROM product_briefs")) {
+        return [{ id: "b-1", project_id: "p", version: 2, status: "confirmed" }];
+      }
+      if (sql.includes("FROM product_brief_fields")) {
+        return [
+          field({ id: "confirmed", status: "confirmed" }),
+          field({ id: "candidate", status: "candidate" }),
+          field({ id: "stale", status: "stale" }),
+          field({ id: "rejected", status: "rejected" }),
+        ];
+      }
+      return [];
+    });
+    const result = await svc().getConfirmedBriefContext(client, "p");
+    expect(result?.fields.map((item) => item.id)).toEqual(["confirmed"]);
+  });
+});
+
 describe("ProductBriefService.upsertCandidateField", () => {
   it("命中已 confirmed 字段 → 只标 stale，不覆盖值", async () => {
     const existing = field({ id: "f-old", status: "confirmed", value: "旧值" });

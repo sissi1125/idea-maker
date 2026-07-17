@@ -33,6 +33,12 @@ import {
   criticReviewSystemPrompt,
   criticReviewUserPrompt,
 } from "../prompts/tools/critic-review.prompt";
+import { buildServerGroundingEvidence } from "../grounding/agent-grounding-format";
+import { hasConfirmedProductFacts } from "../grounding/agent-grounding.types";
+import {
+  groundingBlockReasons,
+  validateGroundedDraft,
+} from "../grounding/agent-grounding-validation";
 
 /**
  * 评判标准。本期 AgentToolsService 传空数组占位；feat-300.3/300.4 接 AgentRunner 时动态注入。
@@ -49,10 +55,6 @@ export interface CriticCriteria {
 const ParamsSchema = z.object({
   draft: z.string().min(1).describe("待评审的草稿"),
   task: z.string().min(1).describe("原始 task 描述（用于判 completeness）"),
-  evidence: z
-    .array(z.object({ source: z.string(), text: z.string() }))
-    .optional()
-    .describe("draft 引用的 evidence（用于判 faithfulness）"),
 });
 
 const DESCRIPTION = `对一份 draft 按 4 个维度（faithfulness/completeness/style/safety）打分并给出修改建议。
@@ -90,19 +92,29 @@ export function buildCriticReviewTool(criteria: CriticCriteria): AgentToolFactor
     tool({
       description: DESCRIPTION,
       parameters: ParamsSchema,
-      execute: async ({ draft, task, evidence }) => {
+      execute: async ({ draft, task }) => {
         const passThreshold = criteria.passThreshold ?? 3.5;
+        if (!hasConfirmedProductFacts(ctx.grounding)) {
+          return {
+            status: "insufficient_context" as const,
+            passed: false,
+            violations: ["没有可用的 Confirmed Product Brief"],
+            suggestions: ["先确认 Product Brief，再评审产品内容"],
+          };
+        }
+        const deterministic = validateGroundedDraft(draft, ctx.grounding);
 
         // System + user prompt 走 prompts/ 集中管理。这是与 feat-300.5 离线 eval
         // 共享的唯一一份打分规则——修改时必须 bump version 并同步评估前后 trace。
         const system = criticReviewSystemPrompt.render({
           platformRules: criteria.platformRules,
           memoryPreferences: criteria.memoryPreferences,
+          grounding: ctx.grounding,
         });
         const prompt = criticReviewUserPrompt.render({
           task,
           draft,
-          evidence: evidence ?? [],
+          evidence: buildServerGroundingEvidence(ctx.grounding),
         });
 
         const result = await generateObject({
@@ -110,6 +122,9 @@ export function buildCriticReviewTool(criteria: CriticCriteria): AgentToolFactor
           system,
           prompt,
           schema: JudgeOutputSchema,
+          // GLM 等 OpenAI 兼容 provider 不一定支持 ai-sdk 默认的 tool-call object 模式；
+          // JSON mode 仍由上方 Zod schema 校验，同时避免“No object generated: tool not called”。
+          mode: "json",
           temperature: 0,
         });
 
@@ -121,6 +136,7 @@ export function buildCriticReviewTool(criteria: CriticCriteria): AgentToolFactor
         };
         // pass 规则：safety 0 直接 fail（硬约束 trumps all），其他维度全部 >= 阈值
         const passed =
+          deterministic.passed &&
           scores.safety >= passThreshold &&
           scores.faithfulness >= passThreshold &&
           scores.completeness >= passThreshold &&
@@ -130,8 +146,17 @@ export function buildCriticReviewTool(criteria: CriticCriteria): AgentToolFactor
           status: "ok" as const,
           scores,
           passed,
-          violations: result.object.violations,
-          suggestions: result.object.suggestions,
+          violations: [
+            ...groundingBlockReasons(deterministic),
+            ...result.object.violations,
+          ],
+          // passed 草稿已经可交付；即使 judge 习惯性给建议也清空，避免 outer Agent
+          // 对已批准版本做一次未再次评审的“优化”。
+          suggestions: passed
+            ? []
+            : deterministic.passed
+              ? result.object.suggestions
+              : [...groundingBlockReasons(deterministic), ...result.object.suggestions],
           promptIds: [criticReviewSystemPrompt.id, criticReviewUserPrompt.id],
           promptVersions: [criticReviewSystemPrompt.version, criticReviewUserPrompt.version],
           usage: {

@@ -99,13 +99,16 @@ export function buildRuleSystemPrompt(rules: PlatformRuleRow[]): string {
   if (rules.length === 0) return "";
   const lines: string[] = ["", "# 平台合规约束（必须遵守）"];
   for (const rule of rules) {
+    if (!rule.enabled) continue;
     const cfg = rule.config ?? {};
     const items: string[] = [];
     if (typeof cfg.maxLength === "number" && cfg.maxLength > 0) {
       items.push(`整体不超过 ${cfg.maxLength} 字符`);
     }
     if (Array.isArray(cfg.bannedKeywords) && cfg.bannedKeywords.length > 0) {
-      items.push(`不得出现：${cfg.bannedKeywords.join("、")}`);
+      items.push(
+        `不得出现（按子串检查，包含在其他词中也算违规）：${cfg.bannedKeywords.join("、")}`,
+      );
     }
     if (typeof cfg.mandatoryTagPattern === "string" && cfg.mandatoryTagPattern.trim()) {
       const min = cfg.mandatoryTagMin ?? 1;

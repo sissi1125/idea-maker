@@ -24,6 +24,8 @@ import { ProjectsModule } from "../projects/projects.module";
 import { CostModule } from "../cost/cost.module";
 import { PlatformRulesModule } from "../platform-rules/platform-rules.module";
 import { NotesModule } from "../notes/notes.module";
+import { ProductBriefModule } from "../product-brief/product-brief.module";
+import { ClaimsModule } from "../claims/claims.module";
 
 import { AgentController } from "./agent.controller";
 import { AgentRunnerService } from "./agent-runner.service";
@@ -33,9 +35,19 @@ import { AgentToolsService } from "./agent-tools.service";
 import { ContextManager } from "./context-manager";
 import { MemoryReader } from "./memory-reader";
 import { SpillStorage } from "./spill-storage.service";
+import { AgentGroundingService } from "./grounding/agent-grounding.service";
 
 @Module({
-  imports: [AuthModule, PipelineModule, ProjectsModule, CostModule, PlatformRulesModule, NotesModule],
+  imports: [
+    AuthModule,
+    PipelineModule,
+    ProjectsModule,
+    CostModule,
+    PlatformRulesModule,
+    NotesModule,
+    ProductBriefModule,
+    ClaimsModule,
+  ],
   controllers: [AgentController],
   providers: [
     AgentRunnerService,
@@ -45,6 +57,7 @@ import { SpillStorage } from "./spill-storage.service";
     ContextManager,
     MemoryReader,
     SpillStorage,
+    AgentGroundingService,
   ],
   exports: [
     AgentToolsService,

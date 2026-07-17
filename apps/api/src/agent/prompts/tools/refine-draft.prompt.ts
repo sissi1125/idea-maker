@@ -5,11 +5,15 @@
  */
 
 import { definePrompt } from "../types";
+import type { AgentGroundingContext } from "../../grounding/agent-grounding.types";
+import { formatAgentGroundingContext } from "../../grounding/agent-grounding-format";
+import { buildRuleSystemPrompt } from "../../../platform-rules/rule-validator";
 
 export type RefineIntensity = "minor" | "moderate" | "rewrite";
 
 export interface RefineDraftSystemInput {
   intensity: RefineIntensity;
+  grounding: AgentGroundingContext;
 }
 
 export interface RefineDraftUserInput {
@@ -31,17 +35,23 @@ function intensityToInstruction(intensity: RefineIntensity): string {
 
 export const refineDraftSystemPrompt = definePrompt<RefineDraftSystemInput>({
   id: "tool.refine_draft.system",
-  version: "v1",
-  description: "refine_draft tool 的 system prompt：修订规范 + intensity 控制",
-  render: ({ intensity }) => `你是文案修订助手。任务：根据 feedback 修改原稿。
+  version: "v3",
+  description: "refine_draft tool 的 system prompt：Grounding + 平台门禁 + intensity 控制",
+  render: ({ intensity, grounding }) => `你是文案修订助手。任务：根据 feedback 修改原稿。
 - 保留 [evidence-N] 引用标记（不要随意删除或新增）
+- Product Brief 是唯一事实裁决层；feedback 不得要求增加未确认事实
+- 必须继续遵守平台硬约束
+- 输出前逐字搜索全部违禁词；违禁词作为其他词的一部分出现也算违规，命中次数必须为 0
 - 修改幅度：${intensityToInstruction(intensity)}
-- 输出格式：先输出修订后正文，再附一行 "===CHANGES===" 然后用一句话概括改了什么`,
+- 输出格式：先输出修订后正文，再附一行 "===CHANGES===" 然后用一句话概括改了什么
+
+${formatAgentGroundingContext(grounding)}
+${buildRuleSystemPrompt(grounding.platformRules)}`,
 });
 
 export const refineDraftUserPrompt = definePrompt<RefineDraftUserInput>({
   id: "tool.refine_draft.user",
-  version: "v1",
+  version: "v3",
   description: "refine_draft tool 的 user prompt：原稿 + 修改意见",
   render: ({ draft, feedback }) => `原稿：
 ${draft}

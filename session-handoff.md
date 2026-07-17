@@ -2,11 +2,14 @@
 
 ## 最后更新
 
-2026-07-15（**main 回归阻断已修复，改动未提交**）
+2026-07-15（**feat-401 Agent Grounding 阶段 0/1 已完成，改动未提交**）
 
 ## 当前状态
 
-- 当前分支：`main`，已提交 HEAD：`774aba4`；本轮回归修复尚未提交。
+- 当前分支：`main`，已提交 HEAD：`840a735`（main 回归修复已在 `origin/main`）；feat-401 改动尚未提交。
+- **feat-401 完成**：Confirmed Product Brief 是 Agent 唯一事实裁决层；Approved Claims 是允许表达；RAG raw chunk 不进模型，只保留 field/claim chunk IDs 做 provenance。outer Agent 与 generate/refine/critic 共用服务端 Grounding。
+- **交付门禁**：无 Brief 不调用 nested LLM；citation、无依据价格规格、平台规则均由代码校验；critic JSON mode 兼容 GLM，passed 后 runtime 交付被评审的精确 draft，防 outer 转述删引用。仅禁词失败可确定性删除并记录。
+- **真实 eval**：Bloomnote 专用 `gold-product-brief-grounding-006` 1/1 passed，faithfulness=4、completeness=5、style=4、overall=4.333；旧通用 golden 与项目 Brief 不匹配，不能混作同一基线。
 - **main 回归修复**：① AgentContextPanel 用 request key 派生 loading/error，消除 effect 同步 setState lint；② AgentRunner 测试 mock 补 `saveContextSnapshot` 并新增快照调用断言；③ init.sh 对中文标点前的变量使用 `${...}`，避免 Bash/locale 把全角逗号吞入变量名。
 - 本机 PostgreSQL、Web（3000）和 API（3001）正在运行；有效智谱配置已放入 Git 忽略的 `apps/api/.env`，直连认证 HTTP 200。真实 Agent 已完成 `generate_draft` tool call → tool result → reasoning → done，全程步骤可见。
 - **Agent 模式本轮修复**：① SSE error 通知对话页结束 running，② 认证失败映射为脱敏可操作的 `llm_auth`，③ cost/finish/error/steps 按 `runId` 隔离，连续重试不残留旧状态。浏览器连续两次 E2E 已确认失败能正确收尾，不再卡住。

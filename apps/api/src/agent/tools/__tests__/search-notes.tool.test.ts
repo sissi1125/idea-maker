@@ -7,6 +7,7 @@ import { buildSearchNotesTool } from "../search-notes.tool";
 import type { AgentToolContext } from "../types";
 import { makeFakeSpillStorage } from "./_test-utils";
 import type { NotesService } from "../../../notes/notes.service";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 // feat-300.4：tool 现在还接 NotesService（pgvector 检索）。
 // 这些用例聚焦 ILIKE fallback 路径——让 embedding 检索返回 null 即可走 fallback。
@@ -23,6 +24,7 @@ function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "gpt-4o-mini",
+    grounding: makeTestGrounding(),
   };
 }
 

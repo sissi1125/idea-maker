@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SPILL_THRESHOLD_BYTES } from "../../spill-storage.service";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 function makeSpyStorage() {
   const spillSpy = vi.fn(async (_payload: unknown, opts: { kind: string; preview: string; summary: Record<string, unknown> }) => ({
@@ -56,6 +57,7 @@ describe("search_kb spill 集成", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      grounding: makeTestGrounding(),
       // feat-300.6：search_kb 要求 ctx.options.embeddingModel/Dimension（fail loud）
       options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
@@ -121,6 +123,7 @@ describe("search_notes spill 集成", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      grounding: makeTestGrounding(),
       // feat-300.6：search_kb 要求 ctx.options.embeddingModel/Dimension（fail loud）
       options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });

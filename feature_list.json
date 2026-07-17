@@ -700,6 +700,16 @@
       "evidence": "2026-07-14 完成。schema：visual_assets（logo/截图/参考海报/字体，uploaded→approved）+ posters。assets 模块：multipart 上传（sharp 取尺寸+sha256）、approve、list、readApproved（供海报读已批准资产 base64 内嵌）。posters 模块：poster-render.ts 纯函数（2 个受限 SVG 模板 + xmlEscape 防注入 + WCAG 对比度 + 溢出/颜色/只用已批准 Claim与资产 校验）、PostersService（校验通过才 sharp 光栅化真实 PNG 落盘）、controller（templates/render/list/:id/png 下载）。**偏离规格记录**：规格写 Playwright Chromium+HTML/CSS，本环境无 Playwright 但有 sharp，改用『受限 SVG 模板 DSL + sharp 光栅化』——更轻、更受限（无浏览器、模型永远不产 HTML/CSS）、且产出真实 PNG。25 单测 + 全量 350/350，typecheck+lint clean。端到端 **14/14**（真 multipart 上传 PNG→sharp 解析尺寸→批准→真 SVG 模板 sharp 渲染 800x800 真实 PNG（magic 89504e47，已肉眼确认海报版式正确）→下载 image/png；未批准 Claim→unapproved_claim 拦下；对比度不足→low_contrast 拦下）。honest gap：字体资产仅登记不深度内嵌（sharp/resvg 字体支持有限）；参考海报/截图资产仅存储未做版式套用。"
     },
     {
+      "id": "feat-401",
+      "name": "Agent Grounding 阶段 0/1 加固",
+      "phase": "4",
+      "track": "A-main",
+      "description": "Confirmed Product Brief 作为唯一事实裁决层，Approved Claims 作为可发布表达，RAG 只保留 evidence provenance；outer Agent、generate/refine/critic 共用服务端 Grounding，并以确定性门禁和 critic passed 精确草稿控制最终交付。",
+      "dependencies": ["feat-400.2", "feat-300.5"],
+      "status": "done",
+      "evidence": "2026-07-15 完成阶段 0/1。新增 AgentGroundingService/Context/formatter/validator；整体 draft Brief 与 candidate/stale/rejected 字段、auto_generations、raw chunk 原文均不进入模型事实输入。generate/refine/critic 无 Brief fail closed；服务端注入 confirmed fields/approved Claims/platform rules；代码检查 citation、无依据价格规格和平台规则，禁词唯一失败可确定性删除并记录。critic 改 JSON mode 兼容 GLM，passed 后 runtime 交付被评审精确 draft，防 outer 转述删引用。API 全量测试、全仓 typecheck/lint/build/init 验证；Bloomnote 专用真实 eval gold-product-brief-grounding-006 通过 1/1，faithfulness=4、completeness=5、style=4、overall=4.333。"
+    },
+    {
       "id": "feat-012",
       "name": "Marketing Studio UX",
       "phase": "4",

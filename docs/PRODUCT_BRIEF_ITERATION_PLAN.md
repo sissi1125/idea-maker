@@ -17,6 +17,31 @@
 
 HTML 海报是增强能力，不得阻塞 Product Brief、评测与学习闭环的验证。
 
+### 1.1 阶段 0/1 Agent Grounding 落地状态（2026-07-15）
+
+阶段 0 和阶段 1 已实现为统一的服务端 `AgentGroundingContext`：
+
+```text
+Confirmed Product Brief fields（事实裁决）
+  + Approved Claims（允许的发布表达）
+  + field/claim evidence chunk IDs（追溯依据）
+  + enabled platform rules（发布硬约束）
+  -> outer Agent / generate / refine / critic 共用同一对象
+  -> 确定性门禁
+  -> 最近一次 critic passed 的精确 draft 才可交付
+```
+
+实现边界：
+
+- 没有整体 confirmed Brief 或没有 confirmed 字段时，生成、修订、评测均不调用 nested LLM，返回 `insufficient_context`。
+- `candidate`、`stale`、`rejected` 字段和 `auto_generations` 摘要不进入事实输入。
+- raw RAG chunk 只在服务端用于 provenance/audit，不把原文注入生成模型；同一 chunk 可能同时包含未确认事实，不能借 evidence 绕过 Brief。
+- 生成与修订后由代码检查有效 citation、无依据价格/规格数字和平台规则；失败不能被 critic 高分覆盖。
+- 仅禁词失败时可做“删除配置禁词”的确定性归一化，删除项进入 tool result；其他规则失败继续阻止。
+- critic 使用 JSON 结构化模式兼容 GLM；`passed=true` 后清空建议，并由 runtime 交付被评审的精确 draft，防止 outer Agent 转述时删除引用或改写事实。
+
+评测注意：旧通用 golden（护肤品、节日、环保包装等）不能直接用于任意项目级 Brief，否则正确的拒答会被旧 reference 判低分。Grounding 回归必须使用与被测 Confirmed Brief 对齐的 case，当前样例为 `gold-product-brief-grounding-006`。
+
 ## 2. 产品闭环
 
 ```mermaid

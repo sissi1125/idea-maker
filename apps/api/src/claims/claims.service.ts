@@ -151,6 +151,17 @@ export class ClaimsService {
     });
   }
 
+  /** Agent Grounding 使用同一 pgClient 读取 approved Claims，避免另开连接和重复鉴权查询。 */
+  async listApprovedWithClient(client: PgClient, projectId: string): Promise<ClaimRow[]> {
+    const { rows } = await client.query<ClaimRow>(
+      `SELECT ${COLS} FROM claims
+        WHERE project_id = $1 AND status = 'approved'
+        ORDER BY created_at DESC`,
+      [projectId],
+    );
+    return rows.map((row) => this.map(row));
+  }
+
   async derive(userId: string, projectId: string): Promise<{ derived: number }> {
     await this.assertOwner(userId, projectId);
     return this.db.withClient((client) => this.deriveFromBrief(client, projectId));

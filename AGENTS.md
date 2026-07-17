@@ -2,7 +2,7 @@
 
 **Idea-Maker**：面向独立开发者和小团队的**营销 idea 生成系统**。核心价值：**透明可观测 RAG + 成本追踪 + 反馈学习**。
 
-当前阶段：**Phase 4 Product Brief 产品闭环规划（feat-400，待实施）**。执行规格详见 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`；既有真 Agent 架构详见 `docs/agent/ARCHITECTURE.md`。
+当前阶段：**Phase 4 Product Brief 闭环已完成，Agent Grounding 加固（feat-401）已落地**。执行规格详见 `docs/PRODUCT_BRIEF_ITERATION_PLAN.md`；既有真 Agent 架构详见 `docs/agent/ARCHITECTURE.md`。
 
 **生产部署**（feat-013.5 已上线 2026-06-08）：Vercel 前端 + 阿里云 ECS 后端 + Cloudflare Named Tunnel。
 - 前端：https://idea-maker-web.vercel.app

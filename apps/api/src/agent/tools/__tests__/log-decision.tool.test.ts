@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildLogDecisionTool } from "../log-decision.tool";
 import type { AgentToolContext } from "../types";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
   return {
@@ -15,6 +16,7 @@ function makeCtx(pgQuery: ReturnType<typeof vi.fn>): AgentToolContext {
     embeddingClient: {} as never,
     llmModel: {} as never,
     llmDefaultModel: "x",
+    grounding: makeTestGrounding(),
   };
 }
 const exec = async (t: ReturnType<typeof buildLogDecisionTool>, args: unknown) =>

@@ -1,0 +1,8 @@
+{
+  "id": "gold-product-brief-grounding-006",
+  "query": "基于已确认的 Product Brief，为当前产品写一条小红书介绍：突出记录与整理能力，不要扩展未确认的平台或价格信息。",
+  "expectedTools": ["generate_draft", "refine_draft", "critic_review"],
+  "referenceAnswer": "Bloomnote 是一款面向个人记录、日记、知识整理和生活数据归档的块式笔记应用。它支持记录想法、日常、任务、图片、位置、健康、天气、语音、文件和多媒体内容，并可通过时间线、日历、标签、搜索和导出进行整理。内容应带有效 evidence 引用与至少三个话题标签，且不包含 Product Brief 未确认的平台或价格信息。",
+  "thresholds": { "faithfulness": 4, "completeness": 3, "style": 3 },
+  "meta": { "source": "manual", "tags": ["product-brief", "grounding", "xiaohongshu"] }
+}

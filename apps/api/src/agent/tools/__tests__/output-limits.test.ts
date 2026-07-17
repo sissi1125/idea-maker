@@ -11,6 +11,7 @@ import {
   truncateText,
 } from "../util/output-limits";
 import { makeFakeSpillStorage } from "./_test-utils";
+import { makeTestGrounding } from "../../__tests__/grounding.fixture";
 
 describe("truncateText", () => {
   it("短于阈值不截断", () => {
@@ -61,6 +62,7 @@ describe("集成：search_kb 截断行为", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      grounding: makeTestGrounding(),
       // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension（fail loud）
       options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
@@ -91,6 +93,7 @@ describe("集成：search_kb 截断行为", () => {
       embeddingClient: {} as never,
       llmModel: {} as never,
       llmDefaultModel: "x",
+      grounding: makeTestGrounding(),
       // feat-300.6：search_kb 现在要求显式注入 embeddingModel/Dimension（fail loud）
       options: { embeddingModel: "bge-m3", embeddingDimension: 1024 },
     });
