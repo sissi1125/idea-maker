@@ -138,20 +138,31 @@ jobs:
             echo "── 3. pull 新镜像（API_IMAGE_TAG=$API_IMAGE_TAG）──"
             $COMPOSE pull api
 
-            echo "── 4. 重启 api（postgres / cloudflared 不动）──"
+            echo "── 4. 重启 api（postgres 不动）──"
             $COMPOSE up -d api
 
             echo "── 5. 等 health check ──"
+            api_healthy=false
             for i in {1..30}; do
               status=$($COMPOSE ps api --format json | \
                        grep -o '"Health":"[^"]*"' | head -1 || echo '"Health":"unknown"')
               echo "[$i/30] $status"
               if echo "$status" | grep -q '"healthy"'; then
                 echo "✅ api healthy"
+                api_healthy=true
                 break
               fi
               sleep 4
             done
+            $api_healthy || { echo "❌ api 未在超时内达到 healthy"; exit 1; }
+
+            echo "── 5.5 确保 Named Tunnel 在线 ──"
+            # cloudflared 可能正常退出后长期保持 stopped；--no-deps 只恢复隧道，
+            # 不重建已经健康的 API 和数据库。
+            $COMPOSE up -d --no-deps cloudflared
+            tunnel_status=$($COMPOSE ps cloudflared --status running --format json)
+            test -n "$tunnel_status" || { echo "❌ cloudflared 未运行"; exit 1; }
+            echo "✅ cloudflared running"
 
             echo "── 6. 清旧镜像（保留正在用的 + latest） ──"
             docker image prune -af --filter "until=24h" || true
