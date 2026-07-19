@@ -40,8 +40,20 @@ const RATE_MS = 400; // 每次抓取之间的最小间隔，友好限速
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_HTML_BYTES = 2_000_000; // 单页最大 2MB
 const MAX_TEXT_CHARS = 20_000; // 单页入库正文上限
+const DEFAULT_EMBEDDING_BATCH_SIZE = 16;
+const DEFAULT_RAG_INSERT_BATCH_SIZE = 50;
 
 type FetchImpl = (url: string, init?: RequestInit) => Promise<Response>;
+type RagCandidate = { pageId: string; url: string; chunks: string[] };
+type RagRow = {
+  id: string;
+  pageId: string;
+  projectId: string;
+  chunkIndex: number;
+  text: string;
+  url: string;
+  embedding: number[] | null;
+};
 
 export interface ImportInput {
   url: string;
@@ -154,7 +166,7 @@ export class SourcesService {
     const logoUrls = new Set<string>();
     const imageUrls = new Set<string>();
     // 官网正文 → RAG：收集 (pageId, url, chunks)，抓完统一 embedding 写入 rag_chunks
-    const ragCandidates: Array<{ pageId: string; url: string; chunks: string[] }> = [];
+    const ragCandidates: RagCandidate[] = [];
 
     try {
       // 1. robots.txt
@@ -324,13 +336,13 @@ export class SourcesService {
   }
 
   /**
-   * 官网正文进 RAG：每个 chunk 算 embedding，写入 rag_chunks（project_id 隔离，
+   * 官网正文进 RAG：分批计算 embedding、批量写入 rag_chunks（project_id 隔离，
    * document_id 用 pageId 当伪文档）。这样 search_kb 检索时官网内容和上传文档一起被召回。
    * embedding 失败（无 key / 服务挂）时落 NULL embedding —— 仍可被 BM25(ILIKE) 稀疏检索命中。
    */
   private async embedIntoRag(
     projectId: string,
-    candidates: Array<{ pageId: string; url: string; chunks: string[] }>,
+    candidates: RagCandidate[],
   ): Promise<number> {
     if (candidates.length === 0) return 0;
     // 用原始 fetch 直连 OpenAI 兼容 embeddings 接口（OpenAI SDK 对非官方模型不透传 dimensions，
@@ -339,55 +351,85 @@ export class SourcesService {
     const baseURL = (process.env.EMBEDDING_BASE_URL || process.env.LLM_BASE_URL || "https://api.openai.com/v1/").replace(/\/?$/, "/");
     const model = process.env.EMBEDDING_MODEL || "text-embedding-v4";
     const dim = parseInt(process.env.EMBEDDING_DIMENSION || "1024", 10);
+    const embeddingBatchSize = readBatchSize("WEBSITE_EMBEDDING_BATCH_SIZE", DEFAULT_EMBEDDING_BATCH_SIZE, 64);
+    const insertBatchSize = readBatchSize("WEBSITE_RAG_INSERT_BATCH_SIZE", DEFAULT_RAG_INSERT_BATCH_SIZE, 200);
     if (!apiKey) this.logger.warn("[sources] 无 embedding key，官网 chunk 落 NULL 向量（走 BM25）");
 
-    const embed = async (text: string): Promise<number[] | null> => {
-      if (!apiKey) return null;
+    const flatRows: RagRow[] = candidates.flatMap((candidate) =>
+      candidate.chunks.map((text, chunkIndex) => ({
+        id: randomUUID(),
+        pageId: candidate.pageId,
+        projectId,
+        chunkIndex,
+        text,
+        url: candidate.url,
+        embedding: null,
+      })),
+    );
+    if (flatRows.length === 0) return 0;
+
+    // OpenAI 兼容协议支持 input:string[]；按有限批次串行请求，减少往返但不放大 provider 并发。
+    let embeddingBatches = 0;
+    for (let offset = 0; apiKey && offset < flatRows.length; offset += embeddingBatchSize) {
+      const batch = flatRows.slice(offset, offset + embeddingBatchSize);
+      embeddingBatches++;
       try {
         const res = await fetch(`${baseURL}embeddings`, {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model, input: text.slice(0, 6000), dimensions: dim }),
+          body: JSON.stringify({
+            model,
+            input: batch.map((row) => row.text.slice(0, 6000)),
+            dimensions: dim,
+          }),
           signal: AbortSignal.timeout(20000),
         });
-        if (!res.ok) return null;
-        const j = (await res.json()) as { data?: Array<{ embedding: number[] }> };
-        const got = j.data?.[0]?.embedding ?? null;
-        if (got && got.length === dim) return got;
-        if (got) this.logger.warn(`[sources] embedding 维度 ${got.length} ≠ 期望 ${dim}，该 chunk 落 NULL 走 BM25`);
-        return null;
-      } catch {
-        return null;
-      }
-    };
-
-    let n = 0;
-    for (const c of candidates) {
-      for (let i = 0; i < c.chunks.length; i++) {
-        const vec = await embed(c.chunks[i]);
-        const id = randomUUID();
-        const insertRag = (embedLiteral: string | null, embedDim: number | null) =>
-          this.db.withClient((client) =>
-            client.query(
-              `INSERT INTO rag_chunks
-                 (id, document_id, project_id, version, chunk_index, text, enhanced_text, source_ref, embedding, embedding_dimension)
-               VALUES ($1,$2,$3,1,$4,$5,$5,$6,$7::vector,$8)
-               ON CONFLICT (document_id, version, chunk_index) DO NOTHING`,
-              [id, c.pageId, projectId, i, c.chunks[i], c.url, embedLiteral, embedDim],
-            ),
-          );
-        try {
-          await insertRag(vec ? `[${vec.join(",")}]` : null, vec ? dim : null);
-        } catch (err) {
-          // 兜底：任何 embedding/维度相关的写入错误 → 退化成 NULL 向量（正文仍进库，可 BM25 检索）
-          this.logger.warn(`[sources] rag_chunks 写入带向量失败，退化 NULL：${err instanceof Error ? err.message : err}`);
-          await insertRag(null, null);
+        if (!res.ok) {
+          this.logger.warn(`[sources] embedding batch ${offset / embeddingBatchSize + 1} HTTP ${res.status}，该批走 BM25`);
+          continue;
         }
-        n++;
+        const payload = (await res.json()) as {
+          data?: Array<{ index?: number; embedding?: number[] }>;
+        };
+        const items = payload.data ?? [];
+        const indexed = new Map<number, number[]>();
+        items.forEach((item, responseIndex) => {
+          const index = Number.isInteger(item.index) ? item.index! : responseIndex;
+          if (Array.isArray(item.embedding)) indexed.set(index, item.embedding);
+        });
+        let invalid = 0;
+        batch.forEach((row, index) => {
+          const vector = indexed.get(index);
+          if (vector?.length === dim) row.embedding = vector;
+          else invalid++;
+        });
+        if (invalid > 0) {
+          this.logger.warn(`[sources] embedding batch 有 ${invalid}/${batch.length} 条缺失或维度错误，走 BM25`);
+        }
+      } catch (err) {
+        this.logger.warn(`[sources] embedding batch 失败，走 BM25：${err instanceof Error ? err.message : err}`);
       }
     }
-    this.logger.log(`[sources] 官网正文进 RAG: ${n} chunks`);
-    return n;
+
+    // 所有外部请求完成后才借数据库连接；写库期间没有网络等待，批次间复用同一 PoolClient。
+    await this.db.withClient(async (client) => {
+      for (let offset = 0; offset < flatRows.length; offset += insertBatchSize) {
+        const batch = flatRows.slice(offset, offset + insertBatchSize);
+        try {
+          const statement = buildRagBatchInsert(batch, dim, false);
+          await client.query(statement.sql, statement.params);
+        } catch (err) {
+          // 单条 INSERT 语句具备原子性；整批失败后清空向量重试，不会出现半批重复写入。
+          this.logger.warn(`[sources] rag_chunks 批量向量写入失败，整批退化 NULL：${err instanceof Error ? err.message : err}`);
+          const fallback = buildRagBatchInsert(batch, dim, true);
+          await client.query(fallback.sql, fallback.params);
+        }
+      }
+    });
+    this.logger.log(
+      `[sources] 官网正文进 RAG: ${flatRows.length} chunks, embedding batches=${embeddingBatches}, insert batches=${Math.ceil(flatRows.length / insertBatchSize)}`,
+    );
+    return flatRows.length;
   }
 
   /** 抓 robots.txt（失败即视为无限制，但仍受同域+白名单约束） */
@@ -492,4 +534,41 @@ export class SourcesService {
       return { records, pages };
     });
   }
+}
+
+/** 读取受控批次配置；非法值回退默认值，上限防止单请求/单 SQL 体积失控。 */
+function readBatchSize(name: string, fallback: number, max: number): number {
+  const parsed = Number(process.env[name]);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, max) : fallback;
+}
+
+/** 生成参数化多值 INSERT；每行 8 个参数，正文同时复用为 text/enhanced_text。 */
+function buildRagBatchInsert(
+  rows: RagRow[],
+  dimension: number,
+  forceNullEmbedding: boolean,
+): { sql: string; params: unknown[] } {
+  const params: unknown[] = [];
+  const values = rows.map((row) => {
+    const base = params.length + 1;
+    const embedding = forceNullEmbedding ? null : row.embedding;
+    params.push(
+      row.id,
+      row.pageId,
+      row.projectId,
+      row.chunkIndex,
+      row.text,
+      row.url,
+      embedding ? `[${embedding.join(",")}]` : null,
+      embedding ? dimension : null,
+    );
+    return `($${base},$${base + 1},$${base + 2},1,$${base + 3},$${base + 4},$${base + 4},$${base + 5},$${base + 6}::vector,$${base + 7})`;
+  });
+  return {
+    sql: `INSERT INTO rag_chunks
+      (id, document_id, project_id, version, chunk_index, text, enhanced_text, source_ref, embedding, embedding_dimension)
+      VALUES ${values.join(",")}
+      ON CONFLICT (document_id, version, chunk_index) DO NOTHING`,
+    params,
+  };
 }
