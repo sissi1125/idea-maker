@@ -220,7 +220,7 @@
         "feat-003.5"
       ],
       "status": "done",
-      "evidence": "2026-05-19 实现 POST /api/pipeline/storage；三种方法：pgvector-upsert-version（ON CONFLICT DO UPDATE，conflictPolicy=upsert/error）、pgvector-new-version（version+1 全量插入，保留历史）、pgvector-replace-version（先 DELETE 再 INSERT，最省空间）；自动 DDL 初始化 rag_documents/rag_chunks 表；Dimension Guard（写入前检查现有维度，不匹配返回 409）；HNSW/IVFFlat/none 三种索引模式；connectionString 表单字段（优先于 DATABASE_URL env）；AggregateError unwrap 修复 Node 18+ ECONNREFUSED 错误信息为空的问题；curl 验证：missing_upstream/missing_connection/db_connection_refused 错误码和消息均正确；typecheck 通过。"
+      "evidence": "2026-05-19 实现 POST /api/pipeline/storage；三种方法：pgvector-upsert-version（ON CONFLICT DO UPDATE，conflictPolicy=upsert/error）、pgvector-new-version（version+1 全量插入，保留历史）、pgvector-replace-version（先 DELETE 再 INSERT，最省空间）；自动 DDL 初始化 rag_documents/rag_chunks 表；Dimension Guard（写入前检查现有维度，不匹配返回 409）；HNSW/IVFFlat/none 三种索引模式；connectionString 表单字段（优先于 DATABASE_URL env）；AggregateError unwrap 修复 Node 18+ ECONNREFUSED 错误信息为空的问题；curl 验证：missing_upstream/missing_connection/db_connection_refused 错误码和消息均正确；typecheck 通过。2026-07-19 P1 补强：通用 ingestion 默认 50 行参数化多值 INSERT（可配置 1..500）；同 document advisory lock + Dimension Guard/版本选择/replace 删除/全部批次统一事务，批次失败整体 ROLLBACK。120 chunks 单测验证 3 条 INSERT 及参数顺序；真实 pgvector 200 行 SQL 200→4，中位耗时 50.16ms→4.58ms（10.95x）。全仓 640 tests、typecheck/lint、API build 通过。"
     },
     {
       "id": "feat-003.7",

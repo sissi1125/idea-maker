@@ -2,12 +2,16 @@
 
 ## 最后更新
 
-2026-07-19（**PostgreSQL连接池及官网RAG批处理P0优化已落地，待提交**）
+2026-07-19（**通用 RAG 写库 P1 已完成待提交；下一步后台任务可靠性**）
 
 ## 当前状态
 
+- 当前分支：`main`，当前 HEAD：`2c3f9a0`，工作树在本轮交接修正前干净并与 `origin/main` 对齐。
 - `8ff2318` 已快进推送 `origin/main`；部署修复 `eb1f57f` 让 workflow 在 API healthy 后恢复 stopped cloudflared。Vercel Production、CI、后端镜像/ECS 部署均成功，生产 Web 与 API `/health` 均返回 200。
-- PostgreSQL P0 已完成：生产业务 `DbService` 使用进程级 `pg.Pool`（默认 max=10、idle=30s、connect timeout=5s）；ingestion storage 复用池，Agent 每条 SQL 借还连接，等待 LLM 时不占池槽。全仓 typecheck/lint、633 tests 和 API build 通过；真实 PG 在 max=2 下验证并发限流与连接复用。
+- PostgreSQL P0 已在 `bdc8dd0` 完成：生产业务 `DbService` 使用进程级 `pg.Pool`（默认 max=10、idle=30s、connect timeout=5s）；ingestion storage 复用池，Agent 每条 SQL 借还连接，等待 LLM 时不占池槽。全仓 typecheck/lint、633 tests 和 API build 通过；真实 PG 在 max=2 下验证并发限流与连接复用。
+- 官网批处理 P0 已在 `2c3f9a0` 完成：Embedding 默认 16 条/请求，官网 `rag_chunks` 默认 50 行/INSERT；64 chunks 的请求数由 64 降至 4，真实 pgvector 200 行写入由 200 条 SQL 降至 4 条。
+- 通用 RAG Storage P1 已完成：默认 50 行/INSERT（可配置 1..500），同 document advisory lock，Dimension Guard/版本选择/replace 删除/全部批次统一事务。真实 pgvector 200 行 SQL 200→4，中位耗时 50.16ms→4.58ms（10.95x）；全仓 640 tests、typecheck/lint、API build 通过。
+- 下一步：后台任务并发限制、租约、心跳、过期任务回收和启动恢复，必须作为独立 feature/commit 实现，并保持 ingestion 轮询与 Agent SSE 对外行为不变。
 - 旧 Playground 动态 connectionString 路径继续使用隔离专用 Client，避免不同数据库混入生产 Pool；API/schema 无变化。
 - 最新修复：“确认全部信息”现在会在事务内确认全部 candidate/stale 子字段、逐条写 revision，再确认 Brief；完成后右上角按钮替换为“全部信息已确认”。浏览器/API/PG 验证 4/4 字段 confirmed、4 条 revision、Brief confirmed v2，隔离数据已清理。
 - 本轮新增：内容资产标题/Tab 固定且仅当前内容区滚动；资料库已有官网直显、编辑时才展开输入；内容任务展示卖点并支持删除；AI 对话/经典生成 Evidence hover 显示原 chunk；Brief/Claim/图片显示来源，Claim 与海报消费按来源排序。

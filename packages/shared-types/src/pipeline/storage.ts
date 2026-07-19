@@ -31,6 +31,8 @@ export type StorageIndexMode = z.infer<typeof StorageIndexMode>;
 export const StorageParamsSchema = z.object({
   indexMode: StorageIndexMode.optional().default("hnsw"),
   conflictPolicy: StorageConflictPolicy.optional().default("upsert"),
+  /** 每条 INSERT 包含的 chunk 行数；13 个参数/行，限制上限以远离 PostgreSQL 参数数量上限 */
+  batchSize: z.number().int().min(1).max(500).optional().default(50),
   /** true 时清空 rag_chunks 表并重置维度列（仅 dev 调试用） */
   truncateTable: z.boolean().optional().default(false),
   /** 用户表单可填，覆盖 env DATABASE_URL；路由层负责解析 */
@@ -39,8 +41,8 @@ export const StorageParamsSchema = z.object({
 export type StorageParams = z.infer<typeof StorageParamsSchema>;
 
 /**
- * pg.Client / pg.Pool 的最小结构契约。
- * rag-core 只用 query 方法；connect / end 由路由层管理。
+ * pg.Client / pg.PoolClient 的最小结构契约。
+ * 事务期间必须注入固定连接，不能直接传 pg.Pool；connect / release / end 由调用层管理。
  *
  * 用泛型保留行类型推断；mock 时 vi.fn() 即可满足。
  */

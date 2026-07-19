@@ -11,6 +11,7 @@ import { PipelineError } from "../../errors";
 const defaultParams: StorageParams = {
   indexMode: "none", // 默认 none，避免触发索引创建路径
   conflictPolicy: "upsert",
+  batchSize: 50,
   truncateTable: false,
   connectionString: undefined,
 };
@@ -334,7 +335,73 @@ describe("runStorage - INSERT 语句生成", () => {
     );
     // INSERT params 顺序：[id, documentId, projectId, version, chunk_index, text, enhanced_text, ...]
     // feat-200.8.x P0：插入 project_id 列后，enhanced_text 从 [5] 移到 [6]
+    expect(calls).toHaveLength(1);
     expect(calls[0]?.[6]).toBe("增强");
-    expect(calls[1]?.[6]).toBe("无增强");
+    expect(calls[0]?.[13 + 6]).toBe("无增强");
+  });
+
+  it("120 个 chunk 按 50 行分批，只执行 3 条 INSERT 且保持参数顺序", async () => {
+    const calls: Array<{ sql: string; params: ReadonlyArray<unknown> }> = [];
+    const { client } = makeMockClient((sql, params) => {
+      if (sql.includes("INSERT INTO rag_chunks")) calls.push({ sql, params: params! });
+      return defaultRoute(sql);
+    });
+    const chunks = Array.from({ length: 120 }, (_, index) => makeChunk({
+      index,
+      text: `中文段落${index}`,
+      sourceRef: `章节${index}`,
+    }));
+
+    await runStorage(makeInput({ upstreamChunks: chunks, pgClient: client }));
+
+    expect(calls).toHaveLength(3);
+    expect(calls.map((call) => call.params.length)).toEqual([650, 650, 260]);
+    expect(calls[0]?.params[4]).toBe(0);
+    expect(calls[0]?.params[49 * 13 + 4]).toBe(49);
+    expect(calls[1]?.params[4]).toBe(50);
+    expect(calls[2]?.params[19 * 13 + 4]).toBe(119);
+    expect(calls[0]?.sql).toContain("$650::vector");
+  });
+});
+
+describe("runStorage - 写入事务", () => {
+  it("replace-version 按 BEGIN、DELETE、INSERT、COMMIT 顺序执行", async () => {
+    const queries: string[] = [];
+    const { client } = makeMockClient((sql) => {
+      queries.push(sql);
+      return defaultRoute(sql);
+    });
+
+    await runStorage(makeInput({ methodId: "pgvector-replace-version", pgClient: client }));
+
+    const begin = queries.indexOf("BEGIN");
+    const lock = queries.findIndex((sql) => sql.includes("pg_advisory_xact_lock"));
+    const deletion = queries.findIndex((sql) => sql.includes("DELETE FROM rag_chunks"));
+    const insertion = queries.findIndex((sql) => sql.includes("INSERT INTO rag_chunks"));
+    const commit = queries.indexOf("COMMIT");
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(lock).toBeGreaterThan(begin);
+    expect(deletion).toBeGreaterThan(lock);
+    expect(insertion).toBeGreaterThan(deletion);
+    expect(commit).toBeGreaterThan(insertion);
+  });
+
+  it("任一批 INSERT 失败时 ROLLBACK，且不 COMMIT", async () => {
+    const queries: string[] = [];
+    let insertCount = 0;
+    const queryFn = vi.fn(async (sql: string) => {
+      queries.push(sql);
+      if (sql.includes("INSERT INTO rag_chunks") && ++insertCount === 2) {
+        throw new Error("第二批写入失败");
+      }
+      return { rows: defaultRoute(sql), rowCount: 0 };
+    });
+    const client = { query: queryFn } as PgClient;
+    const chunks = Array.from({ length: 51 }, (_, index) => makeChunk({ index }));
+
+    await expect(runStorage(makeInput({ upstreamChunks: chunks, pgClient: client })))
+      .rejects.toThrow("第二批写入失败");
+    expect(queries).toContain("ROLLBACK");
+    expect(queries).not.toContain("COMMIT");
   });
 });

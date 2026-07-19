@@ -139,32 +139,40 @@ async function upsertChunks(
   version: number,
   conflictPolicy: "upsert" | "error",
   projectId: string,
+  batchSize: number,
 ): Promise<void> {
-  for (const chunk of chunks) {
-    const id = `${documentId}_v${version}_c${chunk.index}`;
-    const embeddingStr = `[${chunk.embedding.join(",")}]`;
-
-    if (conflictPolicy === "error") {
-      // 让数据库 UNIQUE 自然报错
-      await client.query(
-        `INSERT INTO rag_chunks
-           (id, document_id, project_id, version, chunk_index, text, enhanced_text,
-            source_ref, char_count, token_estimate, keywords, embedding_dimension, embedding)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)`,
-        [
-          id, documentId, projectId, version, chunk.index,
-          chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
-          chunk.charCount, chunk.tokenEstimate, chunk.keywords ?? [],
-          chunk.embeddingDimension, embeddingStr,
-        ],
+  const columnsPerRow = 13;
+  for (let offset = 0; offset < chunks.length; offset += batchSize) {
+    const batch = chunks.slice(offset, offset + batchSize);
+    const queryParams: unknown[] = [];
+    const valueRows = batch.map((chunk) => {
+      const firstParam = queryParams.length + 1;
+      const id = `${documentId}_v${version}_c${chunk.index}`;
+      queryParams.push(
+        id,
+        documentId,
+        projectId,
+        version,
+        chunk.index,
+        chunk.text,
+        chunk.enhancedText ?? chunk.text,
+        chunk.sourceRef,
+        chunk.charCount,
+        chunk.tokenEstimate,
+        chunk.keywords ?? [],
+        chunk.embeddingDimension,
+        `[${chunk.embedding.join(",")}]`,
       );
-    } else {
-      await client.query(
-        `INSERT INTO rag_chunks
-           (id, document_id, project_id, version, chunk_index, text, enhanced_text,
-            source_ref, char_count, token_estimate, keywords, embedding_dimension, embedding)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)
-         ON CONFLICT (document_id, version, chunk_index) DO UPDATE SET
+      const placeholders = Array.from(
+        { length: columnsPerRow },
+        (_, index) => `$${firstParam + index}${index === columnsPerRow - 1 ? "::vector" : ""}`,
+      );
+      return `(${placeholders.join(",")})`;
+    });
+
+    // 多值 INSERT 把 N 次数据库往返收敛为 ceil(N / batchSize) 次，文本仍只通过参数传递。
+    const conflictClause = conflictPolicy === "upsert"
+      ? `ON CONFLICT (document_id, version, chunk_index) DO UPDATE SET
            project_id          = EXCLUDED.project_id,
            text                = EXCLUDED.text,
            enhanced_text       = EXCLUDED.enhanced_text,
@@ -173,15 +181,16 @@ async function upsertChunks(
            token_estimate      = EXCLUDED.token_estimate,
            keywords            = EXCLUDED.keywords,
            embedding_dimension = EXCLUDED.embedding_dimension,
-           embedding           = EXCLUDED.embedding`,
-        [
-          id, documentId, projectId, version, chunk.index,
-          chunk.text, chunk.enhancedText ?? chunk.text, chunk.sourceRef,
-          chunk.charCount, chunk.tokenEstimate, chunk.keywords ?? [],
-          chunk.embeddingDimension, embeddingStr,
-        ],
-      );
-    }
+           embedding           = EXCLUDED.embedding`
+      : "";
+    await client.query(
+      `INSERT INTO rag_chunks
+         (id, document_id, project_id, version, chunk_index, text, enhanced_text,
+          source_ref, char_count, token_estimate, keywords, embedding_dimension, embedding)
+       VALUES ${valueRows.join(",")}
+       ${conflictClause}`,
+      queryParams,
+    );
   }
 }
 
@@ -220,7 +229,7 @@ export async function runStorage(input: StorageInput): Promise<StorageResult> {
     throw new PipelineError("empty_chunks", "上游 Embedding 未产出任何 chunk");
   }
 
-  const { indexMode, conflictPolicy, truncateTable } = params;
+  const { indexMode, conflictPolicy, truncateTable, batchSize } = params;
   const warnings: string[] = [];
 
   // 初始化表结构
@@ -237,41 +246,61 @@ export async function runStorage(input: StorageInput): Promise<StorageResult> {
     warnings.push("truncateTable=true：已清空 rag_chunks 表所有历史数据并重置列类型，可写入新维度向量");
   }
 
-  // Dimension Guard
-  const dimCheck = await checkDimension(pgClient, dimension);
-  if (!dimCheck.ok) {
-    throw new PipelineError(
-      "dimension_mismatch",
-      `Dimension Guard 失败：表内已有维度为 ${dimCheck.existingDimension} 的向量，本次写入维度为 ${dimension}。` +
-        "可选方案：①开启 truncateTable=true 清空历史数据；②使用相同 embedding provider；③改用 pgvector-replace-version 方法（仅删除当前文档的旧向量）。",
-      { existingDimension: dimCheck.existingDimension, incomingDimension: dimension },
-    );
-  }
-  const freshTable = dimCheck.existingDimension === null || truncateTable;
-
-  // 根据 method 确定版本
-  let version: number;
-  switch (methodId) {
-    case "pgvector-new-version":
-      version = await getNextVersion(pgClient, documentId);
-      break;
-    case "pgvector-replace-version":
-      await deleteAllVersions(pgClient, documentId);
-      version = 1;
-      break;
-    case "pgvector-upsert-version":
-    default: {
-      // 用当前 max(version)，无则 1
-      const maxRes = await pgClient.query<{ max_version: number | null }>(
-        "SELECT MAX(version) AS max_version FROM rag_chunks WHERE document_id = $1",
-        [documentId],
+  let version = 1;
+  let freshTable = false;
+  await pgClient.query("BEGIN");
+  try {
+    // 同一 document 的并发 ingestion 必须串行选择版本；不同 document 仍可并行写入。
+    await pgClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `rag-storage:${documentId}`,
+    ]);
+    // Dimension Guard 与版本写入处于同一事务，失败时不会留下已删除的旧版本或部分批次。
+    const dimCheck = await checkDimension(pgClient, dimension);
+    if (!dimCheck.ok) {
+      throw new PipelineError(
+        "dimension_mismatch",
+        `Dimension Guard 失败：表内已有维度为 ${dimCheck.existingDimension} 的向量，本次写入维度为 ${dimension}。` +
+          "可选方案：①开启 truncateTable=true 清空历史数据；②使用相同 embedding provider；③改用 pgvector-replace-version 方法（仅删除当前文档的旧向量）。",
+        { existingDimension: dimCheck.existingDimension, incomingDimension: dimension },
       );
-      version = maxRes.rows[0].max_version ?? 1;
-      break;
     }
-  }
+    freshTable = dimCheck.existingDimension === null || truncateTable;
 
-  await upsertChunks(pgClient, upstreamChunks, documentId, version, conflictPolicy, projectId);
+    // 根据 method 确定版本；replace 的删除与后续所有 INSERT 必须原子提交。
+    switch (methodId) {
+      case "pgvector-new-version":
+        version = await getNextVersion(pgClient, documentId);
+        break;
+      case "pgvector-replace-version":
+        await deleteAllVersions(pgClient, documentId);
+        version = 1;
+        break;
+      case "pgvector-upsert-version":
+      default: {
+        const maxRes = await pgClient.query<{ max_version: number | null }>(
+          "SELECT MAX(version) AS max_version FROM rag_chunks WHERE document_id = $1",
+          [documentId],
+        );
+        version = maxRes.rows[0].max_version ?? 1;
+        break;
+      }
+    }
+
+    await upsertChunks(
+      pgClient,
+      upstreamChunks,
+      documentId,
+      version,
+      conflictPolicy,
+      projectId,
+      batchSize,
+    );
+    await pgClient.query("COMMIT");
+  } catch (error) {
+    // 回滚失败不能覆盖最初的业务/数据库错误，便于定位真正失败的批次。
+    await pgClient.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 
   // 建索引
   const indexResult = await ensureVectorIndex(pgClient, indexMode, dimension);

@@ -324,6 +324,14 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 ---
 
+## RAG Storage 批量写入（2026-07-19）
+
+`POST /api/pipeline/storage` 的 `params` 支持可选 `batchSize`：整数 `1..500`，默认 `50`。服务端使用参数化多值 `INSERT`，所以 N 个 chunk 的写库语句数为 `ceil(N / batchSize)`；`conflictPolicy=upsert/error` 的行为不变。
+
+同一 document 会先获取事务级 advisory lock；版本选择、`replace-version` 删除和全部 INSERT 批次在同一数据库事务中执行。任一批失败会 `ROLLBACK`，不会留下部分新 chunk 或已经删除旧版本但新版本未写完的状态。调用方必须传固定的 `pg.Client`/`pg.PoolClient`，不能直接用可能为每条查询分配不同连接的 `pg.Pool.query()` 执行该事务。
+
+---
+
 ## 待实现 Endpoints
 
 以下 endpoints 已在 `feature_list.json` 中规划，尚未实现：
@@ -331,7 +339,6 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 - `POST /api/pipeline/chunk`（feat-003.3）
 - `POST /api/pipeline/transform`（feat-003.4）
 - `POST /api/pipeline/embedding`（feat-003.5）
-- `POST /api/pipeline/storage`（feat-003.6）
 - `POST /api/pipeline/query-rewrite`（feat-004.1）
 - `POST /api/pipeline/retrieval`（feat-004.2）
 - `POST /api/pipeline/filter`（feat-004.3）

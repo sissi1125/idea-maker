@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "eval": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/eval.ts",
     "eval:content": "ts-node -r tsconfig-paths/register scripts/content-eval.ts",
-    "bench:sources": "tsx scripts/benchmark-sources-batching.ts"
+    "bench:sources": "tsx scripts/benchmark-sources-batching.ts",
+    "bench:rag-storage": "tsx scripts/benchmark-rag-storage-batching.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.0",

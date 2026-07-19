@@ -324,6 +324,7 @@ export class IngestionJobRunner {
           params: {
             indexMode: "hnsw",
             conflictPolicy: "upsert",
+            batchSize: 50,
             truncateTable: false,
           },
           upstreamChunks: embedded.output.chunks,
