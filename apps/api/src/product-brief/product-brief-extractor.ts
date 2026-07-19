@@ -16,7 +16,7 @@
  *   map-reduce 式全量提取留作后续优化。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { generateText } from "ai";
 import { z } from "zod";
 import { DbService } from "../db/db.service";
@@ -63,7 +63,7 @@ export interface ExtractResult {
 }
 
 @Injectable()
-export class ProductBriefExtractor {
+export class ProductBriefExtractor implements OnModuleInit {
   private readonly logger = new Logger(ProductBriefExtractor.name);
 
   constructor(
@@ -73,14 +73,28 @@ export class ProductBriefExtractor {
     private readonly jobs: JobsService,
   ) {}
 
+  /** 注册持久化 handler；重启恢复时从 payload 重建抽取调用，不依赖原 HTTP 请求闭包。 */
+  onModuleInit(): void {
+    this.jobs.registerHandler("brief_extract", async (payload) => {
+      const userId = typeof payload.userId === "string" ? payload.userId : "";
+      const projectId = typeof payload.projectId === "string" ? payload.projectId : "";
+      if (!userId || !projectId) throw new Error("brief_extract 任务 payload 缺少 userId/projectId");
+      return this.extract(userId, projectId);
+    }, { concurrency: 1 });
+  }
+
   /**
    * 异步启动抽取：立即建 job 返回 jobId，后台跑 LLM（避免同步长请求被生产网关超时掐断）。
    * 前端拿 jobId 轮询 /product-brief/extract/jobs/:jobId。
    */
   async startExtract(userId: string, projectId: string): Promise<{ jobId: string }> {
     await this.assertOwner(userId, projectId);
-    const jobId = await this.jobs.create(projectId, "brief_extract");
-    this.jobs.runInBackground(jobId, () => this.extract(userId, projectId));
+    const jobId = await this.jobs.create(
+      projectId,
+      "brief_extract",
+      undefined,
+      { userId, projectId },
+    );
     return { jobId };
   }
 

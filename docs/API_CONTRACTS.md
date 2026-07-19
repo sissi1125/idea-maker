@@ -332,6 +332,19 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 ---
 
+## 后台任务可靠性（2026-07-19）
+
+Product Brief 提取与 Campaign 生成的既有 HTTP 协议不变：启动端点仍返回 `{ jobId }`，前端仍轮询对应 `/jobs/:jobId`。`async_jobs` 现在是 PostgreSQL 持久化队列，而不是进程内 Promise：
+
+- `queued`：等待首次执行，或某次执行失败后等待有限重试。
+- `running`：已由 `worker_id` 认领，并持续更新 `heartbeat_at/lease_expires_at`。
+- `succeeded`：结果已原子写入 `result`。
+- `failed`：达到 `max_attempts` 后的最终失败；中间失败仍为 `queued`，前端无需新增状态分支。
+
+任务按 `kind` 设置全局并发上限。worker 在事务中用 advisory lock 保护并发计数，再用 `FOR UPDATE SKIP LOCKED` 抢占；过期或历史 `NULL lease` 的 running 任务会在启动/轮询时恢复。API 额外返回 `attempt_count/max_attempts/started_at`，原有字段保持兼容。
+
+---
+
 ## 待实现 Endpoints
 
 以下 endpoints 已在 `feature_list.json` 中规划，尚未实现：

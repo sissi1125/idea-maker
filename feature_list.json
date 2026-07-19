@@ -780,6 +780,16 @@
       "evidence": "2026-07-19 进行中。一级导航更名为资料库/产品档案；产品档案分为产品信息、产品卖点、视觉资产三个横向 Tab，支持卖点/图片维护与来源徽标；确认全部信息会在事务内逐条确认 candidate/stale、写 revision，再确认 Brief，完成后按钮替换为已确认状态。内容资产为 5 个真实聚合 Tab，标题和 Tab 固定，仅当前内容区滚动；桌面和 375px 切换坐标稳定且无横向溢出。资料库已有官网直接展示，编辑时才展开输入；更换成功清理旧官网 RAG。内容任务展示允许卖点并支持自定义确认删除。经典生成/Agent 对话 Evidence hover 显示原 chunk。Claim/Asset 增加 origin 并按用户维护优先消费，Brief 复用既有 source/confidence。运行态 schema、API/Web build、typecheck/lint、git diff check 和浏览器 E2E 均通过。未完成：项目 key_missing，真实外部模型 Brief/Campaign/Agent 链路未验；生产 API health 当前 Cloudflare 530。"
     },
     {
+      "id": "feat-403",
+      "name": "PostgreSQL 后台任务队列可靠性",
+      "phase": "4",
+      "track": "A-main",
+      "description": "将 Product Brief 提取与 Campaign 生成从进程内 Promise 升级为 PostgreSQL 持久化任务：按 kind 并发限制、SKIP LOCKED 抢占、worker lease/heartbeat、有限重试、过期任务恢复和优雅退出；保持既有 HTTP 轮询协议不变。",
+      "dependencies": ["feat-400.4"],
+      "status": "done",
+      "evidence": "2026-07-19 完成。async_jobs 新增 payload/worker_id/lease_expires_at/heartbeat_at/attempt_count/max_attempts/available_at/started_at/updated_at；JobsService 注册持久化 handler，事务 advisory lock 保护 kind 全局并发计数，FOR UPDATE SKIP LOCKED 抢占，默认 lease 60s/heartbeat 20s，指数退避最多 3 次，启动轮询回收过期及历史 NULL lease，关闭时停止 claim、等待宽限期并释放未完成 lease。Brief/Campaign payload 只存业务 ID，执行时重读数据库；HTTP jobId+轮询协议不变。8 个队列单测覆盖 payload、claim、单/跨实例并发、heartbeat、retry、shutdown、迁移顺序；真实 PostgreSQL 验证普通任务 attempt=1 成功及 dead-worker 过期 lease attempt=2 恢复成功；完整 Nest 启动和 /health 200；全仓 648 tests、typecheck/lint、API build 通过。"
+    },
+    {
       "id": "feat-013",
       "name": "工程化与生产部署",
       "phase": "5",

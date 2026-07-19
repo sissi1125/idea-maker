@@ -922,13 +922,33 @@ CREATE TABLE IF NOT EXISTS async_jobs (
   kind         TEXT NOT NULL,
   ref_id       TEXT,
   status       TEXT NOT NULL DEFAULT 'queued',
+  payload      JSONB NOT NULL DEFAULT '{}'::jsonb,
   result       JSONB,
   error        TEXT,
+  worker_id    TEXT,
+  lease_expires_at TIMESTAMPTZ,
+  heartbeat_at TIMESTAMPTZ,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at   TIMESTAMPTZ DEFAULT NOW(),
+  started_at   TIMESTAMPTZ,
   finished_at  TIMESTAMPTZ,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (status IN ('queued', 'running', 'succeeded', 'failed'))
 );
 CREATE INDEX IF NOT EXISTS idx_async_jobs_project ON async_jobs (project_id, created_at DESC);
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS worker_id TEXT;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS available_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS idx_async_jobs_claim
+  ON async_jobs (kind, status, available_at, created_at);
 `;
 
 export const FEAT_200_DDL_BLOCKS = [

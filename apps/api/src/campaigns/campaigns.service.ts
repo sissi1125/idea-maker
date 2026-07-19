@@ -7,7 +7,7 @@
  *   - 不做自动发布。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { generateText } from "ai";
 import { DbService } from "../db/db.service";
@@ -51,7 +51,7 @@ interface CampaignRow {
 }
 
 @Injectable()
-export class CampaignsService {
+export class CampaignsService implements OnModuleInit {
   private readonly logger = new Logger(CampaignsService.name);
 
   constructor(
@@ -61,11 +61,28 @@ export class CampaignsService {
     private readonly evaluations: ContentEvaluationService,
   ) {}
 
+  /** Campaign handler 用持久化标识重建调用；默认单并发，避免 2C2G 同时堆积多个 LLM 响应。 */
+  onModuleInit(): void {
+    this.jobs.registerHandler("campaign_generate", async (payload) => {
+      const userId = typeof payload.userId === "string" ? payload.userId : "";
+      const projectId = typeof payload.projectId === "string" ? payload.projectId : "";
+      const campaignId = typeof payload.campaignId === "string" ? payload.campaignId : "";
+      if (!userId || !projectId || !campaignId) {
+        throw new Error("campaign_generate 任务 payload 缺少 userId/projectId/campaignId");
+      }
+      return this.generateVariants(userId, projectId, campaignId);
+    }, { concurrency: 1 });
+  }
+
   /** 异步启动生成：立即返回 jobId，后台跑 LLM（防生产网关超时）。前端轮询 job 端点。 */
   async startGenerate(userId: string, projectId: string, campaignId: string): Promise<{ jobId: string }> {
     await this.assertOwner(userId, projectId);
-    const jobId = await this.jobs.create(projectId, "campaign_generate", campaignId);
-    this.jobs.runInBackground(jobId, () => this.generateVariants(userId, projectId, campaignId));
+    const jobId = await this.jobs.create(
+      projectId,
+      "campaign_generate",
+      campaignId,
+      { userId, projectId, campaignId },
+    );
     return { jobId };
   }
 
