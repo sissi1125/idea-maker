@@ -47,6 +47,7 @@ export interface ImportInput {
   url: string;
   maxPages?: number;
   maxDepth?: number;
+  replaceExisting?: boolean;
 }
 export interface ImportResult {
   jobId: string;
@@ -279,12 +280,16 @@ export class SourcesService {
       }
       // 主图：最多 3 张
       for (const url of [...imageUrls].slice(0, 3)) {
-        const a = await this.assets.importFromUrl(projectId, "product_screenshot", url, "官网主图");
+        const a = await this.assets.importFromUrl(projectId, "hero_image", url, "官网主图");
         if (a) assetsImported++;
       }
 
       // 5. 官网正文进 RAG（embedding → rag_chunks，让 search_kb 能检索官网内容）
       const ragChunksEmbedded = await this.embedIntoRag(projectId, ragCandidates);
+
+      if (input.replaceExisting) {
+        await this.removePreviousWebsites(projectId, sourceRecordId);
+      }
 
       await this.finishJob(jobId, "succeeded", fetched, skipped, null);
       return { jobId, sourceRecordId, host, pagesFetched: fetched, pagesSkipped: skipped, pages, assetsImported, ragChunksEmbedded };
@@ -293,6 +298,29 @@ export class SourcesService {
       await this.finishJob(jobId, "failed", fetched, skipped, msg);
       throw err;
     }
+  }
+
+  /** 更换官网成功后清理旧官网页面和对应 RAG chunk，避免旧域名继续参与检索。 */
+  private async removePreviousWebsites(projectId: string, currentSourceId: string): Promise<void> {
+    await this.db.withClient(async (client) => {
+      const { rows: oldPages } = await client.query<{ id: string }>(
+        `SELECT p.id FROM source_pages p
+          JOIN source_records r ON r.id = p.source_record_id
+         WHERE r.project_id = $1 AND r.kind = 'website' AND r.id <> $2`,
+        [projectId, currentSourceId],
+      );
+      const pageIds = oldPages.map((page) => page.id);
+      if (pageIds.length > 0) {
+        await client.query(
+          `DELETE FROM rag_chunks WHERE project_id = $1 AND document_id = ANY($2::text[])`,
+          [projectId, pageIds],
+        );
+      }
+      await client.query(
+        `DELETE FROM source_records WHERE project_id = $1 AND kind = 'website' AND id <> $2`,
+        [projectId, currentSourceId],
+      );
+    });
   }
 
   /**

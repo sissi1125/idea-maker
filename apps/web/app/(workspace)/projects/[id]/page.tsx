@@ -22,6 +22,7 @@ import { useParams } from "next/navigation";
 import {
   Send, FileText, Layers, Sparkles,
   ChevronUp, ChevronDown, DollarSign, RefreshCw, Eye,
+  Lightbulb, BarChart3, Palette, Share2, ListChecks,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -40,15 +41,16 @@ import { Markdown } from "@/components/markdown/Markdown";
 import { RuleSelector } from "@/components/platform-rules/RuleSelector";
 import { ViolationsBanner } from "@/components/platform-rules/ViolationsBanner";
 import { useToast } from "@/components/toast/ToastProvider";
+import { PageHeader } from "@/components/ui/ProductUi";
 
 // ── 预设问题 ──────────────────────────────────────────────────────────────
 
 const PRESET_QUESTIONS = [
-  { id: "q1", icon: "💡", title: "生成 5 个卖点及小红书笔记" },
-  { id: "q2", icon: "📊", title: "对比竞品优势，生成差异化卖点" },
-  { id: "q3", icon: "🎨", title: "为产品生成 3 种不同风格的文案" },
-  { id: "q4", icon: "📱", title: "生成小红书、微博、抖音三端文案" },
-  { id: "q5", icon: "🌟", title: "生成产品使用场景故事和配图 prompt" },
+  { id: "q1", Icon: Lightbulb, title: "基于可用卖点生成内容方向" },
+  { id: "q2", Icon: BarChart3, title: "分析已提供的竞品资料" },
+  { id: "q3", Icon: Palette, title: "用 3 种不同语气表达" },
+  { id: "q4", Icon: Share2, title: "生成多个平台的内容版本" },
+  { id: "q5", Icon: Sparkles, title: "生成产品使用场景故事" },
 ];
 
 // ── ProjectInfoCards ──────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ function ProjectInfoCards({
         if (isGenerating) {
           badge = {
             text: flight!.status === "queued" ? "排队中…" : "LLM 生成中…",
-            bg: "rgba(79,168,154,.12)",
+            bg: "var(--brand-soft)",
             color: "var(--brand)",
             spin: true,
           };
@@ -164,8 +166,8 @@ function ProjectInfoCards({
         return (
           <div key={c.kind} className="card flex-1 min-w-0 p-[16px_18px] flex flex-col gap-2.5"
                style={{
-                 borderColor: c.accent ? "rgba(79,168,154,.25)" : "var(--line)",
-                 background: c.accent ? "linear-gradient(180deg, rgba(79,168,154,.05), #fff 40%)" : "#fff",
+                 borderColor: c.accent ? "var(--brand)" : "var(--line)",
+                 background: "#fff",
                }}>
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-[6px] flex items-center justify-center"
@@ -181,7 +183,7 @@ function ProjectInfoCards({
                 {badge.spin ? (
                   <span className="inline-block w-[10px] h-[10px] rounded-full flex-none"
                         style={{
-                          border: "1.5px solid rgba(79,168,154,.3)",
+                          border: "1.5px solid var(--line-strong)",
                           borderTopColor: "var(--brand)",
                           animation: "spin .9s linear infinite",
                         }} />
@@ -210,7 +212,7 @@ function ProjectInfoCards({
             {/* 进行中提示行——独立于正文，让用户即便有旧摘要也清楚知道正在重生成 */}
             {isGenerating && (
               <div className="text-[12px] leading-[1.5] flex items-center gap-2 rounded-md px-2 py-1.5"
-                   style={{ background: "rgba(79,168,154,.06)", color: "var(--brand)" }}>
+                   style={{ background: "var(--brand-soft)", color: "var(--brand-ink)" }}>
                 <span className="inline-block w-2 h-2 rounded-full"
                       style={{
                         background: "var(--brand)",
@@ -283,8 +285,8 @@ function PresetGrid({ onPick }: { onPick: (text: string) => void }) {
         <button key={q.id}
           onClick={() => onPick(q.title)}
           className="flex-none inline-flex gap-[7px] items-center whitespace-nowrap
-                     rounded-full cursor-pointer text-[12.5px] font-medium
-                     hover:border-[var(--brand)] hover:text-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                     rounded-[6px] cursor-pointer text-[12.5px] font-medium
+                     hover:border-[var(--ink)] hover:text-[var(--ink)] hover:bg-[var(--line-2)]"
           style={{
             padding: "7px 12px",
             border: "1px solid var(--line)",
@@ -292,7 +294,7 @@ function PresetGrid({ onPick }: { onPick: (text: string) => void }) {
             color: "var(--ink-2)",
             transition: ".15s",
           }}>
-          <span className="text-[14px] leading-none">{q.icon}</span>
+          <q.Icon size={14} />
           <span>{q.title}</span>
         </button>
       ))}
@@ -349,10 +351,10 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
   const cleanedNotes = normalizeSummaryText(result.resultNotes ?? null);
   const cost = result.costBreakdown;
   return (
-    <div className="card fade-in p-[18px_20px]" style={{ boxShadow: "var(--shadow-md)" }}>
+    <div className="card fade-in p-[18px_20px]">
       <div className="flex items-start gap-[11px] mb-3.5">
-        <span className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center flex-none"
-              style={{ background: "linear-gradient(135deg, #E5C56F, #C9A23E)", boxShadow: "0 4px 10px rgba(201,162,62,.25)" }}>
+        <span className="w-[26px] h-[26px] rounded-[6px] flex items-center justify-center flex-none"
+              style={{ background: "var(--ink)" }}>
           <Sparkles size={14} strokeWidth={2} style={{ color: "#fff" }} />
         </span>
         <div className="flex-1">
@@ -369,10 +371,9 @@ function GeneratedResult({ result }: { result: GenerateResponse }) {
 
       {/* Result notes（markdown 渲染——不再显示 ** - 等原始符号） */}
       {cleanedNotes && (
-        <div className="rounded-[9px] p-[12px_16px] mb-3.5"
-             style={{ background: "linear-gradient(180deg, #FEFAEF, #fff)",
-                      border: "1px solid var(--line-2)" }}>
-          <Markdown content={cleanedNotes} />
+        <div className="rounded-[6px] p-[12px_16px] mb-3.5"
+             style={{ background: "var(--bg)", border: "1px solid var(--line-2)" }}>
+          <Markdown content={cleanedNotes} evidence={result.retrievedChunks.map((chunk) => ({ text: chunk.text, sourceRef: chunk.sourceRef }))} />
         </div>
       )}
 
@@ -455,11 +456,9 @@ type Phase = "idle" | "running" | "done";
 export default function ProjectChatPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const toast = useToast();
-  const { setCurrentProject, currentProject: getCurrent } = useProjectsStore();
+  const { setCurrentProject } = useProjectsStore();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
-  const project = getCurrent();
-
   // feat-300.6：Agent 模式 toggle（localStorage 持久化，默认开）
   const agentModeEnabled = useUiStore((s) => s.agentModeEnabled);
   const setAgentModeEnabled = useUiStore((s) => s.setAgentModeEnabled);
@@ -476,6 +475,7 @@ export default function ProjectChatPage() {
   // feat-300.6：当前 agent run（仅 agent 模式有值）
   const [agentRunId, setAgentRunId] = useState<string | null>(null);
   const [agentFinalText, setAgentFinalText] = useState<string | null>(null);
+  const [agentEvidence, setAgentEvidence] = useState<Array<{ text: string; sourceRef?: string }>>([]);
   // v1.0 优化：上下文查看面板开关
   const [contextOpen, setContextOpen] = useState(false);
 
@@ -548,6 +548,7 @@ export default function ProjectChatPage() {
     setResult(null);
     setError(null);
     setAgentFinalText(null);
+    setAgentEvidence([]);
     setAgentRunId(null);
 
     // feat-300.6：Agent 模式分支
@@ -595,6 +596,11 @@ export default function ProjectChatPage() {
     setAgentFinalText(finalText);
     setPhase("done");
     setSummariesReloadTick((t) => t + 1);
+    if (agentRunId) {
+      void agentApi.getRunContext(projectId, agentRunId)
+        .then((context) => setAgentEvidence(context.evidence))
+        .catch(() => setAgentEvidence([]));
+    }
   };
 
   /** Agent error 帧也是终态：停止“思考中”并把后端脱敏后的可操作错误展示出来。 */
@@ -615,16 +621,8 @@ export default function ProjectChatPage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[980px] mx-auto px-7 py-6 pb-24">
-        {/* Project header */}
-        <div className="mb-1.5">
-          <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink)" }}>
-            {project?.name ?? "项目"}
-          </h1>
-          <p className="text-[13px]" style={{ color: "var(--ink-3)" }}>
-            {project?.description ?? ""}
-          </p>
-        </div>
+      <div className="page-shell pb-24">
+        <PageHeader title="AI 对话" description="自由探索、追问产品资料，或继续修改内容。需要交付时仍会执行事实核查。" />
 
         {/* Auto-generated info cards（项目级最新成功摘要 + 进行中状态） */}
         <ProjectInfoCards
@@ -649,7 +647,7 @@ export default function ProjectChatPage() {
           <div className="mt-6 flex gap-3 items-start">
             {/* User avatar */}
             <div className="w-[30px] h-[30px] rounded-full flex-none flex items-center justify-center text-[11.5px] font-semibold"
-                 style={{ background: "linear-gradient(135deg, #F0BC8B, #DA8A4A)", color: "#fff" }}>
+                 style={{ background: "var(--ink)", color: "#fff" }}>
               {userInitials}
             </div>
             <div className="flex-1 pt-1">
@@ -657,7 +655,7 @@ export default function ProjectChatPage() {
                 {user?.displayName ?? user?.email ?? "你"} · 刚刚
               </div>
               <div className="card inline-block max-w-full text-[13.5px] leading-[1.55]"
-                   style={{ padding: "10px 14px", background: "var(--brand-soft)", borderColor: "rgba(79,168,154,.22)", color: "var(--ink)" }}>
+                   style={{ padding: "10px 14px", background: "var(--brand-soft)", borderColor: "var(--brand)", color: "var(--ink)" }}>
                 {lastPrompt}
               </div>
             </div>
@@ -669,12 +667,8 @@ export default function ProjectChatPage() {
           <div className="mt-3.5 flex gap-3 items-start">
             {/* Agent avatar */}
             <div className="w-[30px] h-[30px] rounded-full flex-none flex items-center justify-center text-[14px] font-bold"
-                 style={{
-                   background: "linear-gradient(135deg, #6BBFAF 0%, #3D8C7F 100%)",
-                   color: "#fff",
-                   boxShadow: "0 4px 10px rgba(79,168,154,.32)",
-                 }}>
-              H
+                 style={{ background: "var(--brand)", color: "#fff" }}>
+              I
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-3.5">
               <div className="text-[11.5px] flex items-center gap-2" style={{ color: "var(--ink-3)" }}>
@@ -686,7 +680,7 @@ export default function ProjectChatPage() {
                     onClick={() => setContextOpen(true)}
                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px]
                                hover:bg-[var(--brand-soft)] cursor-pointer"
-                    style={{ color: "var(--brand)", border: "1px solid rgba(79,168,154,.3)" }}
+                    style={{ color: "var(--brand-ink)", border: "1px solid var(--brand)" }}
                     title="查看本次 Agent 看到的上下文"
                   >
                     <Eye size={10} strokeWidth={2} />
@@ -710,7 +704,7 @@ export default function ProjectChatPage() {
                   {phase === "done" && agentFinalText && (
                     <div className="card p-4 text-[14px] leading-[1.6]"
                          style={{ background: "#fff", border: "1px solid var(--border)" }}>
-                      <Markdown content={agentFinalText} />
+                      <Markdown content={agentFinalText} evidence={agentEvidence} />
                     </div>
                   )}
                 </>
@@ -750,14 +744,14 @@ export default function ProjectChatPage() {
       </div>
 
       {/* Sticky bottom composer */}
-      <div className="sticky bottom-0"
-           style={{ background: "linear-gradient(180deg, rgba(247,246,242,0), var(--bg) 35%)", padding: "24px 28px 18px", marginTop: -24 }}>
+      <div className="sticky bottom-0 border-t border-[var(--line)]"
+           style={{ background: "var(--bg)", padding: "14px 28px 18px" }}>
         <div className="max-w-[980px] mx-auto">
           {/* Presets toggle */}
           <div className="flex items-center justify-between mx-0.5 mb-2.5">
             <div className="text-[11.5px] font-semibold tracking-wider uppercase flex items-center gap-2"
                  style={{ color: "var(--ink-3)" }}>
-              📋 快速开始 — 预设问题
+              <ListChecks size={13} />快速开始
             </div>
             <button className="btn btn-sm btn-ghost" onClick={() => setShowPresets(s => !s)}>
               {showPresets ? <><ChevronDown size={12} strokeWidth={2} /> 收起</> : <><ChevronUp size={12} strokeWidth={2} /> 展开</>}
@@ -771,7 +765,7 @@ export default function ProjectChatPage() {
           {/* feat-300.6：Agent 模式 toggle（默认开） */}
           <div className="flex items-center justify-end gap-2 mx-0.5 mb-2 text-[11.5px]"
                style={{ color: "var(--ink-3)" }}>
-            <Sparkles size={12} className={agentModeEnabled ? "text-purple-500" : "text-gray-400"} />
+            <Sparkles size={12} style={{ color: agentModeEnabled ? "var(--brand)" : "var(--ink-4)" }} />
             <span>Agent 模式</span>
             <button
               type="button"
@@ -779,7 +773,7 @@ export default function ProjectChatPage() {
               aria-checked={agentModeEnabled}
               onClick={() => setAgentModeEnabled(!agentModeEnabled)}
               className={`relative inline-flex h-4 w-7 items-center rounded-full transition ${
-                agentModeEnabled ? "bg-purple-500" : "bg-gray-300"
+                agentModeEnabled ? "bg-[var(--brand)]" : "bg-gray-300"
               }`}
             >
               <span

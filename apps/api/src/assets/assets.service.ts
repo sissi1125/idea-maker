@@ -13,7 +13,11 @@ import { DbService } from "../db/db.service";
 import { FileStorageService } from "../mvp-documents/file-storage.service";
 import { isPrivateHost, isPrivateIpAddress } from "../sources/website-import";
 
-export const ASSET_KINDS = ["logo", "product_screenshot", "reference_poster", "font"] as const;
+export const ASSET_KINDS = [
+  "logo", "hero_image", "atmosphere", "feature_screenshot",
+  // 保留旧值，确保历史资产和海报模板继续可读。
+  "product_screenshot", "reference_poster", "font",
+] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;
@@ -28,6 +32,8 @@ export interface AssetRow {
   width: number | null;
   height: number | null;
   label: string | null;
+  claim_id: string | null;
+  origin: "website" | "document" | "user" | "platform";
   status: "uploaded" | "approved" | "archived";
   created_at: Date;
 }
@@ -83,7 +89,7 @@ export class AssetsService {
       const { rows } = await client.query<AssetRow>(
         `INSERT INTO visual_assets (id, project_id, kind, file_ref, hash, mime, width, height, label)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at`,
+         RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at`,
         [id, projectId, input.kind, fileRef, hash, input.mime, width, height, input.label ?? null],
       );
       return rows[0];
@@ -125,7 +131,7 @@ export class AssetsService {
     return this.db.withClient(async (client) => {
       // 去重：同项目同 hash 已存在则跳过
       const { rows: dup } = await client.query<AssetRow>(
-        `SELECT id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at
+        `SELECT id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at
            FROM visual_assets WHERE project_id = $1 AND hash = $2 LIMIT 1`,
         [projectId, hash],
       );
@@ -146,9 +152,9 @@ export class AssetsService {
       const ext = mime.includes("png") ? ".png" : mime.includes("svg") ? ".svg" : mime.includes("webp") ? ".webp" : ".jpg";
       const fileRef = this.storage.save(projectId, id, `asset${ext}`, buf);
       const { rows } = await client.query<AssetRow>(
-        `INSERT INTO visual_assets (id, project_id, kind, file_ref, hash, mime, width, height, label)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at`,
+        `INSERT INTO visual_assets (id, project_id, kind, file_ref, hash, mime, width, height, label, origin)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'website')
+         RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at`,
         [id, projectId, kind, fileRef, hash, mime, width, height, label ?? "官网导入"],
       );
       return rows[0];
@@ -185,7 +191,7 @@ export class AssetsService {
       const { rows } = await client.query<AssetRow>(
         `UPDATE visual_assets SET status = 'approved'
           WHERE id = $1 AND project_id = $2
-        RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at`,
+        RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at`,
         [assetId, projectId],
       );
       if (rows.length === 0) throw new NotFoundException("资产不存在");
@@ -197,12 +203,54 @@ export class AssetsService {
     await this.assertOwner(userId, projectId);
     return this.db.withClient(async (client) => {
       const { rows } = await client.query<AssetRow>(
-        `SELECT id, project_id, kind, file_ref, hash, mime, width, height, label, status, created_at
-           FROM visual_assets WHERE project_id = $1 ORDER BY created_at DESC`,
+        `SELECT id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at
+           FROM visual_assets WHERE project_id = $1
+          ORDER BY CASE origin WHEN 'user' THEN 0 WHEN 'website' THEN 1 ELSE 2 END, created_at DESC`,
         [projectId],
       );
       return rows;
     });
+  }
+
+  /** 更新用户维护的图片标签；关联卖点必须属于同一项目，避免跨项目引用。 */
+  async updateTags(
+    userId: string,
+    projectId: string,
+    assetId: string,
+    input: { kind: AssetKind; claimId: string | null },
+  ): Promise<AssetRow> {
+    await this.assertOwner(userId, projectId);
+    return this.db.withClient(async (client) => {
+      if (input.claimId) {
+        const { rows: claims } = await client.query(
+          `SELECT 1 FROM claims WHERE id = $1 AND project_id = $2`,
+          [input.claimId, projectId],
+        );
+        if (claims.length === 0) throw new BadRequestException("卖点不存在或不属于当前项目");
+      }
+      const { rows } = await client.query<AssetRow>(
+        `UPDATE visual_assets SET kind = $3, claim_id = $4
+          WHERE id = $1 AND project_id = $2
+        RETURNING id, project_id, kind, file_ref, hash, mime, width, height, label, claim_id, origin, status, created_at`,
+        [assetId, projectId, input.kind, input.claimId],
+      );
+      if (rows.length === 0) throw new NotFoundException("资产不存在");
+      return rows[0];
+    });
+  }
+
+  /** 删除数据库记录后清理文件；先取路径可避免记录删除后无法定位磁盘对象。 */
+  async remove(userId: string, projectId: string, assetId: string): Promise<void> {
+    await this.assertOwner(userId, projectId);
+    const fileRef = await this.db.withClient(async (client) => {
+      const { rows } = await client.query<{ file_ref: string }>(
+        `DELETE FROM visual_assets WHERE id = $1 AND project_id = $2 RETURNING file_ref`,
+        [assetId, projectId],
+      );
+      if (rows.length === 0) throw new NotFoundException("资产不存在");
+      return rows[0].file_ref;
+    });
+    this.storage.delete(fileRef);
   }
 
   /** 读某个资产的字节 + mime（带 owner 校验，供前端缩略图展示） */

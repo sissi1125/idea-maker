@@ -25,6 +25,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Upload, Check, X, ArrowRight, AlertCircle, ChevronDown, ChevronRight,
+  Package, Target, Archive,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { WebsiteSourcesPanel } from "@/components/knowledge/WebsiteSourcesPanel";
@@ -34,6 +35,7 @@ import type {
   IngestionStage, IngestionStageOutputs,
 } from "@/lib/api";
 import { useToast } from "@/components/toast/ToastProvider";
+import { PageHeader } from "@/components/ui/ProductUi";
 
 // ── Stage 显示顺序 + 中文标签 ────────────────────────────────────────────────
 
@@ -122,16 +124,16 @@ const CATEGORIES: Array<{
   id: DocumentCategory;
   label: string;
   hint: string;
-  icon: string;
+  Icon: typeof Package;
   color: string;
   bg: string;
   border: string;
 }> = [
-  { id: "product", label: "产品资料",     hint: "产品手册、规格书、卖点稿", icon: "📦",
+  { id: "product", label: "产品资料",     hint: "产品手册、规格书、卖点稿", Icon: Package,
     color: "var(--brand)", bg: "var(--brand-soft)", border: "rgba(79,168,154,.28)" },
-  { id: "compete", label: "竞品资料",     hint: "对标竞品的产品页、评测",   icon: "🎯",
+  { id: "compete", label: "竞品资料",     hint: "用户主动提供的竞品页面与评测", Icon: Target,
     color: "var(--tool)",  bg: "var(--tool-bg)",    border: "rgba(201,89,29,.22)" },
-  { id: "history", label: "历史宣传物料", hint: "过往优秀文案、获奖案例",   icon: "🗂️",
+  { id: "history", label: "历史宣传物料", hint: "过往文案、已发布内容和案例", Icon: Archive,
     color: "var(--gen)",   bg: "var(--gen-bg)",     border: "rgba(214,180,80,.25)" },
 ];
 
@@ -182,6 +184,11 @@ interface FileEntry {
   } | null;
   /** 每个 stage 的输出摘要——边跑边累加 */
   stageOutputs: IngestionStageOutputs;
+}
+
+/** 后端当前终态为 succeeded，同时兼容历史 completed 记录。 */
+function isIngestionDone(status: IngestionJob["status"]): boolean {
+  return status === "succeeded" || status === "completed";
 }
 
 // ── 删除确认弹窗组件 ────────────────────────────────────────────────────────
@@ -284,7 +291,7 @@ export default function KnowledgePage() {
     setFiles(prev => prev.map(f => {
       if (f.id !== docId && f.ingestionJobId !== jobId) return f;
 
-      const isDone = job.status === "completed";
+      const isDone = isIngestionDone(job.status);
       const isFailed = job.status === "failed";
 
       return {
@@ -317,7 +324,7 @@ export default function KnowledgePage() {
       try {
         const { job } = await documentsApi.getIngestionJob(projectId, jobId);
         updateFileFromJob(docId, jobId, job);
-        return job.status === "completed" || job.status === "failed";
+        return isIngestionDone(job.status) || job.status === "failed";
       } catch {
         return false;
       }
@@ -375,7 +382,7 @@ export default function KnowledgePage() {
 
         setFiles(docsRes.documents.map((d: MvpDocument) => {
           const job = jobByDocId.get(d.id);
-          const isDone = job?.status === "completed";
+          const isDone = job ? isIngestionDone(job.status) : false;
           const isFailed = job?.status === "failed";
 
           return {
@@ -492,16 +499,8 @@ export default function KnowledgePage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[980px] mx-auto px-8 py-7 pb-20">
-        {/* Header */}
-        <div className="mb-[18px]">
-          <div className="text-[22px] font-semibold tracking-tight">
-            📚 知识库 · {project?.name ?? "项目"}
-          </div>
-          <div className="text-[13px] mt-0.5" style={{ color: "var(--ink-3)" }}>
-            按 <b>产品资料 / 竞品资料 / 历史宣传物料</b> 三类分别上传 — Agent 会针对不同来源使用不同的检索策略
-          </div>
-        </div>
+      <div className="page-shell">
+        <PageHeader title="资料库" description={`管理 ${project?.name ?? "当前项目"} 的原始信息来源。产品资料、竞品资料和历史内容会分别处理。`} />
 
         {/* 官网来源（3.1）*/}
         <WebsiteSourcesPanel projectId={projectId} />
@@ -511,20 +510,21 @@ export default function KnowledgePage() {
           {CATEGORIES.map(c => {
             const isActive = c.id === category;
             const count = countByCat(c.id);
+            const CategoryIcon = c.Icon;
             return (
               <button key={c.id}
                 onClick={() => setCategory(c.id)}
-                className="text-left rounded-[11px] cursor-pointer flex gap-[11px] items-start"
+                className="text-left rounded-[8px] cursor-pointer flex gap-[11px] items-start"
                 style={{
                   padding: "14px",
                   border: `1px solid ${isActive ? c.color : "var(--line)"}`,
                   background: isActive ? c.bg : "#fff",
-                  boxShadow: isActive ? `0 0 0 4px ${c.bg}, 0 6px 14px ${c.bg}` : "var(--shadow-sm)",
+                  boxShadow: "none",
                   transition: ".15s",
                 }}>
-                <span className="w-9 h-9 rounded-[9px] flex-none bg-white flex items-center justify-center text-[18px]"
+                <span className="w-9 h-9 rounded-[6px] flex-none bg-white flex items-center justify-center"
                       style={{ border: `1px solid ${c.border}` }}>
-                  {c.icon}
+                  <CategoryIcon size={17} />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-1.5 mb-[3px]">
@@ -606,7 +606,7 @@ export default function KnowledgePage() {
               <div key={c.id} className="mb-3.5">
                 <div className="flex items-center gap-2.5 mb-2 text-[11.5px] font-semibold tracking-wider uppercase"
                      style={{ color: c.color }}>
-                  <span className="text-[13px]">{c.icon}</span>
+                  <c.Icon size={14} />
                   <span>{c.label}</span>
                   <div className="flex-1 h-px" style={{ background: "var(--line-2)" }} />
                   <span className="mono normal-case tracking-normal" style={{ color: "var(--ink-4)" }}>
@@ -725,8 +725,8 @@ export default function KnowledgePage() {
         {/* Bottom action */}
         <div className="mt-[18px] flex gap-2">
           <button className="btn btn-primary"
-                  onClick={() => router.push(`/projects/${projectId}`)}>
-            完成，去对话 <ArrowRight size={12} strokeWidth={2.2} />
+                  onClick={() => router.push(`/projects/${projectId}/brief`)}>
+            下一步，确认产品信息 <ArrowRight size={12} strokeWidth={2.2} />
           </button>
         </div>
       </div>

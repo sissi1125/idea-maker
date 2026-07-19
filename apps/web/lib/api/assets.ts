@@ -5,7 +5,7 @@
 
 import { apiFetch, apiBaseUrl, authToken, ApiError } from "./client";
 
-export const ASSET_KINDS = ["logo", "product_screenshot", "reference_poster", "font"] as const;
+export const ASSET_KINDS = ["logo", "hero_image", "atmosphere", "feature_screenshot", "product_screenshot", "reference_poster", "font"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 export interface VisualAsset {
@@ -17,6 +17,8 @@ export interface VisualAsset {
   width: number | null;
   height: number | null;
   label: string | null;
+  claim_id: string | null;
+  origin: "website" | "document" | "user" | "platform";
   status: "uploaded" | "approved" | "archived";
   created_at: string;
 }
@@ -53,6 +55,24 @@ export async function approveAsset(projectId: string, assetId: string): Promise<
     { method: "POST" },
   );
   return res.asset;
+}
+
+/** 保存图片类型与对应卖点标签，后续海报和素材筛选复用同一份资产元数据。 */
+export async function updateAssetTags(
+  projectId: string,
+  assetId: string,
+  input: { kind: AssetKind; claimId: string | null },
+): Promise<VisualAsset> {
+  const res = await apiFetch<{ asset: VisualAsset }>(`/projects/${projectId}/assets/${assetId}/tags`, {
+    method: "PATCH",
+    body: input,
+  });
+  return res.asset;
+}
+
+/** 删除视觉资产及其文件，画廊删除后不会留下不可见的存储对象。 */
+export async function deleteAsset(projectId: string, assetId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" });
 }
 
 /** 拉资产图片 blob → object URL（缩略图，用完 revoke） */

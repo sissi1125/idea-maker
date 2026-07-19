@@ -23,7 +23,7 @@ export default function ContentPage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[980px] mx-auto px-7 py-6">
+      <div className="page-shell">
         <ContentWorkbench projectId={projectId} />
       </div>
     </main>

@@ -21,7 +21,7 @@ import {
 } from "./claims.types";
 
 const COLS = `id, project_id, brief_id, text, claim_type, target_audience_ids, scenario_ids,
-  evidence_chunk_ids, source_field_id, risk_level, status, created_at, updated_at`;
+  evidence_chunk_ids, source_field_id, origin, risk_level, status, created_at, updated_at`;
 
 export interface CreateClaimInput {
   text: string;
@@ -124,8 +124,8 @@ export class ClaimsService {
       const claimType = GROUP_TO_CLAIM_TYPE[f.field_group] ?? "functional";
       await client.query(
         `INSERT INTO claims
-           (id, project_id, brief_id, text, claim_type, evidence_chunk_ids, source_field_id, status)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,'candidate')`,
+           (id, project_id, brief_id, text, claim_type, evidence_chunk_ids, source_field_id, origin, status)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,'platform','candidate')`,
         [randomUUID(), projectId, briefId, text, claimType,
          JSON.stringify(toArr(f.evidence_chunk_ids)), f.id],
       );
@@ -144,7 +144,8 @@ export class ClaimsService {
     await this.assertOwner(userId, projectId);
     return this.db.withClient(async (client) => {
       const { rows } = await client.query<ClaimRow>(
-        `SELECT ${COLS} FROM claims WHERE project_id = $1 ORDER BY status ASC, created_at DESC`,
+      `SELECT ${COLS} FROM claims WHERE project_id = $1
+        ORDER BY status ASC, CASE origin WHEN 'user' THEN 0 ELSE 1 END, created_at DESC`,
         [projectId],
       );
       return rows.map((r) => this.map(r));
@@ -156,7 +157,7 @@ export class ClaimsService {
     const { rows } = await client.query<ClaimRow>(
       `SELECT ${COLS} FROM claims
         WHERE project_id = $1 AND status = 'approved'
-        ORDER BY created_at DESC`,
+        ORDER BY CASE origin WHEN 'user' THEN 0 ELSE 1 END, created_at DESC`,
       [projectId],
     );
     return rows.map((row) => this.map(row));
@@ -177,8 +178,8 @@ export class ClaimsService {
       const { rows } = await client.query<ClaimRow>(
         `INSERT INTO claims
            (id, project_id, brief_id, text, claim_type, evidence_chunk_ids, risk_level,
-            target_audience_ids, scenario_ids, status)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,'candidate')
+            target_audience_ids, scenario_ids, origin, status)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9::jsonb,'user','candidate')
          RETURNING ${COLS}`,
         [id, projectId, briefId, input.text.trim(), input.claimType,
          JSON.stringify(input.evidenceChunkIds ?? []), input.riskLevel ?? "low",
@@ -222,6 +223,39 @@ export class ClaimsService {
         [claimId],
       );
       return this.map(rows[0]);
+    });
+  }
+
+  /** 用户编辑卖点只更新传播表达，原有 evidence 与来源关系保持不变。 */
+  async update(
+    userId: string,
+    projectId: string,
+    claimId: string,
+    input: { text: string; claimType: ClaimType },
+  ): Promise<ClaimRow> {
+    await this.assertOwner(userId, projectId);
+    return this.db.withClient(async (client) => {
+      await this.getById(client, projectId, claimId);
+      const text = input.text.trim();
+      if (!text) throw new BadRequestException("卖点内容不能为空");
+      const { rows } = await client.query<ClaimRow>(
+        `UPDATE claims SET text = $3, claim_type = $4, origin = 'user', status = 'candidate', updated_at = NOW()
+          WHERE id = $1 AND project_id = $2 RETURNING ${COLS}`,
+        [claimId, projectId, text, input.claimType],
+      );
+      return this.map(rows[0]);
+    });
+  }
+
+  /** 删除卖点；visual_assets.claim_id 的 ON DELETE SET NULL 保证资产仍可继续使用。 */
+  async remove(userId: string, projectId: string, claimId: string): Promise<void> {
+    await this.assertOwner(userId, projectId);
+    await this.db.withClient(async (client) => {
+      const { rowCount } = await client.query(
+        `DELETE FROM claims WHERE id = $1 AND project_id = $2`,
+        [claimId, projectId],
+      );
+      if (!rowCount) throw new NotFoundException("Claim 不存在");
     });
   }
 

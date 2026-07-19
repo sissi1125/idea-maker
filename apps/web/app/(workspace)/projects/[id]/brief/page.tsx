@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { ProductBriefWorkbench } from "@/components/product-brief/ProductBriefWorkbench";
+import { PageHeader } from "@/components/ui/ProductUi";
 
 export default function BriefPage() {
   const params = useParams();
@@ -25,7 +26,11 @@ export default function BriefPage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[980px] mx-auto px-7 py-6">
+      <div className="page-shell">
+        <PageHeader
+          title="产品档案"
+          description="集中管理产品信息、可用于创作的产品卖点与视觉资产。"
+        />
         <ProductBriefWorkbench projectId={projectId} />
       </div>
     </main>

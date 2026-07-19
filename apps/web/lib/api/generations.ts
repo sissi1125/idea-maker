@@ -43,6 +43,12 @@ export interface PipelineTrace {
   cost: CostBreakdown;
 }
 
+export interface RetrievedChunk {
+  chunkId: string;
+  text: string;
+  sourceRef?: string;
+}
+
 export interface GenerationRow {
   id: string;
   projectId: string;
@@ -50,7 +56,7 @@ export interface GenerationRow {
   status: string;
   source: string;
   pipelineTrace: PipelineTrace | null;
-  retrievedChunks: unknown[] | null;
+  retrievedChunks: RetrievedChunk[] | null;
   resultNotes: string | null;
   costBreakdown: CostBreakdown | null;
   error: string | null;
@@ -74,7 +80,7 @@ export interface GenerateResponse {
   query: string;
   resultNotes: string | null;
   pipelineTrace: PipelineTrace;
-  retrievedChunks: unknown[];
+  retrievedChunks: RetrievedChunk[];
   costBreakdown: CostBreakdown;
   durationMs: number;
   error?: string;

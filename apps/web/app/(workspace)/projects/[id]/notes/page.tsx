@@ -265,9 +265,9 @@ export default function NotesPage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[860px] mx-auto px-7 py-6 pb-20">
+      <div className="page-shell max-w-[920px]">
         <div className="mb-4">
-          <div className="flex items-center gap-2 text-[22px] font-semibold tracking-tight"
+          <div className="flex items-center gap-2 page-title"
                style={{ color: "var(--ink)" }}>
             <BookOpen size={20} strokeWidth={1.8} />
             笔记库

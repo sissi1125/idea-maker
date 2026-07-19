@@ -193,7 +193,7 @@ function EvidenceButton({ index, item }: { index: number; item: EvidenceItem }) 
           lineHeight: 1,
           color: "var(--brand)",
           background: "var(--brand-soft)",
-          border: "1px solid rgba(79,168,154,.3)",
+          border: "1px solid color-mix(in srgb, var(--brand) 28%, transparent)",
           borderRadius: "9px",
           cursor: "pointer",
           verticalAlign: "middle",

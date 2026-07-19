@@ -305,6 +305,19 @@ export class ProductBriefService {
     return rows[0] as ProductBriefRow;
   }
 
+  /**
+   * “确认全部信息”是一次明确的用户背书：把候选/待复核字段逐条确认为事实，
+   * 并复用 confirmField 写 revision，不能只修改 Brief 容器而留下子项状态不变。
+   */
+  async confirmAllFields(client: PgClient, briefId: string, userId: string): Promise<number> {
+    const fields = await this.listFields(client, briefId);
+    const pending = fields.filter((field) => field.status === "candidate" || field.status === "stale");
+    for (const field of pending) {
+      await this.confirmField(client, field.id, userId);
+    }
+    return pending.length;
+  }
+
   // ── private helpers ────────────────────────────────────────────
 
   private async findField(
@@ -393,8 +406,18 @@ export class ProductBriefService {
   async confirmWholeBrief(userId: string, projectId: string) {
     await this.assertOwner(userId, projectId);
     return this.db.withClient(async (client) => {
-      const brief = await this.ensureBrief(client, projectId);
-      return this.confirmBrief(client, brief.id);
+      // 子字段与 Brief 容器必须原子更新，避免中途失败留下“部分已确认”的状态。
+      await client.query("BEGIN");
+      try {
+        const brief = await this.ensureBrief(client, projectId);
+        await this.confirmAllFields(client, brief.id, userId);
+        const confirmed = await this.confirmBrief(client, brief.id);
+        await client.query("COMMIT");
+        return confirmed;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
     });
   }
 }

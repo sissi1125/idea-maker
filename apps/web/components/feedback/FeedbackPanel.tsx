@@ -135,7 +135,7 @@ export function FeedbackPanel({ generationId, originalContent }: Props) {
         {headerSummary}
         {existing && !expanded && (
           <span className="chip mono text-[10.5px] ml-1"
-                style={{ background: "rgba(79,168,154,.08)", color: "var(--brand)" }}>
+                style={{ background: "var(--brand-soft)", color: "var(--brand-ink)" }}>
             点击修改
           </span>
         )}

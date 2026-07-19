@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans-sc": "^5.2.10",
     "@harness/rag-core": "workspace:*",
     "@harness/shared-types": "workspace:*",
     "@types/pg": "^8.20.0",

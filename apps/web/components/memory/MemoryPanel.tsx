@@ -36,6 +36,7 @@ import {
 } from "@/lib/api";
 import { KindBadge, KIND_ORDER } from "./KindBadge";
 import { MemoryRow } from "./MemoryRow";
+import { SelectField } from "@/components/ui/ProductUi";
 
 interface MemoryPanelProps {
   projectId: string;
@@ -298,21 +299,21 @@ function CreateForm({
   };
 
   return (
-    <div className="border rounded p-3 bg-emerald-50/40 space-y-2">
+    <div className="border rounded-[10px] p-3 bg-[var(--bg-tint)] space-y-2">
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-600">类型：</label>
-        <select
+        <SelectField
           value={kind}
           onChange={(e) => setKind(e.target.value as MemoryKind)}
           disabled={busy}
-          className="text-sm border rounded px-2 py-0.5 bg-white"
+          className="text-sm field-sm"
         >
           {MEMORY_KINDS.map((k) => (
             <option key={k} value={k}>
               {k}
             </option>
           ))}
-        </select>
+        </SelectField>
       </div>
       <textarea
         value={content}

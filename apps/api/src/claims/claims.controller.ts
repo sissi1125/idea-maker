@@ -8,7 +8,7 @@
  *   POST /projects/:projectId/claims/:claimId/block   阻止
  */
 
-import { Body, Controller, Get, Param, Post, UseGuards, BadRequestException } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, BadRequestException } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { IsArray, IsIn, IsOptional, IsString, MaxLength } from "class-validator";
 import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -23,6 +23,11 @@ class CreateClaimDto {
   @IsOptional() @IsString() @IsIn([...RISK_LEVELS]) riskLevel?: RiskLevel;
   @IsOptional() @IsArray() @IsString({ each: true }) targetAudienceIds?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) scenarioIds?: string[];
+}
+
+class UpdateClaimDto {
+  @IsString() @MaxLength(1000) text!: string;
+  @IsString() @IsIn([...CLAIM_TYPES]) claimType!: ClaimType;
 }
 
 @ApiTags("claims")
@@ -68,5 +73,26 @@ export class ClaimsController {
     @Param("claimId") claimId: string,
   ) {
     return { claim: await this.claims.block(user.id, projectId, claimId) };
+  }
+
+  @Patch(":claimId")
+  async update(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("claimId") claimId: string,
+    @Body() body: UpdateClaimDto,
+  ) {
+    if (!body) throw new BadRequestException("缺少 body");
+    return { claim: await this.claims.update(user.id, projectId, claimId, body) };
+  }
+
+  @Delete(":claimId")
+  async remove(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("claimId") claimId: string,
+  ) {
+    await this.claims.remove(user.id, projectId, claimId);
+    return { deleted: true };
   }
 }

@@ -20,6 +20,7 @@ export type RiskLevel = (typeof RISK_LEVELS)[number];
 
 export const CLAIM_STATUSES = ["candidate", "approved", "blocked"] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
+export type ClaimOrigin = "platform" | "user";
 
 export interface ClaimRow {
   id: string;
@@ -31,6 +32,7 @@ export interface ClaimRow {
   scenario_ids: string[];
   evidence_chunk_ids: string[];
   source_field_id: string | null;
+  origin: ClaimOrigin;
   risk_level: RiskLevel;
   status: ClaimStatus;
   created_at: string;

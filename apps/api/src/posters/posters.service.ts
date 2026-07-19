@@ -138,11 +138,15 @@ export class PostersService {
       );
       // 已批准资产：logo + 主图
       const { rows: logo } = await client.query<{ id: string }>(
-        `SELECT id FROM visual_assets WHERE project_id = $1 AND status = 'approved' AND kind = 'logo' ORDER BY created_at DESC LIMIT 1`,
+        `SELECT id FROM visual_assets WHERE project_id = $1 AND status = 'approved' AND kind = 'logo'
+          ORDER BY CASE origin WHEN 'user' THEN 0 WHEN 'website' THEN 1 ELSE 2 END, created_at DESC LIMIT 1`,
         [projectId],
       );
       const { rows: hero } = await client.query<{ id: string }>(
-        `SELECT id FROM visual_assets WHERE project_id = $1 AND status = 'approved' AND kind = 'product_screenshot' ORDER BY created_at DESC LIMIT 1`,
+        `SELECT id FROM visual_assets
+          WHERE project_id = $1 AND status = 'approved' AND kind IN ('hero_image', 'product_screenshot')
+          ORDER BY CASE origin WHEN 'user' THEN 0 WHEN 'website' THEN 1 ELSE 2 END,
+                   CASE WHEN kind = 'hero_image' THEN 0 ELSE 1 END, created_at DESC LIMIT 1`,
         [projectId],
       );
       let name = "";

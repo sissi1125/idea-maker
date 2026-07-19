@@ -89,7 +89,7 @@ export function AddToLibraryButton({ generationId, content, titleSeed, compact }
   // editing / saving / error 共享表单 UI
   return (
     <div className="rounded-md p-3 mt-2 flex flex-col gap-2"
-         style={{ background: "rgba(79,168,154,.05)", border: "1px solid rgba(79,168,154,.2)" }}>
+         style={{ background: "var(--brand-soft)", border: "1px solid var(--brand)" }}>
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-medium" style={{ color: "var(--brand)" }}>
           保存到笔记库

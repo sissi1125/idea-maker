@@ -99,7 +99,8 @@ export class CampaignsService {
     const { rows } = await client.query<{
       id: string; text: string; status: string; claim_type: string; evidence_chunk_ids: unknown;
     }>(
-      `SELECT id, text, status, claim_type, evidence_chunk_ids FROM claims WHERE project_id = $1`,
+      `SELECT id, text, status, claim_type, evidence_chunk_ids FROM claims WHERE project_id = $1
+        ORDER BY CASE origin WHEN 'user' THEN 0 ELSE 1 END, created_at DESC`,
       [projectId],
     );
     const all: GateClaim[] = rows.map((r) => ({
@@ -321,11 +322,26 @@ export class CampaignsService {
     await this.assertOwner(userId, projectId);
     return this.db.withClient(async (client) => {
       const { rows } = await client.query(
-        `SELECT id, goal, platform, cta, status, created_at FROM campaigns
+        `SELECT id, goal, platform, cta, status, allowed_claim_ids, created_at FROM campaigns
           WHERE project_id = $1 ORDER BY created_at DESC`,
         [projectId],
       );
-      return { campaigns: rows };
+      return {
+        campaigns: rows.map((row: Record<string, unknown>) => ({
+          ...row,
+          allowedClaimIds: Array.isArray(row.allowed_claim_ids) ? row.allowed_claim_ids : [],
+        })),
+      };
+    });
+  }
+
+  /** 删除任务前先删候选；评估记录通过 variant 外键级联删除。 */
+  async removeCampaign(userId: string, projectId: string, campaignId: string): Promise<void> {
+    await this.assertOwner(userId, projectId);
+    await this.db.withClient(async (client) => {
+      await this.getCampaignRow(client, campaignId, projectId);
+      await client.query(`DELETE FROM content_variants WHERE campaign_id = $1 AND project_id = $2`, [campaignId, projectId]);
+      await client.query(`DELETE FROM campaigns WHERE id = $1 AND project_id = $2`, [campaignId, projectId]);
     });
   }
 }

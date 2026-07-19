@@ -173,10 +173,34 @@ export class AgentController {
         throw new NotFoundException("agent run 不存在");
       }
       const snap = await this.repo.getContextSnapshot(pgClient, runId);
+      const { rows: evidence } = await pgClient.query<{ text: string; source_ref: string | null }>(
+        `WITH evidence_ids AS (
+           SELECT jsonb_array_elements_text(f.evidence_chunk_ids) AS id
+             FROM product_brief_fields f
+             JOIN product_briefs b ON b.id = f.brief_id
+            WHERE b.project_id = $1 AND f.status = 'confirmed'
+           UNION
+           SELECT jsonb_array_elements_text(c.evidence_chunk_ids) AS id
+             FROM claims c WHERE c.project_id = $1 AND c.status = 'approved'
+         ), evidence_pool AS (
+           SELECT rc.id, rc.text, rc.source_ref
+             FROM rag_chunks rc JOIN evidence_ids e ON e.id = rc.id
+            WHERE rc.project_id = $1
+           UNION ALL
+           SELECT sc.id, sc.text, sp.url AS source_ref
+             FROM source_content_chunks sc
+             JOIN source_pages sp ON sp.id = sc.page_id
+             JOIN evidence_ids e ON e.id = sc.id
+            WHERE sc.project_id = $1
+         )
+         SELECT DISTINCT ON (id) text, source_ref FROM evidence_pool ORDER BY id`,
+        [projectId],
+      );
       return {
         runId,
         systemPrompt: snap?.systemPrompt ?? null,
         inputMessages: snap?.inputMessages ?? null,
+        evidence: evidence.map((item) => ({ text: item.text, sourceRef: item.source_ref ?? undefined })),
       };
     });
   }

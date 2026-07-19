@@ -770,6 +770,16 @@
       "evidence": "2026-07-13 随 feat-012 一并归档；受限 HTML 海报后续由 feat-400.5 实现。"
     },
     {
+      "id": "feat-402",
+      "name": "Klaviyo 风格产品化 UI 与主链路重构",
+      "phase": "4",
+      "track": "A-main",
+      "description": "在不改后端业务模型的前提下，建立 Klaviyo 风格设计系统，重构 Login、工作区导航、项目总览和核心内容生产链路；保留 AI 对话作为开放任务入口，并用真实数据库、API、LLM/Embedding 与浏览器完成全栈端到端验收。",
+      "dependencies": ["feat-401"],
+      "status": "in-progress",
+      "evidence": "2026-07-19 进行中。一级导航更名为资料库/产品档案；产品档案分为产品信息、产品卖点、视觉资产三个横向 Tab，支持卖点/图片维护与来源徽标；确认全部信息会在事务内逐条确认 candidate/stale、写 revision，再确认 Brief，完成后按钮替换为已确认状态。内容资产为 5 个真实聚合 Tab，标题和 Tab 固定，仅当前内容区滚动；桌面和 375px 切换坐标稳定且无横向溢出。资料库已有官网直接展示，编辑时才展开输入；更换成功清理旧官网 RAG。内容任务展示允许卖点并支持自定义确认删除。经典生成/Agent 对话 Evidence hover 显示原 chunk。Claim/Asset 增加 origin 并按用户维护优先消费，Brief 复用既有 source/confidence。运行态 schema、API/Web build、typecheck/lint、git diff check 和浏览器 E2E 均通过。未完成：项目 key_missing，真实外部模型 Brief/Campaign/Agent 链路未验；生产 API health 当前 Cloudflare 530。"
+    },
+    {
       "id": "feat-013",
       "name": "工程化与生产部署",
       "phase": "5",

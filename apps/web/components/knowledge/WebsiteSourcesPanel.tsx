@@ -1,13 +1,8 @@
-/**
- * WebsiteSourcesPanel — 验收 3.1 / 产品逻辑修正
- * 知识库里：导入官网（受限爬取）+ 展示来源与页面链接。
- * 官网正文进 RAG，自动抓到的 logo/主图落到「产品档案」的视觉资产。
- */
-
+/** 资料库官网来源：首次导入表单；已有官网时显示当前值，编辑时才展开输入。 */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Globe, ExternalLink, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ExternalLink, Globe, Loader2, Pencil, X } from "lucide-react";
 import { sourcesApi, ApiError, type SourceRecord, type SourcePage } from "@/lib/api";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -18,15 +13,28 @@ export function WebsiteSourcesPanel({ projectId }: { projectId: string }) {
   const [records, setRecords] = useState<SourceRecord[]>([]);
   const [pages, setPages] = useState<SourcePage[]>([]);
   const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
+  const current = records.find((record) => record.kind === "website") ?? null;
+  const currentPages = useMemo(
+    () => current ? pages.filter((page) => page.source_record_id === current.id) : [],
+    [current, pages],
+  );
+
+  /** 加载完成前保持固定骨架，不先闪现首次导入表单。 */
   const load = useCallback(async () => {
     try {
-      const r = await sourcesApi.listSources(projectId);
-      setRecords(r.records);
-      setPages(r.pages);
-    } catch { /* 静默 */ }
+      const result = await sourcesApi.listSources(projectId);
+      setRecords(result.records);
+      setPages(result.pages);
+    } catch (err) {
+      setMsg({ tone: "err", text: err instanceof Error ? err.message : "官网来源加载失败" });
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -34,60 +42,76 @@ export function WebsiteSourcesPanel({ projectId }: { projectId: string }) {
     void load();
   }, [load]);
 
+  function startEdit() {
+    setUrl(current?.root_url ?? "");
+    setEditing(true);
+    setMsg(null);
+  }
+
   async function runImport() {
-    if (!url.trim()) { setMsg({ tone: "err", text: "先填官网域名" }); return; }
+    if (!url.trim()) { setMsg({ tone: "err", text: "先填写官网域名" }); return; }
     setBusy(true); setMsg(null);
     try {
-      const { result } = await sourcesApi.importWebsite(projectId, url.trim());
+      const { result } = await sourcesApi.importWebsite(projectId, url.trim(), { replaceExisting: current != null });
       if (result.pagesFetched === 0) {
-        setMsg({ tone: "err", text: "没抓到任何页面（域名不可达 / 全 JS 渲染 / 被 robots 挡）" });
+        setMsg({ tone: "err", text: "没抓到任何页面（域名不可达、全 JS 渲染或被 robots 阻止）" });
       } else {
-        setMsg({ tone: "ok", text: `抓了 ${result.pagesFetched} 页 · ${result.ragChunksEmbedded} 段正文进检索库 · ${result.assetsImported} 张图（去「产品档案」批准）` });
+        setMsg({ tone: "ok", text: `已更新 ${result.pagesFetched} 页，${result.ragChunksEmbedded} 段正文进入检索库` });
         setUrl("");
+        setEditing(false);
         await load();
       }
     } catch (err) {
       setMsg({ tone: "err", text: err instanceof ApiError ? err.message : "官网导入失败" });
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="mb-3.5 rounded-[11px] border bg-white p-3.5 space-y-2.5" style={{ borderColor: "var(--line)" }}>
-      <div className="flex items-center gap-1.5">
-        <Globe size={15} className="text-brand" />
-        <span className="text-[13.5px] font-semibold">官网导入</span>
-        <span className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-          受限爬取官方页面：正文喂检索，logo/主图落到产品档案（待批准）
-        </span>
+    <section className="website-source-panel">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="website-source-icon"><Globe size={16} /></span>
+        <div className="min-w-0">
+          <h2 className="text-[13.5px] font-semibold">官网来源</h2>
+          <p className="text-[11.5px] mt-0.5" style={{ color: "var(--ink-3)" }}>官网正文用于事实检索，抓取图片进入产品档案</p>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <input className="flex-1 field" placeholder="官网域名，如 https://bear.app/zh/" value={url}
-          onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void runImport(); }} />
-        <button className="btn btn-sm btn-primary inline-flex items-center gap-1.5" disabled={busy} onClick={runImport}>
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />} 导入官网
-        </button>
-      </div>
-      {msg && (
-        <div className={`text-[11.5px] ${msg.tone === "ok" ? "text-emerald-600" : "text-red-500"}`}>{msg.text}</div>
-      )}
-      {records.length > 0 && (
-        <div>
-          <div className="text-[11.5px] mb-1" style={{ color: "var(--ink-3)" }}>
-            已导入：{records.map((r) => r.host).join("、")} · {pages.length} 页
+
+      {loading ? (
+        <div className="website-source-loading"><Loader2 size={14} className="animate-spin" /> 正在读取官网来源…</div>
+      ) : current && !editing ? (
+        <div className="website-source-current">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} style={{ color: "var(--ok)" }} />
+              <a href={current.root_url} target="_blank" rel="noreferrer" className="truncate text-sm font-medium hover:text-[var(--brand)]">{current.root_url}</a>
+            </div>
+            <div className="text-[11px] mt-1" style={{ color: "var(--ink-4)" }}>{current.host} · 已抓取 {currentPages.length} 页</div>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {pages.map((p) => (
-              <a key={p.id} href={p.url} target="_blank" rel="noreferrer"
-                className="text-[11.5px] px-2 py-1 rounded border inline-flex items-center gap-1 hover:bg-gray-50"
-                style={{ borderColor: "var(--line)", color: "var(--ink-2)" }}>
-                <span className="text-gray-400">{TYPE_LABEL[p.page_type] ?? p.page_type}</span>
-                {p.title || p.path}
-                <ExternalLink size={10} className="text-gray-300" />
-              </a>
-            ))}
-          </div>
+          <button className="btn btn-sm" onClick={startEdit}><Pencil size={12} /> 编辑</button>
+        </div>
+      ) : (
+        <div className="website-source-editor">
+          <input className="field flex-1" autoFocus={editing} placeholder="官网域名，如 https://bear.app/zh/" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void runImport(); }} />
+          <button className="btn btn-sm btn-primary" disabled={busy} onClick={runImport}>
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}{current ? "保存并重新导入" : "导入官网"}
+          </button>
+          {current ? <button className="icon-btn" title="取消编辑" disabled={busy} onClick={() => { setEditing(false); setUrl(""); setMsg(null); }}><X size={14} /></button> : null}
         </div>
       )}
-    </div>
+
+      {msg ? <div className="text-[11.5px]" style={{ color: msg.tone === "ok" ? "var(--ok)" : "var(--err)" }}>{msg.text}</div> : null}
+      {!loading && current && !editing && currentPages.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {currentPages.slice(0, 8).map((page) => (
+            <a key={page.id} href={page.url} target="_blank" rel="noreferrer" className="source-page-chip">
+              <span>{TYPE_LABEL[page.page_type] ?? page.page_type}</span>{page.title || page.path}<ExternalLink size={10} />
+            </a>
+          ))}
+          {currentPages.length > 8 ? <span className="source-page-more">另有 {currentPages.length - 8} 页</span> : null}
+        </div>
+      ) : null}
+    </section>
   );
 }

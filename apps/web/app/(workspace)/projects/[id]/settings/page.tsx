@@ -42,6 +42,7 @@ import { PlatformRulesManager } from "@/components/platform-rules/PlatformRulesM
 import { useToast } from "@/components/toast/ToastProvider";
 import { Tabs } from "@/components/common/Tabs";
 import { MemoryPanel } from "@/components/memory/MemoryPanel";
+import { SelectField } from "@/components/ui/ProductUi";
 
 // ── 常量：下拉选项 ──────────────────────────────────────────────────────────
 
@@ -303,16 +304,15 @@ function SelectInput({
   options: readonly { value: string; label: string }[];
 }) {
   return (
-    <select
+    <SelectField
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg text-[13px] px-3 py-2 outline-none"
-      style={{ border: "1px solid var(--line)", background: "#fff", color: "var(--ink)" }}
+      className="w-full text-[13px]"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 
@@ -500,10 +500,10 @@ export default function ProjectSettingsPage() {
   if (loading) {
     return (
       <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-        <div className="max-w-[720px] mx-auto px-7 py-6">
+        <div className="page-shell max-w-[780px]">
           <div className="flex items-center gap-3 mb-6">
             <Settings size={20} strokeWidth={1.8} style={{ color: "var(--ink-3)" }} />
-            <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink)" }}>
+            <h1 className="page-title">
               项目设置
             </h1>
           </div>
@@ -515,17 +515,17 @@ export default function ProjectSettingsPage() {
 
   return (
     <main className="flex-1 h-full overflow-auto" style={{ background: "var(--bg)" }}>
-      <div className="max-w-[720px] mx-auto px-7 py-6 pb-24">
+      <div className="page-shell max-w-[780px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Settings size={20} strokeWidth={1.8} style={{ color: "var(--ink-3)" }} />
             <div>
-              <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink)" }}>
+              <h1 className="page-title">
                 项目设置
               </h1>
               <p className="text-[13px]" style={{ color: "var(--ink-3)" }}>
-                {project?.name ?? "项目"} · 配置 LLM 参数与查看 RAG 策略
+                {project?.name ?? "项目"} · 配置生成模型、表达偏好与平台规则
               </p>
             </div>
           </div>

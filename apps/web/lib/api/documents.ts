@@ -68,7 +68,8 @@ export interface IngestionJob {
   id: string;
   projectId: string;
   documentId: string;
-  status: "queued" | "processing" | "completed" | "failed";
+  /** 当前后端写 succeeded；保留 completed 兼容早期数据和旧部署。 */
+  status: "queued" | "processing" | "succeeded" | "completed" | "failed";
   progress: number;
   currentStage: string | null;
   chunksDone: number;

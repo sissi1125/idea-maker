@@ -14,13 +14,12 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, FileText, Clock, DollarSign, Trash2,
+  Plus, FileText, Clock, DollarSign, Trash2, Folder,
 } from "lucide-react";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 import { ApiError } from "@/lib/api";
 import { useToast } from "@/components/toast/ToastProvider";
-
-const EMOJI_POOL = ["🔊", "🕯️", "🥗", "🎒", "📱", "🎨", "🚀", "💡", "📊", "🌟"];
+import { ConfirmDialog } from "@/components/ui/ProductUi";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -34,21 +33,22 @@ export default function ProjectsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   // 表单内联错误保留——比 toast 更靠近输入框，用户视线不需要跳到右下角；
-  // 但 alert() 一类的"系统对话框"统一改成 toast 失败提示。
+  // 系统级反馈统一使用产品内 toast，避免表单错误与全局错误混在一起。
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setError(null);
     try {
-      const emoji = EMOJI_POOL[Math.floor(Math.random() * EMOJI_POOL.length)];
-      const project = await createProject({ name: name.trim(), emoji, description: description.trim() || undefined });
+      const project = await createProject({ name: name.trim(), description: description.trim() || undefined });
       setCreating(false);
       setName("");
       setDescription("");
       toast.success(`项目 "${project.name}" 已创建`);
-      router.push(`/projects/${project.id}`);
+      router.push(`/projects/${project.id}/overview`);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "创建失败";
       setError(msg);
@@ -58,17 +58,26 @@ export default function ProjectsPage() {
 
   const handleCardClick = (id: string) => {
     setCurrentProject(id);
-    router.push(`/projects/${id}`);
+    router.push(`/projects/${id}/overview`);
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("确定删除该项目？此操作不可撤销。")) return;
+    setDeletingId(id);
+  };
+
+  /** 删除由统一确认弹窗触发，失败时保留项目并给出 toast。 */
+  const confirmProjectDelete = async () => {
+    if (!deletingId) return;
+    setDeleteBusy(true);
     try {
-      await deleteProject(id);
+      await deleteProject(deletingId);
       toast.info("项目已删除");
+      setDeletingId(null);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "删除失败");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -78,13 +87,22 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="max-w-[1100px] mx-auto px-8 py-7 pb-20">
+    <div className="page-shell">
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="删除这个项目？"
+        description="项目中的资料、产品档案和内容资产将一并删除，此操作无法撤销。"
+        confirmLabel="删除项目"
+        busy={deleteBusy}
+        onConfirm={confirmProjectDelete}
+        onClose={() => setDeletingId(null)}
+      />
       {/* Header */}
       <div className="flex items-end mb-5">
         <div className="flex-1">
-          <h1 className="text-[22px] font-semibold tracking-tight">所有项目</h1>
+          <h1 className="page-title">所有项目</h1>
           <p className="text-[13px] mt-0.5" style={{ color: "var(--ink-3)" }}>
-            每个项目拥有独立的知识库、偏好和 Agent 记忆 · 共 {projects.length} 个
+            每个项目拥有独立的产品资料、已确认信息和内容资产 · 共 {projects.length} 个
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
@@ -94,19 +112,16 @@ export default function ProjectsPage() {
 
       {/* Empty state（无 loading + 无 projects + 无 creating）—— 首次进来引导 */}
       {!loading && projects.length === 0 && !creating && (
-        <div className="card flex flex-col items-center text-center gap-2 mb-4"
-             style={{ padding: "40px 24px", border: "1px dashed var(--line-strong)",
-                      background: "transparent" }}>
-          <div className="text-[28px]">🗂️</div>
-          <div className="text-[14.5px] font-semibold" style={{ color: "var(--ink)" }}>
-            还没有项目
+        <div className="bg-white border border-[var(--line)] grid gap-8 md:grid-cols-[1fr_320px] items-center mb-5 p-7 md:p-9 rounded-[8px]">
+          <div>
+            <span className="chip" style={{ background: "var(--brand-soft)", color: "var(--brand-ink)" }}>开始第一个项目</span>
+            <h2 className="text-2xl font-semibold mt-4 mb-2">让 AI 真正了解你的产品，再开始写内容。</h2>
+            <p className="text-[13px] leading-6 max-w-[620px]" style={{ color: "var(--ink-3)" }}>创建项目后添加产品手册或官方网站，确认关键产品信息，再生成有来源、可核查的多平台营销内容。</p>
+            <button className="btn btn-primary mt-5" onClick={() => setCreating(true)}><Plus size={14} />创建项目</button>
           </div>
-          <div className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
-            点击下方 &ldquo;新建项目&rdquo; 开始你的第一次 RAG 实验
-          </div>
-          <button className="btn btn-primary mt-2" onClick={() => setCreating(true)}>
-            <Plus size={13} strokeWidth={2.2} /> 新建项目
-          </button>
+          <ol className="grid gap-3 text-xs" style={{ color: "var(--ink-2)" }}>
+            {["添加产品资料", "确认产品信息", "创建营销内容", "核查并保存"].map((label, index) => <li key={label} className="flex items-center gap-3"><span className="w-6 h-6 rounded-full grid place-items-center text-white text-[11px]" style={{ background: index === 0 ? "var(--brand)" : "var(--ink)" }}>{index + 1}</span>{label}</li>)}
+          </ol>
         </div>
       )}
 
@@ -116,7 +131,7 @@ export default function ProjectsPage() {
         {creating && (
           <form
             onSubmit={handleCreate}
-            className="card fade-in p-[18px]"
+            className="bg-white border border-[var(--brand)] rounded-[8px] fade-in p-[18px]"
             style={{ border: "1px dashed var(--brand)", background: "var(--brand-soft)" }}
           >
             <div className="text-[13px] font-semibold mb-2" style={{ color: "var(--brand)" }}>
@@ -157,23 +172,15 @@ export default function ProjectsPage() {
           return (
             <div
               key={p.id}
-              className="card relative p-[18px] cursor-pointer transition-all hover:-translate-y-0.5"
+              className="bg-white border relative p-[18px] cursor-pointer transition-colors rounded-[8px] hover:border-[var(--ink)]"
               style={{
                 border: active ? "1px solid var(--brand)" : undefined,
-                boxShadow: active ? "0 0 0 4px rgba(79,168,154,.1)" : undefined,
+                boxShadow: "none",
               }}
               onClick={() => handleCardClick(p.id)}
             >
               <div className="flex items-start gap-3 mb-2.5">
-                <div
-                  className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center text-[22px]"
-                  style={{
-                    background: "linear-gradient(180deg, #FBF9F2, #F2EFE5)",
-                    border: "1px solid var(--line-2)",
-                  }}
-                >
-                  {p.emoji ?? "📂"}
-                </div>
+                <div className="w-[42px] h-[42px] rounded-[6px] flex items-center justify-center" style={{ background: "var(--line-2)", border: "1px solid var(--line)" }}><Folder size={18} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14.5px] font-semibold tracking-tight truncate">
                     {p.name}
@@ -184,7 +191,7 @@ export default function ProjectsPage() {
                 </div>
                 {active && (
                   <span className="chip" style={{ background: "var(--brand-soft)", color: "var(--brand)" }}>
-                    当前
+                    当前项目
                   </span>
                 )}
               </div>
@@ -233,7 +240,7 @@ export default function ProjectsPage() {
         {/* Empty state / new project trigger */}
         {!creating && (
           <div
-            className="card flex items-center justify-center cursor-pointer text-[13.5px] font-medium gap-2"
+            className="flex items-center justify-center cursor-pointer text-[13.5px] font-medium gap-2 rounded-[8px] hover:bg-white transition-colors"
             style={{
               padding: "18px",
               border: "1px dashed var(--line-strong)",

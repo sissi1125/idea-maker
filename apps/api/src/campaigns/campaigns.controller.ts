@@ -10,7 +10,7 @@
  */
 
 import {
-  Body, Controller, Get, HttpCode, Param, Post, UseGuards, BadRequestException,
+  Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards, BadRequestException,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
@@ -71,6 +71,16 @@ export class CampaignsController {
     @Param("id") id: string,
   ) {
     return this.svc.getCampaign(user.id, projectId, id);
+  }
+
+  @Delete(":id")
+  async remove(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("id") id: string,
+  ) {
+    await this.svc.removeCampaign(user.id, projectId, id);
+    return { deleted: true };
   }
 
   @Post(":id/generate")

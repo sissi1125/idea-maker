@@ -29,7 +29,7 @@ export async function listSources(projectId: string): Promise<{ records: SourceR
 export async function importWebsite(
   projectId: string,
   url: string,
-  opts: { maxPages?: number; maxDepth?: number } = {},
+  opts: { maxPages?: number; maxDepth?: number; replaceExisting?: boolean } = {},
 ): Promise<{ result: { pagesFetched: number; pagesSkipped: number; assetsImported: number; ragChunksEmbedded: number; pages: unknown[] } }> {
   return apiFetch(`/projects/${projectId}/sources/import-website`, {
     method: "POST",

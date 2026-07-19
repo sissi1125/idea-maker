@@ -21,6 +21,7 @@ export interface Claim {
   text: string;
   claim_type: ClaimType;
   evidence_chunk_ids: string[];
+  origin: "platform" | "user";
   risk_level: "low" | "medium" | "high";
   status: ClaimStatus;
   created_at: string;
@@ -62,4 +63,19 @@ export async function blockClaim(projectId: string, claimId: string): Promise<Cl
     { method: "POST" },
   );
   return res.claim;
+}
+
+/** 用户维护平台建议卖点时只修改表达文本和类型，不改已有 evidence。 */
+export async function updateClaim(
+  projectId: string,
+  claimId: string,
+  body: { text: string; claimType: ClaimType },
+): Promise<Claim> {
+  const res = await apiFetch<{ claim: Claim }>(`/projects/${projectId}/claims/${claimId}`, { method: "PATCH", body });
+  return res.claim;
+}
+
+/** 删除不再需要的卖点；视觉资产关联由数据库外键自动置空。 */
+export async function deleteClaim(projectId: string, claimId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/claims/${claimId}`, { method: "DELETE" });
 }

@@ -2,9 +2,36 @@
 
 ## 最后更新
 
-2026-07-15（**feat-401 Agent Grounding 阶段 0/1 已完成，改动未提交**）
+2026-07-19（**feat-402 交互稳定性、任务维护、Evidence 与来源优先级已落地，改动未提交**）
 
 ## 当前状态
+
+- 最新修复：“确认全部信息”现在会在事务内确认全部 candidate/stale 子字段、逐条写 revision，再确认 Brief；完成后右上角按钮替换为“全部信息已确认”。浏览器/API/PG 验证 4/4 字段 confirmed、4 条 revision、Brief confirmed v2，隔离数据已清理。
+- 本轮新增：内容资产标题/Tab 固定且仅当前内容区滚动；资料库已有官网直显、编辑时才展开输入；内容任务展示卖点并支持删除；AI 对话/经典生成 Evidence hover 显示原 chunk；Brief/Claim/图片显示来源，Claim 与海报消费按来源排序。
+- 运行态 schema 已确认包含 `claims.origin` 与 `visual_assets.origin`。API 契约已补 Campaign DELETE、`replaceExisting`、Claim/Asset origin 和 Agent context evidence。
+- 浏览器 E2E 已完成桌面/375px Tab 稳定性、官网已有值编辑、卖点批准→任务创建→标签展示→任务删除、卖点/图片来源徽标；测试官网 fixture 和测试任务已清理，临时批准的原卖点已恢复为待审核。
+- 最新验证：626 tests、API/Web production build、顺序 typecheck/lint、`git diff --check` 均通过。
+- 唯一验收阻塞仍是项目 `key_missing`：拿到 LLM Key 后依次补跑 Brief extract、Campaign generate、Agent generate→critic/refine，并在真实结果上复验 Evidence hover。
+
+- 当前分支：`codex/feat-402-ui-productization`，基线 `b44c611`，feat-402 改动未提交。
+- 已完成 Login、设计 token、一级导航、项目总览、产品资料、产品信息、结构化内容创作、AI 对话、内容资产和移动导航重构；第二轮删除珊瑚红与旧绿色/斜体，引入自托管 Instrument Sans，产品信息改为统一标题和审计行；后端业务模型未改。
+- 内容创作新增前端显式状态投影（drafting/ready/generating/reviewing/accepted/failed）和四步可视轨道，复用现有 Campaign/Variant/job 数据，没有新增 schema。
+- 第三轮参考 Hyperbound 的浅灰白 + 蓝色点缀、8-14px 圆角和轻阴影；字体切为自托管 Noto Sans SC。产品工作区 Select 已统一为共享组件。
+- 总览四步改为带说明的 ProjectGuide，并与建议下一步成为同一视觉整体；内容创作移除项目级四步，仅保留内容任务状态轨道。
+- 一级导航已改为「资料库 / 产品档案」；产品档案分为产品信息、产品卖点、视觉资产三个同级 Tab，信息内保留 4 项 sticky 锚点。
+- 产品卖点复用 Claim Map，支持平台生成以及用户新增、编辑、删除；视觉资产保留 Logo/主图/氛围素材/功能截图与对应卖点 Select，并增加末尾上传卡片、直接批量上传和图片删除。
+- 后端仅补充 Claim PATCH/DELETE、资产 DELETE；既有 `claim_id`/标签 PATCH 与旧枚举兼容，RAG/Brief/Campaign/生成模型未改。
+- 新增共享 `ConfirmDialog`，项目/卖点/图片删除均已移除浏览器原生 confirm；支持遮罩、Esc、滚动锁定和 alertdialog 语义。
+- 产品档案三个一级分类已收敛为横向下划线 Tab，产品信息专属工具栏不再污染卖点/视觉资产。
+- 内容资产 5 个横向 Tab 已从“跳转入口”修正为真实聚合视图：默认直接渲染笔记库，其他 Tab 原位挂载内容包、海报、生成记录和评估报告，URL 保持 `/assets`；Tab 固定宽度并在窄屏内部横向滚动。
+- 本地 E2E 已验证三级 Tab、卖点新增→编辑→删除、上传卡片唤起 `multiple=true` 文件选择器、图片上传→删除、标签回显；测试项目仍保留原有 1 张 E2E 图片和 1 条情感型测试卖点。
+- 最新 E2E 验证自定义删除弹窗取消后资产仍为 1、浏览器无原生 dialog；内容资产默认笔记库；375px 产品档案与内容资产均无页面横向溢出。
+- 内容资产最新浏览器 E2E 逐项确认 5 个 Tab 均原位渲染真实内容；375px Tab 容器 333px/scrollWidth 418px，document scrollWidth 375px。
+- 本地“数据库未配置”已修复：清理同 worktree 多个竞争 3001 的 ts-node-dev，只保留一个 API；Git 忽略的 `apps/api/.env` 已补本地 PG/JWT/CORS。health 与真实登录均 200。
+- 验证：全仓 typecheck/lint、626 tests、API/Web build 通过；本地 PostgreSQL + pgvector + NestJS API + Next Web 正在运行。
+- 浏览器真实 E2E 已完成注册、建项目、上传中文 Markdown、ingestion/pgvector 入库、产品信息、内容创作、AI 对话和内容资产；第二轮复验统一 h1、字体、状态轨道及 375px 无溢出/重叠。
+- E2E 修复：ingestion 实际终态 `succeeded` 与前端 `completed` 契约不一致导致无限轮询，现兼容两者。
+- 阻塞：worktree 无真实 LLM/Embedding 凭据，外部模型完整链路未验；生产 API health 当前 Cloudflare 530。完成这两项前 `feat-402` 保持 in-progress。
 
 - 当前分支：`main`，已提交 HEAD：`840a735`（main 回归修复已在 `origin/main`）；feat-401 改动尚未提交。
 - **feat-401 完成**：Confirmed Product Brief 是 Agent 唯一事实裁决层；Approved Claims 是允许表达；RAG raw chunk 不进模型，只保留 field/claim chunk IDs 做 provenance。outer Agent 与 generate/refine/critic 共用服务端 Grounding。

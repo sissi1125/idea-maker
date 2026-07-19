@@ -9,23 +9,12 @@
  */
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "IDEA-MAKER — 透明可观测的 AI Agent",
-  description: "透明的 AI，懂你的 Agent。看到每一次思考、每一次检索、每一次工具调用。",
+  title: "IDEA-MAKER — 可信营销内容伙伴",
+  description: "从产品资料中确认事实与卖点，生成有来源、可核查的多平台营销内容。",
 };
 
 export default function RootLayout({
@@ -34,10 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>

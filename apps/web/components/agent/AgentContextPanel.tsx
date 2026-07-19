@@ -216,7 +216,7 @@ export function AgentContextPanel({ open, onClose, projectId, userMessage, runId
                       style={{
                         background:
                           k === "intro"
-                            ? "linear-gradient(180deg, rgba(79,168,154,.06), #fff 60%)"
+                            ? "var(--brand-soft)"
                             : "rgba(224,140,90,.06)",
                         border: "1px solid var(--line-2)",
                       }}

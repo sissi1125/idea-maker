@@ -53,9 +53,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="fixed inset-0 flex" style={{ background: "var(--bg)" }}>
+    <div className="fixed inset-0 flex flex-col md:flex-row" style={{ background: "var(--bg)" }}>
       <Sidebar />
-      <main className="flex-1 h-full overflow-auto">
+      <main className="flex-1 min-h-0 overflow-auto">
         {children}
       </main>
     </div>

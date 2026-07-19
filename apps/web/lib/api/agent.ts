@@ -159,7 +159,7 @@ export async function getSteps(
 export async function getRunContext(
   projectId: string,
   runId: string,
-): Promise<{ runId: string; systemPrompt: string | null; inputMessages: ChatMessage[] | null }> {
+): Promise<{ runId: string; systemPrompt: string | null; inputMessages: ChatMessage[] | null; evidence: Array<{ text: string; sourceRef?: string }> }> {
   return apiFetch(`/projects/${projectId}/agent/runs/${runId}/context`);
 }
 

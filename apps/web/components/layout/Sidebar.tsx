@@ -15,27 +15,20 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  MessageSquare, Upload, Clock, Settings, BookOpen, Activity,
-  Folder, ChevronDown, Check, DollarSign, LogOut, FileText, Tag, Megaphone, Image as ImageIcon,
+  MessageSquare, Library, Settings, LayoutDashboard,
+  Folder, ChevronDown, Check, DollarSign, LogOut, BadgeCheck, PenLine, Menu, X,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useProjectsStore } from "@/lib/stores/projects-store";
 
 const NAV_ITEMS = [
-  { id: "chat",     label: "对话",     icon: MessageSquare, path: "" },
-  { id: "knowledge",label: "知识库",   icon: Upload,        path: "/knowledge" },
-  // feat-400.1：产品事实档案审核工作台
-  { id: "brief",    label: "产品档案", icon: FileText,      path: "/brief" },
-  // feat-400.2：卖点库 + 内容评测 + 待人工队列
-  { id: "content",  label: "内容与卖点", icon: Tag,         path: "/content" },
-  // feat-400.4：Campaign 内容包
-  { id: "campaign", label: "内容包",     icon: Megaphone,   path: "/campaign" },
-  // feat-400.5：海报工作台
-  { id: "poster",   label: "海报",       icon: ImageIcon,   path: "/poster" },
-  { id: "history",  label: "生成历史", icon: Clock,         path: "/history" },
-  { id: "notes",    label: "笔记库",   icon: BookOpen,      path: "/notes" },
-  // feat-300.6：Eval 报告独立顶级路由（质量监控不是项目设置）
-  { id: "eval",     label: "评估报告", icon: Activity,      path: "/eval" },
+  // feat-402：一级导航按用户任务组织，技术能力收进业务页面的二级入口。
+  { id: "overview", label: "项目总览", icon: LayoutDashboard, path: "/overview" },
+  { id: "knowledge",label: "资料库",   icon: Library,         path: "/knowledge" },
+  { id: "brief",    label: "产品档案", icon: BadgeCheck,      path: "/brief" },
+  { id: "campaign", label: "内容创作", icon: PenLine,         path: "/campaign" },
+  { id: "chat",     label: "AI 对话",  icon: MessageSquare,  path: "" },
+  { id: "assets",   label: "内容资产", icon: Folder,          path: "/assets" },
   { id: "settings", label: "项目设置", icon: Settings,      path: "/settings" },
 ] as const;
 
@@ -52,6 +45,7 @@ export function Sidebar() {
   const project = getCurrentProject();
 
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -60,13 +54,14 @@ export function Sidebar() {
 
   const handleNavClick = (path: string) => {
     if (!currentProjectId) return;
+    setShowMobileMenu(false);
     router.push(`/projects/${currentProjectId}${path}`);
   };
 
   const handleSwitchProject = (id: string) => {
     setCurrentProject(id);
     setShowSwitcher(false);
-    router.push(`/projects/${id}`);
+    router.push(`/projects/${id}/overview`);
   };
 
   const isActive = (itemPath: string) => {
@@ -84,22 +79,22 @@ export function Sidebar() {
     : user?.email?.slice(0, 2).toUpperCase() ?? "?";
 
   return (
+    <>
     <aside
-      className="flex flex-col h-full flex-none"
+      className="hidden md:flex flex-col h-full flex-none"
       style={{
-        width: 248,
+        width: 232,
         background: "var(--bg-rail)",
         color: "var(--ink)",
-        borderRight: "1px solid var(--line-strong)",
+        borderRight: "1px solid var(--line)",
       }}
     >
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-[18px] pt-[18px] pb-3.5">
         <div
-          className="w-[30px] h-[30px] rounded-lg flex items-center justify-center font-bold text-white text-sm"
+          className="w-[30px] h-[30px] rounded-[6px] flex items-center justify-center font-semibold text-white text-sm"
           style={{
-            background: "linear-gradient(135deg, #6BBFAF 0%, #3D8C7F 100%)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,.4) inset, 0 4px 10px rgba(79,168,154,.28)",
+            background: "var(--ink)",
           }}
         >
           I
@@ -109,7 +104,7 @@ export function Sidebar() {
             IDEA-MAKER
           </div>
           <div className="text-[10.5px]" style={{ color: "var(--ink-3)" }}>
-            透明 · 可观测 · 懂你的 Agent
+            可信营销内容伙伴
           </div>
         </div>
       </div>
@@ -118,18 +113,13 @@ export function Sidebar() {
       <div className="relative mx-3 mb-3.5">
         <button
           onClick={() => setShowSwitcher(!showSwitcher)}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-[10px] bg-white text-left"
+          className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-[6px] bg-white text-left"
           style={{
             border: "1px solid var(--line)",
-            boxShadow: "0 1px 2px rgba(31,45,52,.03)",
+            boxShadow: "none",
           }}
         >
-          <div
-            className="w-7 h-7 rounded-[7px] flex items-center justify-center text-sm"
-            style={{ background: "var(--brand-soft)" }}
-          >
-            {project?.emoji ?? "📂"}
-          </div>
+          <div className="w-7 h-7 rounded-[6px] flex items-center justify-center" style={{ background: "var(--brand-soft)" }}><Folder size={14} /></div>
           <div className="flex-1 min-w-0">
             <div className="text-[12.5px] font-semibold truncate" style={{ color: "var(--ink)" }}>
               {project?.name ?? "选择项目"}
@@ -144,11 +134,11 @@ export function Sidebar() {
         {/* Dropdown */}
         {showSwitcher && (
           <div
-            className="absolute left-0 top-full mt-1 w-full z-20 rounded-[10px] p-1.5"
+            className="absolute left-0 top-full mt-1 w-full z-20 rounded-[6px] p-1.5"
             style={{
               background: "#fff",
               border: "1px solid var(--line)",
-              boxShadow: "var(--shadow-lg)",
+                boxShadow: "var(--shadow-lg)",
             }}
           >
             <div
@@ -163,14 +153,11 @@ export function Sidebar() {
                 onClick={() => handleSwitchProject(p.id)}
                 className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[12.5px] text-left transition-colors"
                 style={{
-                  background: p.id === currentProjectId ? "var(--brand-soft)" : "transparent",
-                  color: p.id === currentProjectId ? "var(--brand-ink)" : "var(--ink)",
+                background: p.id === currentProjectId ? "var(--brand-soft)" : "transparent",
+                color: "var(--ink)",
                 }}
               >
-                <span className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center text-xs"
-                  style={{ background: "var(--bg)" }}>
-                  {p.emoji ?? "📂"}
-                </span>
+                <span className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center" style={{ background: "var(--bg)" }}><Folder size={12} /></span>
                 <span className="flex-1 truncate">{p.name}</span>
                 {p.id === currentProjectId && <Check size={13} strokeWidth={2} style={{ color: "var(--brand)" }} />}
               </button>
@@ -189,7 +176,7 @@ export function Sidebar() {
       {/* Nav: current project */}
       <div className="px-[18px] pt-2.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wider"
         style={{ color: "var(--ink-4)" }}>
-        当前项目
+        工作区
       </div>
       <div className="flex flex-col gap-0.5 px-2.5">
         {NAV_ITEMS.map((item) => {
@@ -202,9 +189,9 @@ export function Sidebar() {
               className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors text-left"
               style={{
                 fontWeight: active ? 600 : 500,
-                color: active ? "var(--brand-ink)" : "var(--ink-2)",
+                color: active ? "var(--ink)" : "var(--ink-2)",
                 background: active ? "var(--brand-soft)" : "transparent",
-                border: active ? "1px solid rgba(79,168,154,.22)" : "1px solid transparent",
+                border: "1px solid transparent",
               }}
             >
               <Icon size={16} className="opacity-85" />
@@ -214,10 +201,10 @@ export function Sidebar() {
         })}
       </div>
 
-      {/* Nav: workspace */}
+      {/* 项目管理与当前项目任务分开，避免“所有项目”与业务入口混在一起。 */}
       <div className="px-[18px] pt-3.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wider"
         style={{ color: "var(--ink-4)" }}>
-        工作区
+        项目
       </div>
       <div className="px-2.5">
         <button
@@ -225,9 +212,9 @@ export function Sidebar() {
           className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors text-left"
           style={{
             fontWeight: pathname === "/projects" ? 600 : 500,
-            color: pathname === "/projects" ? "var(--brand-ink)" : "var(--ink-2)",
+            color: pathname === "/projects" ? "var(--ink)" : "var(--ink-2)",
             background: pathname === "/projects" ? "var(--brand-soft)" : "transparent",
-            border: pathname === "/projects" ? "1px solid rgba(79,168,154,.22)" : "1px solid transparent",
+            border: "1px solid transparent",
           }}
         >
           <Folder size={16} className="opacity-85" />
@@ -248,9 +235,9 @@ export function Sidebar() {
           <div
             className="flex items-center justify-between px-2.5 py-2 rounded-lg text-[11.5px] mb-2.5"
             style={{
-              background: "var(--brand-soft)",
-              border: "1px solid rgba(79,168,154,.2)",
-              color: "var(--brand-ink)",
+              background: "transparent",
+              border: "1px solid var(--line-strong)",
+              color: "var(--ink-2)",
             }}
           >
             <span className="flex items-center gap-1.5">
@@ -262,12 +249,11 @@ export function Sidebar() {
 
         {/* User */}
         <div
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white"
-          style={{ border: "1px solid var(--line)" }}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-[6px]"
         >
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs"
-            style={{ background: "linear-gradient(135deg, #F0B86E, #DA8A4A)" }}
+            style={{ background: "var(--ink)" }}
           >
             {initials}
           </div>
@@ -289,5 +275,53 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+
+    {/* 移动端使用顶部项目栏和可展开导航，避免固定侧栏挤压主内容。 */}
+    <header className="md:hidden relative flex-none h-14 px-3 flex items-center gap-3 bg-[var(--bg-rail)] border-b border-[var(--line)] z-30">
+      <div className="w-8 h-8 rounded-[6px] grid place-items-center bg-[var(--ink)] text-white font-semibold">I</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-semibold truncate">{project?.name ?? "IDEA-MAKER"}</div>
+        <div className="text-[10px]" style={{ color: "var(--ink-3)" }}>可信营销内容伙伴</div>
+      </div>
+      <button
+        type="button"
+        className="btn btn-icon bg-white"
+        aria-label={showMobileMenu ? "关闭导航" : "打开导航"}
+        aria-expanded={showMobileMenu}
+        onClick={() => setShowMobileMenu((open) => !open)}
+      >
+        {showMobileMenu ? <X size={17} /> : <Menu size={17} />}
+      </button>
+
+      {showMobileMenu ? (
+        <div className="absolute left-0 right-0 top-full bg-white border-b border-[var(--line)] p-3 shadow-[var(--shadow-lg)]">
+          <nav className="grid grid-cols-2 gap-1" aria-label="移动端项目导航">
+            {NAV_ITEMS.map((item) => {
+              const active = isActive(item.path);
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNavClick(item.path)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] text-left text-[13px]"
+                  style={{ background: active ? "var(--brand-soft)" : "transparent", color: "var(--ink)" }}
+                >
+                  <Icon size={15} />{item.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => { setShowMobileMenu(false); router.push("/projects"); }}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] text-left text-[13px]"
+            >
+              <Folder size={15} />所有项目
+            </button>
+          </nav>
+        </div>
+      ) : null}
+    </header>
+    </>
   );
 }

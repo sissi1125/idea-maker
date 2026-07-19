@@ -222,7 +222,7 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 - `POST /projects/:projectId/product-brief/fields/:fieldId/confirm`：确认字段（version+1，写 revision）。
 - `PATCH /projects/:projectId/product-brief/fields/:fieldId`：编辑字段值。body `{ value, reason? }`；事实型分组（identity/fact/audience/positioning）必填 `reason`。
 - `POST /projects/:projectId/product-brief/fields/:fieldId/reject`：拒绝字段。body `{ reason? }`。
-- `POST /projects/:projectId/product-brief/confirm`：确认整份 Brief v(N)。前置门禁：无缺失关键字段且无未核实事实，否则拒绝。
+- `POST /projects/:projectId/product-brief/confirm`：在一个事务中把所有 `candidate/stale` 子字段逐条确认为 `confirmed`（每条写 revision），再确认整份 Brief v(N)。批量确认后仍缺关键字段则整体回滚并拒绝。
 
 字段枚举：`group ∈ identity|fact|audience|positioning|style|visual|constraint`；`source ∈ document|website|user|historical_content|inferred`；`status ∈ candidate|confirmed|rejected|stale`。
 
@@ -230,7 +230,7 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 只抓用户主动提交的官方域名，遵守 robots、同域白名单、路径白名单、限页/限深/限速；拒绝社交平台与私网地址（防 SSRF）。导入内容进 `source_content_chunks`，被 `/product-brief/extract` 作为 `source=website` 的候选事实 evidence。
 
-- `POST /projects/:projectId/sources/import-website`：body `{ url, maxPages?(1-30,默认10), maxDepth?(0-3,默认2) }`。同步抓取，返回 `{ result: { jobId, sourceRecordId, host, pagesFetched, pagesSkipped, pages[] } }`。社交平台/私网/非 http(s) → 400。
+- `POST /projects/:projectId/sources/import-website`：body `{ url, maxPages?(1-30,默认10), maxDepth?(0-3,默认2), replaceExisting? }`。同步抓取，返回 `{ result: { jobId, sourceRecordId, host, pagesFetched, pagesSkipped, pages[] } }`。`replaceExisting=true` 时，新官网成功导入后删除该项目的旧官网记录、页面与对应 `rag_chunks`；抓取失败时保留旧官网。社交平台/私网/非 http(s) → 400。
 - `GET /projects/:projectId/sources`：返回 `{ records[], pages[] }`（来源记录 + 已抓页面）。
 
 安全边界：不登录、不绕权限、不抓私有页、不做通用爬虫、不抓社交平台。私网地址默认拒绝，可用 env `ALLOW_PRIVATE_IMPORT_HOSTS=1` 放开（仅测试）。
@@ -239,11 +239,13 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 从已确认 Brief 字段派生的可审核传播单元。事实型（functional/outcome）无 evidence 不得批准；内容只能引用 approved Claim。
 
-- `GET  /projects/:projectId/claims`：列出 Claim Map。
+- `GET  /projects/:projectId/claims`：列出 Claim Map；返回项包含 `origin ∈ user|platform`。同状态下用户维护的 Claim 排在平台生成 Claim 之前。
 - `POST /projects/:projectId/claims/derive`：从已确认 Brief 字段派生候选 Claim（按 source_field_id 去重）。
-- `POST /projects/:projectId/claims`：手动新增。body `{ text, claimType, evidenceChunkIds?, riskLevel?, ... }`。`claimType ∈ functional|outcome|differentiation|emotional`。
+- `POST /projects/:projectId/claims`：手动新增。body `{ text, claimType, evidenceChunkIds?, riskLevel?, ... }`，写入 `origin=user`。`claimType ∈ functional|outcome|differentiation|emotional`。
 - `POST /projects/:projectId/claims/:claimId/approve`：批准。事实型无 evidence → 400。
 - `POST /projects/:projectId/claims/:claimId/block`：阻止。
+- `PATCH /projects/:projectId/claims/:claimId`：用户编辑卖点文本与类型，body 为 `{ text, claimType }`；编辑后转为 `origin=user` 且状态回到 `candidate`，原 evidence chunk 关系不变。
+- `DELETE /projects/:projectId/claims/:claimId`：删除用户不再需要的卖点；已关联视觉资产通过外键自动解除关联。
 
 ## 内容评测门禁（feat-400.2，JwtAuthGuard）
 
@@ -276,6 +278,7 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 - `POST /projects/:projectId/campaigns`：创建 Campaign Brief。body `{ goal(launch|feature_update|acquisition|messaging), targetAudience?, scenario?, platform?, maxLength?, cta?, allowedClaimIds?, avoidNotes? }`。
 - `GET /projects/:projectId/campaigns`：列出。
+- `DELETE /projects/:projectId/campaigns/:id`：删除内容任务及其候选内容；关联评估记录随候选外键级联删除。项目归属校验失败返回 404。
 - `GET /projects/:projectId/campaigns/:id`：详情，返回 `{ campaign, variants[] }`，每个 variant 带 `{ gatePassed, gateFailures, decision }`。
 - `POST /projects/:projectId/campaigns/:id/generate`：LLM 生成 3 个角度（替换已有 generated）。返回 `{ generated, droppedRefs }`。
 - `POST /projects/:projectId/campaigns/:id/variants`：手写一个角度。body `{ body, angle?, hook?, cta?, claimIds? }`。
@@ -287,8 +290,8 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 海报只用**受限 SVG 模板 DSL（固定模板 + 文本槽，模型永不产 HTML/CSS）**渲染，且只能用**已批准的资产与 Claim**；出图前查模板/溢出/对比度/资产合法。用 sharp 把 SVG 光栅化成真实 PNG（替代 Playwright Chromium，见 feature_list feat-400.5 偏离说明）。
 
-- `POST /projects/:projectId/assets`：multipart（字段 `file`；body `kind(logo|product_screenshot|reference_poster|font)`, `label?`）。返回 `{ asset }`（含 sharp 解析的 width/height、sha256 hash，status=uploaded）。
-- `GET /projects/:projectId/assets`：列表。
+- `POST /projects/:projectId/assets`：multipart（字段 `file`；body `kind`, `label?`）。用户上传写入 `origin=user`，返回 `{ asset }`（含 sharp 解析的 width/height、sha256 hash，status=uploaded）。
+- `GET /projects/:projectId/assets`：列表；返回项包含 `origin ∈ user|website|document|platform`，默认按用户上传、官网抓取、其他来源排序。
 - `POST /projects/:projectId/assets/:id/approve`：批准（海报只能用已批准资产）。
 - `GET /projects/:projectId/posters/templates`：可用模板（id + 尺寸 + 字数上限）。
 - `POST /projects/:projectId/posters/render`：body `{ templateId, title, subtitle?, claimId?, logoAssetId?, bgColor?, fgColor? }`。先硬规则检查（unknown_template/missing_title/*_overflow/unapproved_claim/unapproved_asset/bad_color/low_contrast），通过才渲染。返回 `{ result: { posterId, passed, failures[], width?, height?, bytes? } }`。
@@ -301,6 +304,11 @@ pymupdf 环境变量：`PYMUPDF_SERVICE_URL`（默认 `http://localhost:8001`）
 
 **官网导入增强**
 - `POST /projects/:projectId/sources/import-website` 返回 result 增加 `ragChunksEmbedded`（官网正文进 rag_chunks 的分片数）；导入时**自动抓 logo/主图**入 `visual_assets`（status=uploaded 待批准）。官网正文经 1024 维 embedding 写入 `rag_chunks`（project_id 隔离，document_id=pageId）→ search_kb 可检索。
+- `PATCH /projects/:projectId/assets/:assetId/tags` 更新视觉资产标签，body 为 `{ kind, claimId }`。`kind` 的产品枚举为 `logo / hero_image / atmosphere / feature_screenshot`；旧 `product_screenshot / reference_poster / font` 仅用于历史兼容。`claimId` 可为 `null`，非空时后端强制校验卖点属于同一项目。`GET /projects/:projectId/assets` 返回项新增 `claim_id`。
+- `DELETE /projects/:projectId/assets/:assetId` 删除视觉资产数据库记录及对应存储文件；接口校验当前用户拥有项目。
+
+**AI 对话 Evidence**
+- `GET /projects/:projectId/agent/runs/:runId/context` 返回 `{ runId, systemPrompt, inputMessages, evidence[] }`；`evidence` 与 Agent 文案中的 `[evidence-N]` 使用相同顺序，每项含原始 chunk `text` 与可选 `sourceRef`，供前端 hover/click 展示原文。
 
 **视觉资产**
 - `GET /projects/:projectId/assets/:id/file`：返回资产图片字节（`image/*`，前端缩略图）。

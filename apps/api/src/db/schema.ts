@@ -723,6 +723,7 @@ CREATE TABLE IF NOT EXISTS claims (
   scenario_ids        JSONB NOT NULL DEFAULT '[]'::jsonb,
   evidence_chunk_ids  JSONB NOT NULL DEFAULT '[]'::jsonb,
   source_field_id     TEXT REFERENCES product_brief_fields (id) ON DELETE SET NULL,
+  origin              TEXT NOT NULL DEFAULT 'platform',
   risk_level          TEXT NOT NULL DEFAULT 'low',
   status              TEXT NOT NULL DEFAULT 'candidate',
   created_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -732,6 +733,10 @@ CREATE TABLE IF NOT EXISTS claims (
   CHECK (status IN ('candidate', 'approved', 'blocked'))
 );
 CREATE INDEX IF NOT EXISTS idx_claims_project ON claims (project_id, status);
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'platform';
+UPDATE claims SET origin = 'user' WHERE source_field_id IS NULL AND origin = 'platform';
+ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_origin_check;
+ALTER TABLE claims ADD CONSTRAINT claims_origin_check CHECK (origin IN ('platform', 'user'));
 `;
 
 export const DDL_CONTENT_VARIANTS = `
@@ -871,12 +876,22 @@ CREATE TABLE IF NOT EXISTS visual_assets (
   width       INTEGER,
   height      INTEGER,
   label       TEXT,
+  claim_id    TEXT REFERENCES claims (id) ON DELETE SET NULL,
+  origin      TEXT NOT NULL DEFAULT 'user',
   status      TEXT NOT NULL DEFAULT 'uploaded',
   created_at  TIMESTAMPTZ DEFAULT NOW(),
-  CHECK (kind IN ('logo', 'product_screenshot', 'reference_poster', 'font')),
+  CHECK (kind IN ('logo', 'hero_image', 'atmosphere', 'feature_screenshot', 'product_screenshot', 'reference_poster', 'font')),
   CHECK (status IN ('uploaded', 'approved', 'archived'))
 );
 CREATE INDEX IF NOT EXISTS idx_visual_assets_project ON visual_assets (project_id, created_at DESC);
+ALTER TABLE visual_assets ADD COLUMN IF NOT EXISTS claim_id TEXT REFERENCES claims (id) ON DELETE SET NULL;
+ALTER TABLE visual_assets ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'user';
+UPDATE visual_assets SET origin = 'website' WHERE label LIKE '官网%' AND origin = 'user';
+ALTER TABLE visual_assets DROP CONSTRAINT IF EXISTS visual_assets_origin_check;
+ALTER TABLE visual_assets ADD CONSTRAINT visual_assets_origin_check CHECK (origin IN ('website', 'document', 'user', 'platform'));
+ALTER TABLE visual_assets DROP CONSTRAINT IF EXISTS visual_assets_kind_check;
+ALTER TABLE visual_assets ADD CONSTRAINT visual_assets_kind_check
+  CHECK (kind IN ('logo', 'hero_image', 'atmosphere', 'feature_screenshot', 'product_screenshot', 'reference_poster', 'font'));
 `;
 
 export const DDL_POSTERS = `

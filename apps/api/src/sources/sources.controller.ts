@@ -11,7 +11,7 @@ import {
   Body, Controller, Get, Param, Post, UseGuards, BadRequestException,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { RequestUser } from "../auth/auth.types";
 import { SourcesService } from "./sources.service";
@@ -20,6 +20,7 @@ class ImportWebsiteDto {
   @IsString() @MaxLength(300) url!: string;
   @IsOptional() @IsInt() @Min(1) @Max(30) maxPages?: number;
   @IsOptional() @IsInt() @Min(0) @Max(3) maxDepth?: number;
+  @IsOptional() @IsBoolean() replaceExisting?: boolean;
 }
 
 @ApiTags("sources")

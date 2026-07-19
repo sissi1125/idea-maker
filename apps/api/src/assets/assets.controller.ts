@@ -7,7 +7,7 @@
  */
 
 import {
-  BadRequestException, Body, Controller, Get, Param, Post, Res, StreamableFile, UploadedFile,
+  BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Res, StreamableFile, UploadedFile,
   UseGuards, UseInterceptors,
 } from "@nestjs/common";
 import type { Response } from "express";
@@ -21,6 +21,11 @@ import { AssetsService, ASSET_KINDS, type AssetKind } from "./assets.service";
 class UploadAssetDto {
   @IsString() @IsIn([...ASSET_KINDS]) kind!: AssetKind;
   @IsOptional() @IsString() @MaxLength(100) label?: string;
+}
+
+class UpdateAssetTagsDto {
+  @IsString() @IsIn([...ASSET_KINDS]) kind!: AssetKind;
+  @IsOptional() @IsString() claimId?: string | null;
 }
 
 @ApiTags("assets")
@@ -63,6 +68,27 @@ export class AssetsController {
     @Param("id") id: string,
   ) {
     return { asset: await this.assets.approve(user.id, projectId, id) };
+  }
+
+  @Patch(":id/tags")
+  async updateTags(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("id") id: string,
+    @Body() body: UpdateAssetTagsDto,
+  ) {
+    if (!body?.kind) throw new BadRequestException("缺少 kind");
+    return { asset: await this.assets.updateTags(user.id, projectId, id, { kind: body.kind, claimId: body.claimId ?? null }) };
+  }
+
+  @Delete(":id")
+  async remove(
+    @CurrentUser() user: RequestUser,
+    @Param("projectId") projectId: string,
+    @Param("id") id: string,
+  ) {
+    await this.assets.remove(user.id, projectId, id);
+    return { deleted: true };
   }
 
   /** 资产图片字节（前端缩略图） */

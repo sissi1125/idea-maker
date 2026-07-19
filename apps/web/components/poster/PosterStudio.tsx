@@ -16,6 +16,7 @@ import {
   assetsApi, postersApi, claimsApi, ApiError,
   type VisualAsset, type PosterTemplate, type RenderResult, type Claim,
 } from "@/lib/api";
+import { SelectField } from "@/components/ui/ProductUi";
 
 const RULE_LABEL: Record<string, string> = {
   unknown_template: "模板不存在", missing_title: "标题不能为空",
@@ -133,9 +134,9 @@ export function PosterStudio({ projectId }: { projectId: string }) {
       <section className="card p-3 space-y-2">
         <div className="text-sm font-medium text-gray-800">视觉资产</div>
         <div className="flex flex-wrap items-center gap-2">
-          <select className="text-sm field" value={uploadKind} onChange={(e) => setUploadKind(e.target.value as assetsApi.AssetKind)}>
+          <SelectField className="text-sm" value={uploadKind} onChange={(e) => setUploadKind(e.target.value as assetsApi.AssetKind)}>
             {Object.entries(KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
+          </SelectField>
           <input ref={fileRef} type="file" accept="image/*" className="text-xs" />
           <button className="btn btn-sm inline-flex items-center gap-1.5" disabled={busy === "upload"} onClick={doUpload}>
             {busy === "upload" ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} 上传
@@ -161,23 +162,23 @@ export function PosterStudio({ projectId }: { projectId: string }) {
       <section className="card p-3 space-y-2">
         <div className="text-sm font-medium text-gray-800">出图</div>
         <div className="flex flex-wrap gap-2">
-          <select className="text-sm field" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+          <SelectField className="text-sm" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
             {templates.map((t) => <option key={t.id} value={t.id}>{t.id}（{t.width}×{t.height}）</option>)}
-          </select>
+          </SelectField>
           <label className="text-xs text-gray-500 inline-flex items-center gap-1">底色 <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} /></label>
           <label className="text-xs text-gray-500 inline-flex items-center gap-1">字色 <input type="color" value={fgColor} onChange={(e) => setFgColor(e.target.value)} /></label>
         </div>
         <input className="w-full text-sm field" placeholder={`标题（≤${currentTemplate?.limits.title ?? 24} 字）`} value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="w-full text-sm field" placeholder="副标题（可选）" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
         <div className="flex flex-wrap gap-2">
-          <select className="text-sm field flex-1 min-w-[140px]" value={claimId} onChange={(e) => setClaimId(e.target.value)}>
+          <SelectField className="text-sm min-w-[140px]" value={claimId} onChange={(e) => setClaimId(e.target.value)}>
             <option value="">不引用卖点</option>
             {approvedClaims.map((c) => <option key={c.id} value={c.id}>{c.text.slice(0, 24)}</option>)}
-          </select>
-          <select className="text-sm field flex-1 min-w-[140px]" value={logoAssetId} onChange={(e) => setLogoAssetId(e.target.value)}>
+          </SelectField>
+          <SelectField className="text-sm min-w-[140px]" value={logoAssetId} onChange={(e) => setLogoAssetId(e.target.value)}>
             <option value="">不放 Logo</option>
             {approvedLogos.map((a) => <option key={a.id} value={a.id}>{a.label ?? a.id.slice(0, 6)}</option>)}
-          </select>
+          </SelectField>
         </div>
         <button className="btn btn-sm btn-primary inline-flex items-center gap-1.5" disabled={rendering} onClick={render}>
           {rendering ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} 出图

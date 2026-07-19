@@ -30,13 +30,13 @@ function field(partial: Partial<BriefFieldRow>): BriefFieldRow {
 }
 
 /** fake client：可预置某个 SELECT 的返回行 */
-function fakeClient(rowsFor: (sql: string) => any[] = () => []): any {
+function fakeClient(rowsFor: (sql: string, params: unknown[]) => any[] = () => []): any {
   const queries: Array<{ sql: string; params: unknown[] }> = [];
   return {
     queries,
     query: vi.fn(async (sql: string, params: unknown[] = []) => {
       queries.push({ sql, params });
-      const rows = rowsFor(sql);
+      const rows = rowsFor(sql, params);
       return { rows, rowCount: rows.length };
     }),
   };
@@ -171,5 +171,34 @@ describe("ProductBriefService.confirmBrief", () => {
     // listFields 返回空 → detectIssues 报缺失
     const client = fakeClient(() => []);
     await expect(svc().confirmBrief(client, "b-1")).rejects.toThrow(/尚不完备/);
+  });
+});
+
+describe("ProductBriefService.confirmAllFields", () => {
+  it("批量确认 candidate/stale，并为每个字段写 revision", async () => {
+    const pending = [
+      field({ id: "f-candidate", status: "candidate" }),
+      field({ id: "f-stale", status: "stale" }),
+      field({ id: "f-confirmed", status: "confirmed" }),
+    ];
+    const client = fakeClient((sql, params) => {
+      if (sql.includes("WHERE brief_id = $1") && sql.includes("ORDER BY")) return pending;
+      if (sql.includes("FROM product_brief_fields WHERE id = $1")) {
+        return [pending.find((item) => item.id === params[0])!];
+      }
+      if (sql.includes("UPDATE product_brief_fields") && sql.includes("RETURNING")) {
+        const source = pending.find((item) => item.id === params[0])!;
+        return [{ ...source, status: "confirmed", version: source.version + 1 }];
+      }
+      return [];
+    });
+
+    const count = await svc().confirmAllFields(client, "b-1", "u-1");
+
+    expect(count).toBe(2);
+    const revisions = client.queries.filter((query: any) =>
+      query.sql.includes("INSERT INTO product_brief_field_revisions"),
+    );
+    expect(revisions).toHaveLength(2);
   });
 });

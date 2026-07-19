@@ -17,7 +17,13 @@ export interface CampaignListItem {
   platform: string | null;
   cta: string | null;
   status: string;
+  allowedClaimIds: string[];
   created_at: string;
+}
+
+/** 删除内容任务及其候选内容。 */
+export async function deleteCampaign(projectId: string, id: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/campaigns/${id}`, { method: "DELETE" });
 }
 
 export interface CampaignVariant {
