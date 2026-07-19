@@ -14,9 +14,9 @@
  */
 
 import type { Tool } from "ai";
-import type { Client as PgClient } from "pg";
 import type { LanguageModelV1 } from "ai";
 import type { OpenAICompatibleClient } from "@harness/shared-types";
+import type { DbClient as PgClient } from "../../db/db-client";
 import type { AgentGroundingContext } from "../grounding/agent-grounding.types";
 
 /**
@@ -35,7 +35,7 @@ export interface AgentToolContext {
   /** 关联的 generations.id（可选——agent 可独立于 generation 跑） */
   generationId?: string;
 
-  /** 已 connect 的 pg 客户端；rag-core retrieval / citation 需要 */
+  /** 当前可查询的数据库客户端；可能来自专用 Client，也可能来自连接池。 */
   pgClient: PgClient;
   /** OpenAI 兼容 embedding 客户端；retrieval 走 embeddingProvider='openai' 时必传 */
   embeddingClient: OpenAICompatibleClient;

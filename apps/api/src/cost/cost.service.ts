@@ -16,7 +16,7 @@
  */
 
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import { DbService } from "../db/db.service";
 import type { CostDailyRow, CostSummaryResponse } from "./cost.types";
 

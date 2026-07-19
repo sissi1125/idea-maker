@@ -44,6 +44,7 @@ function resolveBaseUrl(): string {
   }
   return "http://localhost:3001";
 }
+
 const BASE_URL = resolveBaseUrl();
 
 /** 供 multipart 上传 / blob 下载等非 JSON 场景用（apiFetch 只处理 JSON） */

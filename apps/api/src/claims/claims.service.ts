@@ -10,7 +10,7 @@
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import { DbService } from "../db/db.service";
 import {
   EVIDENCE_REQUIRED_CLAIM_TYPES,

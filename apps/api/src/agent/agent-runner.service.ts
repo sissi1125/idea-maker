@@ -23,7 +23,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import { generateText, type CoreMessage } from "ai";
 
 import { DbService } from "../db/db.service";
@@ -138,8 +138,8 @@ export class AgentRunnerService {
 
     // 关键：不 await 这个 promise——后台跑完整 ReAct，错误进日志不冒泡
     // controller 只等 idsReady（< 100ms），就立即返回 HTTP 响应
-    void this.db
-      .withClient((pgClient) => this.run(pgClient, input, { onIdsReady }))
+    void this
+      .run(this.db.queryClient(), input, { onIdsReady })
       .catch((err) => {
         if (!idsResolved) {
           // 错误发生在 ids 创建之前（如鉴权 / settings 加载失败），冒泡给 controller
@@ -157,7 +157,8 @@ export class AgentRunnerService {
   }
 
   /**
-   * 主入口。**pgClient 由调用方持有**（controller 用 DbService.withClient 包外层）。
+   * 主入口。生产后台路径传 DbService.queryClient()，每条 SQL 独立借还池连接；
+   * Eval/测试也可注入固定 client，保持可重复的事务或 mock 边界。
    *
    * 第二参数 `hooks.onIdsReady`：feat-300.6 新增——run() 创建 generation+run rows 后
    * 立即触发回调，把 ids 暴露给 startInBackground，让 HTTP controller 能早返回。

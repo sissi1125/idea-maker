@@ -5,7 +5,7 @@
  * 不能覆盖 Product Brief 的确认状态。下游 outer Agent 与 nested tool 共用同一对象。
  */
 import { Injectable, Logger } from "@nestjs/common";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../../db/db-client";
 import { ClaimsService } from "../../claims/claims.service";
 import { ProductBriefService } from "../../product-brief/product-brief.service";
 import type { PlatformRuleRow } from "../../platform-rules/platform-rules.types";

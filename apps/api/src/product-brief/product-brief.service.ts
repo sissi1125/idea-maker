@@ -16,7 +16,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import { DbService } from "../db/db.service";
 import {
   FACTUAL_FIELD_GROUPS,

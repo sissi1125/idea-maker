@@ -19,7 +19,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../../db/db-client";
 import type { AgentToolContext, AgentToolFactory } from "./types";
 
 const ParamsSchema = z.object({

@@ -14,7 +14,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../../db/db-client";
 import type { AgentToolContext, AgentToolFactory } from "./types";
 import { spillIfLarge } from "./util/spill-if-large";
 import type { SpillStorage } from "../spill-storage.service";

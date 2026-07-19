@@ -157,8 +157,7 @@ jobs:
             $api_healthy || { echo "❌ api 未在超时内达到 healthy"; exit 1; }
 
             echo "── 5.5 确保 Named Tunnel 在线 ──"
-            # cloudflared 可能正常退出后长期保持 stopped；--no-deps 只恢复隧道，
-            # 不重建已经健康的 API 和数据库。
+      
             $COMPOSE up -d --no-deps cloudflared
             tunnel_status=$($COMPOSE ps cloudflared --status running --format json)
             test -n "$tunnel_status" || { echo "❌ cloudflared 未运行"; exit 1; }

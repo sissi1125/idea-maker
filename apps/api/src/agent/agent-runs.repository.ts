@@ -20,7 +20,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import type {
   AgentRunStatus,
   AgentFinishReason,

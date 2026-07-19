@@ -597,7 +597,7 @@
       "description": "apps/api/src/agent/agent-runner.service.ts：generateText + maxSteps + onStepFinish（每步强制入库 agent_steps + SSE 推前端）+ budget cap（超限抛异常）+ context compression（compressHistory，超 8000 token 时压缩早期轮次为摘要）。错误处理：tool retry 指数退避 / schema 校验失败让 LLM 自修 / budget/steps 超限走 fallback（返回已检索 chunks）。apps/api/src/agent/agent.controller.ts：POST /projects/:pid/agent/run（SSE）+ GET run/steps。",
       "dependencies": ["feat-300.2"],
       "status": "done",
-      "evidence": "2026-05-30 完成。12 个主线 commit + 3 个 TODO 收尾 commit。覆盖 10 个易忽略工程点（Abort/SSE 心跳/Spill 分级存储/per-step duration/BYOK 组装层/DB 连接生命周期/错误脱敏/Prompt 集中管理+版本号/CostSummary 共用/Platform 规则注入）。180 单测全过 typecheck 干净。详见 docs/agent/feat-300.3-plan.md 和 .interview/feat-300.3_agent-runner.md。仅 pg.Pool 改造延后（运维侧、流量驱动）。"
+      "evidence": "2026-05-30 完成。12 个主线 commit + 3 个 TODO 收尾 commit。覆盖 10 个易忽略工程点（Abort/SSE 心跳/Spill 分级存储/per-step duration/BYOK 组装层/DB 连接生命周期/错误脱敏/Prompt 集中管理+版本号/CostSummary 共用/Platform 规则注入）。180 单测全过 typecheck 干净。详见 docs/agent/feat-300.3-plan.md 和 .interview/feat-300.3_agent-runner.md。2026-07-19 P0 补强：DbService 落地进程级 pg.Pool（max/idle/connect timeout 可配置），并发首请求 DDL 单飞，ingestion storage 复用池；Agent 使用按查询借还代理，等待 LLM 时不占连接。API 394 tests、typecheck/lint/build 通过，真实 PG 在 pool max=2 下验证 5 个并发查询受限排队。"
     },
     {
       "id": "feat-300.4",

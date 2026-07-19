@@ -45,7 +45,8 @@ export type StorageParams = z.infer<typeof StorageParamsSchema>;
  * 用泛型保留行类型推断；mock 时 vi.fn() 即可满足。
  */
 export interface PgClient {
-  query<T = Record<string, unknown>>(
+  // 默认 any 与 node-postgres 未传行泛型时的行为一致；调用方可用 query<Row>() 获得严格类型。
+  query<T = any>(
     text: string,
     params?: ReadonlyArray<unknown>,
   ): Promise<{ rows: T[]; rowCount?: number | null }>;

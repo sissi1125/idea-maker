@@ -11,6 +11,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { generateText } from "ai";
 import { DbService } from "../db/db.service";
+import type { DbClient } from "../db/db-client";
 import { LlmService } from "../llm/llm.service";
 import { JobsService } from "../jobs/jobs.service";
 import { ContentEvaluationService } from "../content-evaluation/content-evaluation.service";
@@ -95,7 +96,7 @@ export class CampaignsService {
   }
 
   /** 加载项目全部 Claim（gate 用）+ 已批准可用集合（grounding 用） */
-  private async loadClaims(client: import("pg").Client, projectId: string) {
+  private async loadClaims(client: DbClient, projectId: string) {
     const { rows } = await client.query<{
       id: string; text: string; status: string; claim_type: string; evidence_chunk_ids: unknown;
     }>(
@@ -124,7 +125,7 @@ export class CampaignsService {
     };
   }
 
-  private async getCampaignRow(client: import("pg").Client, campaignId: string, projectId: string): Promise<CampaignRow> {
+  private async getCampaignRow(client: DbClient, campaignId: string, projectId: string): Promise<CampaignRow> {
     const { rows } = await client.query<CampaignRow>(
       `SELECT * FROM campaigns WHERE id = $1 AND project_id = $2`,
       [campaignId, projectId],

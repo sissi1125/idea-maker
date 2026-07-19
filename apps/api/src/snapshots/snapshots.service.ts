@@ -10,7 +10,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 
 export interface StageSnapshot {
   id: string;

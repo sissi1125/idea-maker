@@ -20,7 +20,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { Client as PgClient } from "pg";
+import type { DbClient as PgClient } from "../db/db-client";
 import type { MemoryEntry, MemoryKind } from "./prompts/system/memory-injection.prompt";
 
 /** 注入阈值。低于此置信度的偏好不进 system prompt，避免误导 */

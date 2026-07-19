@@ -2,7 +2,8 @@
  * DDL — feat-200.1 Week 1：用户 / 项目 / 项目设置三张表
  *
  * 设计思路：
- *   - 复用 snapshots.service.ts 的"CREATE TABLE IF NOT EXISTS + 每请求初始化"模式，
+ *   - 复用 snapshots.service.ts 的幂等 `CREATE TABLE IF NOT EXISTS` 模式，
+ *     由 DbService 在连接池首次访问时单飞初始化，
  *     不引入 ORM / migration 工具，保持依赖最少（feat-200.1 只多一个 bcrypt + jsonwebtoken）
  *   - 表使用 TEXT id（uuid v4 由 Node 端 crypto.randomUUID 生成），免开启 pgcrypto 扩展
  *   - project_settings.encrypted_api_key 留 TEXT 字段，Week 5 真正接 AES-256 时再做加密；
@@ -484,7 +485,7 @@ CREATE INDEX IF NOT EXISTS idx_generations_agent_run ON generations (agent_run_i
  *   - agent_steps 依赖 agent_runs
  *   - generations.agent_run_id 反向指向 agent_runs → 在 agent_runs 之后加列
  *
- * 调用方需要 await db.initSchema(client) 在每个请求开头（db.service.ts 已自动处理）。
+ * DbService 会在连接池首次访问时 await initSchema(client)，并让并发请求共享初始化 Promise。
  * 依赖 CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS 的幂等性。
  */
 /**

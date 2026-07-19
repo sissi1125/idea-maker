@@ -26,7 +26,6 @@
  */
 
 import { forwardRef, Inject, Injectable } from "@nestjs/common";
-import { Client as PgClient } from "pg";
 import {
   checkIdempotency,
   runPreprocess,
@@ -317,11 +316,7 @@ export class IngestionJobRunner {
         progress: MILESTONES[5].progressBefore,
       });
       const storageStart = Date.now();
-      const cs = this.db.resolveConnectionString();
-      if (!cs) throw new Error("DATABASE_URL 未配置，无法写 pgvector");
-      const pgClient = new PgClient({ connectionString: cs });
-      await pgClient.connect();
-      try {
+      await this.db.withClient(async (pgClient) => {
         const stored = await runStorage({
           // replace-version：只删本 document 的旧 chunks（按 doc_id 范围）后插入新数据，
           // 与同表里其他 document（含 Playground 写入）共存
@@ -348,9 +343,7 @@ export class IngestionJobRunner {
             indexCreated: stored.output.indexCreated,
           },
         });
-      } finally {
-        await pgClient.end().catch(() => undefined);
-      }
+      });
 
       // ── 完成 ─────────────────────────────────────────────────────────────
       await this.mvpDocs.updateStatus(doc.id, "ready");
