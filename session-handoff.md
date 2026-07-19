@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-- `8ff2318` 已快进推送 `origin/main`，Vercel Production、CI、后端镜像与 ECS 部署均成功。公网 API 仍为 Cloudflare 1033，已定位为旧 workflow 不恢复 stopped cloudflared；当前新增 Tunnel 恢复门禁，待再次推送并复验公网 `/health`。
+- `8ff2318` 已快进推送 `origin/main`；部署修复 `eb1f57f` 让 workflow 在 API healthy 后恢复 stopped cloudflared。Vercel Production、CI、后端镜像/ECS 部署均成功，生产 Web 与 API `/health` 均返回 200。
 - 最新修复：“确认全部信息”现在会在事务内确认全部 candidate/stale 子字段、逐条写 revision，再确认 Brief；完成后右上角按钮替换为“全部信息已确认”。浏览器/API/PG 验证 4/4 字段 confirmed、4 条 revision、Brief confirmed v2，隔离数据已清理。
 - 本轮新增：内容资产标题/Tab 固定且仅当前内容区滚动；资料库已有官网直显、编辑时才展开输入；内容任务展示卖点并支持删除；AI 对话/经典生成 Evidence hover 显示原 chunk；Brief/Claim/图片显示来源，Claim 与海报消费按来源排序。
 - 运行态 schema 已确认包含 `claims.origin` 与 `visual_assets.origin`。API 契约已补 Campaign DELETE、`replaceExisting`、Claim/Asset origin 和 Agent context evidence。
