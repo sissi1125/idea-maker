@@ -831,3 +831,10 @@ curl -s -X POST http://localhost:3000/api/pipeline/embedding \
     }
   }' | python3 -m json.tool
 ```
+
+## 2026-10-29 README 产品介绍与 MIT 许可证
+
+- README 改为独立产品介绍，快速开始面向实际用户，移除面试体验和学习展示措辞。
+- 增加 MIT 徽章、许可证章节和根目录标准 LICENSE；版权所有者使用仓库账号 sissi1125。
+- 验证：README 无面试/求职措辞，MIT 徽章与章节均指向 LICENSE，保留现有功能及配置边界；纯文档改动，未运行应用 typecheck/lint。
+- 本次无对应功能 feature，feature_list.json 不变；下一步继续既有产品迭代。

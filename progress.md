@@ -2356,3 +2356,10 @@ apps/api：typecheck 0 / lint 0 / 350 测试。apps/web：typecheck 0 / lint 0�
 - 8 个队列单测覆盖 payload、claim、单进程/跨实例并发、heartbeat、retry、shutdown 和旧表迁移顺序。真实 PostgreSQL 验证普通任务 attempt=1 成功，模拟 dead worker 后过期任务 attempt=2 恢复成功；测试行均已清理。
 - 完整 Nest 应用在真实 schema 上启动，两个 handler 注册成功，`GET /health` 200。全仓 rag-core 242 + API 406 = 648 tests，typecheck/lint、API build、harness 和 `git diff --check` 通过。
 - 范围边界：本 feature 只升级 `async_jobs`（Brief/Campaign）；ingestion 的 EventEmitter/SSE 和 Agent 的实时 SSE runner 保持原协议与实现，未混入可轮询业务队列。
+
+## 2026-10-29 README 产品介绍与 MIT 许可证
+
+- README 改为独立产品介绍，快速开始面向实际用户，移除面试体验和学习展示措辞。
+- 增加 MIT 徽章、许可证章节和根目录标准 LICENSE；版权所有者使用仓库账号 sissi1125。
+- 验证：README 无面试/求职措辞，MIT 徽章与章节均指向 LICENSE，保留现有功能及配置边界；纯文档改动，未运行应用 typecheck/lint。
+- 本次无对应功能 feature，feature_list.json 不变；下一步继续既有产品迭代。

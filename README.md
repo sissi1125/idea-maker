@@ -1,8 +1,10 @@
 # Idea-Maker
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 面向独立开发者和小团队的营销内容生成系统：把产品文档与官方网站整理成可确认、可追溯的产品事实，再基于已批准主张生成并评测营销内容。
 
-> 这个项目关注的不只是“生成一段文案”，而是如何让 RAG 与 Agent 的事实依据、执行步骤、成本、评测和用户反馈都可观察、可解释、可迭代。
+> 从产品事实到营销内容，让每条主张有依据、每次生成可追溯，并通过评测与用户反馈持续改进内容质量。
 
 ## 在线体验
 
@@ -13,9 +15,9 @@
 
 生产环境采用 **Vercel 前端 + 阿里云 ECS 后端 + Cloudflare Named Tunnel**。部署架构和踩坑复盘见[部署文档](docs/DEPLOY.md)与[部署复盘](docs/DEPLOYMENT_RETROSPECTIVE.md)。
 
-## 面试官快速体验
+## 快速开始
 
-建议预留 3-5 分钟，按下面的路径查看核心闭环：
+首次使用可按以下流程，从导入产品资料开始创建营销内容：
 
 1. 注册并创建一个项目。
 2. 在「资料库」上传中文产品资料，或提交产品官方网站。
@@ -65,7 +67,7 @@ Product Brief 的事实字段必须来自 evidence chunk 或用户确认。模�
 - 确定性规则先检查引用、价格、规格、禁词和平台约束，失败不能被模型高分绕过。
 - 评测结果进入人工筛选，用户可以采纳、编辑或拒绝候选内容。
 
-### 真 ReAct Agent
+### ReAct Agent
 
 - LLM 自主决定是否检索、调用哪个工具、是否批判或修改草稿，以及何时停止。
 - `search_kb`、`generate_draft`、`critic_review`、`refine_draft` 等能力以 tools 提供，不在代码中写死调用顺序。
@@ -104,11 +106,11 @@ Product Brief 的事实字段必须来自 evidence chunk 或用户确认。模�
 apps/web                 Web 产品界面与 Agent Trace
 apps/api                 API、Agent、Product Brief、Campaign、Eval
 packages/rag-core        文档处理、检索、Embedding 与存储基础能力
-docs/agent               真 Agent 架构与实现说明
+docs/agent               Agent 架构与实现说明
 docs                     产品、API、评测和部署文档
 ```
 
-旧的 11-stage Pipeline Playground 仍作为 RAG 学习与调试工具保留；当前面向用户的生成链路以 Product Brief 闭环和 ReAct Agent 为主。
+11-stage Pipeline Playground 提供 RAG 流程调试能力；日常内容创作使用 Product Brief 闭环和 ReAct Agent。
 
 ## 本地运行
 
@@ -172,7 +174,7 @@ pnpm --filter @harness/api eval  # Agent 离线评测
 
 - [产品定位与阶段规划](docs/PRODUCT.md)
 - [Product Brief 产品闭环与迭代顺序](docs/PRODUCT_BRIEF_ITERATION_PLAN.md)
-- [真 Agent 架构](docs/agent/ARCHITECTURE.md)
+- [Agent 架构](docs/agent/ARCHITECTURE.md)
 - [系统架构](docs/ARCHITECTURE.md)
 - [API 契约](docs/API_CONTRACTS.md)
 - [Eval Matrix](docs/EVAL_MATRIX.md)
@@ -184,3 +186,9 @@ pnpm --filter @harness/api eval  # Agent 离线评测
 Phase 4 Product Brief 闭环已经完成，Agent Grounding 已落地。当前系统已经覆盖“资料导入 → 事实确认 → Claim 审核 → 内容生成 → 自动评测 → 人工筛选 → 反馈记录”的完整路径，并已部署到生产环境。
 
 后续重点是用更多真实产品数据扩充 Grounding 与 Campaign eval、持续校准评测阈值，以及完善凭据加密和更严格的多租户授权。
+
+## 许可证
+
+本产品采用 [MIT License](LICENSE) 开源。
+
+Copyright (c) 2026 sissi1125
